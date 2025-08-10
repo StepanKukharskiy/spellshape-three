@@ -1,15 +1,46 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Parametric Framework (modular)</title>
-  
-  <style>body{margin:0;overflow:hidden}</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spellshape Three Dev</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
 </head>
 <body>
-  <canvas id="canvas"></canvas>
-  <script type="module">
-    import { start } from './modules/framework.js';
-    start(document.getElementById('canvas'));
-  </script>
+    <canvas id="canvas"></canvas>
+    <div id="validation-panel" style="position: absolute; top: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 10px; display: none;"></div>
+    
+    <script type="module">
+        import { start } from './src/index.js';
+        
+        // Example schema for testing
+        const testSchema = {
+            materials: {
+                default: { color: '#ffffff' }
+            },
+            children: [
+                {
+                    type: 'parametric_template',
+                    id: 'test',
+                    parameters: {},
+                    template: [
+                        {
+                            type: 'box',
+                            id: 'testBox',
+                            dimensions: [1, 1, 1],
+                            position: [0, 0, 0],
+                            material: 'default'
+                        }
+                    ]
+                }
+            ]
+        };
+        
+        const canvas = document.getElementById('canvas');
+        start(canvas, testSchema);
+    </script>
 </body>
 </html>

@@ -1,18 +1,45 @@
 {
   "name": "spellshape-three",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
+  "description": "A Three.js-based parametric 3D modeling framework with expression evaluation and template processing",
   "type": "module",
+  "main": "./dist/spellshape-three.umd.cjs",
+  "module": "./dist/spellshape-three.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/spellshape-three.js",
+      "require": "./dist/spellshape-three.umd.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "three.js",
+    "3d",
+    "parametric",
+    "modeling",
+    "geometry",
+    "webgl"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "peerDependencies": {
+    "three": "^0.150.0"
   },
   "devDependencies": {
-    "vite": "^7.0.4"
+    "vite": "^5.0.0"
   },
   "dependencies": {
-    "dat.gui": "^0.7.9",
-    "three": "^0.178.0"
+    "dat.gui": "^0.7.9"
   }
 }
