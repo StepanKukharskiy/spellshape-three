@@ -8,7 +8,28 @@ import { initGUI, destroyGUI } from './guiControls.js';
 export function start(canvas, schema) {
   /* Three.js setup */
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  // Helper function to get container dimensions
+  function getCanvasContainerSize() {
+    const container = canvas.parentElement;
+    console.log(container.style)
+    if (container) {
+      return {
+        width: container.clientWidth,
+        height: container.clientHeight
+      };
+    }
+    // Fallback to window size if container not found
+    return {
+      width: window.innerWidth,
+      height: window.innerHeight
+    };
+  }
+
+  // Set initial size based on container
+  const initialSize = getCanvasContainerSize();
+  renderer.setSize(initialSize.width, initialSize.height);
+
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -17,7 +38,7 @@ export function start(canvas, schema) {
   renderer.autoClear = false;
 
   const scene = new THREE.Scene(); scene.background = new THREE.Color('#f8f9fa');
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const camera = new THREE.PerspectiveCamera(75, initialSize.width / initialSize.height, 0.1, 1000);
   camera.position.set(4, 3, 6);
   const ctrls = new OrbitControls(camera, renderer.domElement);
 
@@ -232,15 +253,23 @@ function setView(viewName) {
 
 
   /* Responsive */
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+  function handleResize() {
+    const size = getCanvasContainerSize();
+    camera.aspect = size.width / size.height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(size.width, size.height);
+  }
+  
+  window.addEventListener('resize', handleResize);
 
   /* Animate */
   (function animate() {
     requestAnimationFrame(animate);
-    ctrls.update(); renderer.render(scene, camera);
+    ctrls.update();
+    
+    // Get current container size for axis widget calculation
+    const currentSize = getCanvasContainerSize();
+    
     // Sync axis widget rotation with main camera
     axisWidget.camera.position.copy(camera.position);
     axisWidget.camera.position.sub(ctrls.target);
@@ -253,13 +282,12 @@ function setView(viewName) {
     renderer.render(scene, camera);
     
     // Render axis widget in lower left corner
-    const size = Math.min(window.innerWidth, window.innerHeight) * 0.15; // 15% of smallest dimension
+    const size = Math.min(currentSize.width, currentSize.height) * 0.15; // 15% of smallest dimension
     renderer.setViewport(10, 10, size, size); // 10px margin from bottom-left
     renderer.render(axisWidget.scene, axisWidget.camera);
     
     // Reset viewport for next frame
-    renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
-
+    renderer.setViewport(0, 0, currentSize.width, currentSize.height);
   })();
 
   /* Cleanup function */

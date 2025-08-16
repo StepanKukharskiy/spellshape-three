@@ -32,7 +32,7 @@ export default defineConfig({
   },
   server: {
     allowedHosts: [
-      "5173-stepankukha-spellshapet-gh59y3ub1qr.ws-eu120.gitpod.io"
+      "5173-stepankukha-spellshapet-gh59y3ub1qr.ws-eu121.gitpod.io"
     ]
   }
 });
