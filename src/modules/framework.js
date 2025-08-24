@@ -12,7 +12,6 @@ export function start(canvas, schema) {
   // Helper function to get container dimensions
   function getCanvasContainerSize() {
     const container = canvas.parentElement;
-    console.log(container.style)
     if (container) {
       return {
         width: container.clientWidth,
