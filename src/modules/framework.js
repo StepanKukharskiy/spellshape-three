@@ -5,7 +5,7 @@ import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
 import { buildSceneFromSchema } from '../index.js';
 import { initGUI, destroyGUI } from './guiControls.js';
 
-export function start(canvas, schema) {
+export function start(canvas, schema, enableGUI = false) {
   /* Three.js setup */
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 
@@ -91,7 +91,9 @@ export function start(canvas, schema) {
   const { objects, regenerate } = buildSceneFromSchema(schema, scene);
 
   /* GUI */
+  if (enableGUI) {
   initGUI(schema, objects, regenerate);
+}
 
   /* Export OBJ */
   function exportOBJ(filename = 'scene.obj') {
@@ -301,7 +303,9 @@ function setView(viewName) {
     window.removeEventListener('resize', handleResize);
 
     // Destroy GUI
-    destroyGUI();
+    if (enableGUI) {
+  destroyGUI();
+}
 
     // Dispose scene resources recursively
     scene.traverse((object) => {
