@@ -91,6 +91,22 @@ export function start(canvas, schema, enableGUI = false) {
   /* Build scene */
   const { objects, regenerate } = buildSceneFromSchema(schema, scene);
 
+  function updateParameter(parameterName, newValue) {
+    // Find the first parametric template that has this parameter
+    for (const child of schema.children ?? []) {
+      if (child.type === 'parametric_template' && child.parameters?.[parameterName]) {
+        // Update the parameter value
+        child.parameters[parameterName].value = newValue;
+        
+        // Regenerate this specific template
+        regenerate(child.id);
+        return true; // Success
+      }
+    }
+    console.warn(`Parameter "${parameterName}" not found in any parametric template`);
+    return false; // Not found
+  }
+
   /* GUI */
   if (enableGUI) {
   initGUI(schema, objects, regenerate);
@@ -339,5 +355,5 @@ function setView(viewName) {
 
 
   // Return the export function along with other methods that may be added later
-  return { exportOBJ, destroy, fitToScene: () => fitCameraToScene(camera, scene, ctrls), setView, regenerate };
+  return { exportOBJ, destroy, fitToScene: () => fitCameraToScene(camera, scene, ctrls), setView, regenerate, updateParameter };
 }

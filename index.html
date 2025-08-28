@@ -36,29 +36,472 @@
         
         // Example schema for testing
         const testSchema = {
-            materials: {
-                default: { color: '#ffffff' }
-            },
-            children: [
+  "version": "3.1",
+  "type": "parametric_scene",
+  "children": [
+    {
+      "type": "parametric_template",
+      "id": "spiral_staircase",
+      "parameters": {
+        "total_height": {
+          "value": 3,
+          "type": "number",
+          "min": 2.4,
+          "max": 5,
+          "step": 0.01,
+          "group": "layout"
+        },
+        "riser": {
+          "value": 0.18,
+          "type": "number",
+          "min": 0.16,
+          "max": 0.2,
+          "step": 0.01,
+          "group": "geometry"
+        },
+        "tread_thickness": {
+          "value": 0.025,
+          "type": "number",
+          "min": 0.02,
+          "max": 0.04,
+          "step": 0.005,
+          "group": "geometry"
+        },
+        "inner_radius": {
+          "value": 0.2,
+          "type": "number",
+          "min": 0.15,
+          "max": 0.3,
+          "step": 0.01,
+          "group": "geometry"
+        },
+        "outer_radius": {
+          "value": 0.9,
+          "type": "number",
+          "min": 0.7,
+          "max": 1.2,
+          "step": 0.01,
+          "group": "geometry"
+        },
+        "walking_radius": {
+          "value": 0.6,
+          "type": "number",
+          "min": 0.3,
+          "max": 1.2,
+          "step": 0.01,
+          "group": "geometry"
+        },
+        "steps_per_turn": {
+          "value": 14,
+          "type": "integer",
+          "min": 10,
+          "max": 18,
+          "step": 1,
+          "group": "geometry"
+        },
+        "direction": {
+          "value": "anticlockwise",
+          "type": "enum",
+          "min": 0,
+          "max": 0,
+          "step": 1,
+          "group": "geometry"
+        },
+        "column_dia": {
+          "value": 0.1,
+          "type": "number",
+          "min": 0.08,
+          "max": 0.2,
+          "step": 0.01,
+          "group": "column"
+        },
+        "tread_material": {
+          "value": "timber_oak",
+          "type": "enum",
+          "min": 0,
+          "max": 0,
+          "step": 1,
+          "group": "materials"
+        },
+        "balustrade_type": {
+          "value": "balusters",
+          "type": "enum",
+          "min": 0,
+          "max": 0,
+          "step": 1,
+          "group": "balustrade"
+        },
+        "baluster_spacing": {
+          "value": 0.08,
+          "type": "number",
+          "min": 0.05,
+          "max": 0.12,
+          "step": 0.005,
+          "group": "balustrade"
+        },
+        "handrail_height": {
+          "value": 0.95,
+          "type": "number",
+          "min": 0.9,
+          "max": 1,
+          "step": 0.01,
+          "group": "handrail"
+        },
+        "handrail_dia": {
+          "value": 0.04,
+          "type": "number",
+          "min": 0.03,
+          "max": 0.05,
+          "step": 0.005,
+          "group": "handrail"
+        },
+        "handrail_material": {
+          "value": "metal_dark",
+          "type": "enum",
+          "min": 0,
+          "max": 0,
+          "step": 1,
+          "group": "handrail"
+        },
+        "landing": {
+          "value": "on",
+          "type": "enum",
+          "min": 0,
+          "max": 0,
+          "step": 1,
+          "group": "landing"
+        },
+        "landing_size": {
+          "value": 1,
+          "type": "number",
+          "min": 0.9,
+          "max": 1.2,
+          "step": 0.01,
+          "group": "landing"
+        }
+      },
+      "expressions": {
+        "steps": "ceil($total_height / max($riser, 0.01))",
+        "radial_width": "$outer_radius - $inner_radius",
+        "arc_length": "2 * pi * $walking_radius / max($steps_per_turn, 1)",
+        "rot_step": "2 * pi / max($steps_per_turn, 1)",
+        "dir_sign": "if($direction == 'clockwise', -1, 1)",
+        "balusters_per_step": "ceil($arc_length / max(min($baluster_spacing, 0.1), 0.01))",
+        "column_radius": "$column_dia / 2",
+        "column_inner_radius": "max($column_dia / 2 - 0.02, 0.01)",
+        "handrail_y": "$handrail_height"
+      },
+      "constraints": {
+        "structural": [
+          {
+            "expression": "$baluster_spacing <= 0.1 || $balustrade_type == 'glass'",
+            "message": "Baluster spacing exceeds 100mm - switch to 'glass' or reduce spacing for safety.",
+            "severity": "warning"
+          },
+          {
+            "expression": "$inner_radius < $outer_radius",
+            "message": "Inner radius must be smaller than outer radius.",
+            "severity": "error"
+          },
+          {
+            "expression": "$steps >= 3",
+            "message": "Computed step count is too small for a spiral.",
+            "severity": "warning"
+          }
+        ]
+      },
+      "template": [
+        {
+          "type": "cylinder",
+          "id": "column_outer",
+          "material": "steel_brushed",
+          "dimensions": [
+            "$column_radius",
+            "$column_radius",
+            "$total_height"
+          ],
+          "position": [
+            0,
+            "$total_height / 2",
+            0
+          ]
+        },
+        {
+          "type": "cylinder",
+          "id": "column_inner_void",
+          "material": "invisible",
+          "dimensions": [
+            "$column_inner_radius",
+            "$column_inner_radius",
+            "$total_height + 0.02"
+          ],
+          "position": [
+            0,
+            "$total_height / 2",
+            0
+          ]
+        },
+        {
+          "type": "box",
+          "id": "bottom_flange",
+          "material": "steel_brushed",
+          "dimensions": [
+            "$column_dia * 1.2",
+            0.02,
+            "$column_dia * 1.2"
+          ],
+          "position": [
+            0,
+            0.01,
+            0
+          ]
+        },
+        {
+          "type": "box",
+          "id": "top_flange",
+          "material": "steel_brushed",
+          "dimensions": [
+            "$column_dia * 1.2",
+            0.02,
+            "$column_dia * 1.2"
+          ],
+          "position": [
+            0,
+            "$total_height - 0.01",
+            0
+          ]
+        },
+        {
+          "type": "repeat",
+          "id": "steps",
+          "count": "$steps",
+          "instance_parameters": {
+            "step_idx": "$index",
+            "angle": "$step_idx * $rot_step * $dir_sign"
+          },
+          "distribution": {
+            "type": "linear",
+            "axis": "y",
+            "start": "$riser / 2",
+            "step": "$riser"
+          },
+          "children": [
+            {
+              "type": "group",
+              "id": "step_group",
+              "rotation": [
+                0,
+                "$angle",
+                0
+              ],
+              "children": [
                 {
-                    type: 'parametric_template',
-                    id: 'test',
-                    parameters: {},
-                    template: [
-                        {
-                            type: 'box',
-                            id: 'testBox',
-                            dimensions: [1, 1, 1],
-                            position: [0, 0.5, 0],
-                            material: 'default'
-                        }
-                    ]
+                  "type": "box",
+                  "id": "tread",
+                  "material": "$tread_material",
+                  "dimensions": [
+                    "$arc_length",
+                    "$tread_thickness",
+                    "$radial_width"
+                  ],
+                  "position": [
+                    "$walking_radius",
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "type": "repeat",
+                  "id": "baluster_repeat",
+                  "count": "$balusters_per_step",
+                  "distribution": {
+                    "type": "linear",
+                    "axis": "x",
+                    "start": "$walking_radius - $arc_length/2 + $arc_length / (2 * max($balusters_per_step, 1))",
+                    "step": "$arc_length / max($balusters_per_step, 1)"
+                  },
+                  "children": [
+                    {
+                      "type": "cylinder",
+                      "id": "baluster",
+                      "material": "if($balustrade_type == 'balusters', 'baluster_material', 'invisible')",
+                      "dimensions": [
+                        0.012,
+                        0.012,
+                        "$handrail_y"
+                      ],
+                      "position": [
+                        0,
+                        "$handrail_y / 2",
+                        0
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "id": "glass_panel",
+                  "material": "if($balustrade_type == 'glass', 'glass', 'invisible')",
+                  "dimensions": [
+                    "$arc_length * 1.02",
+                    "$handrail_y",
+                    0.02
+                  ],
+                  "position": [
+                    "$walking_radius",
+                    "$handrail_y / 2",
+                    0
+                  ]
+                },
+                {
+                  "type": "box",
+                  "id": "handrail_section",
+                  "material": "$handrail_material",
+                  "dimensions": [
+                    "$arc_length * 0.98",
+                    "$handrail_dia",
+                    "$handrail_dia"
+                  ],
+                  "position": [
+                    "$walking_radius",
+                    "$handrail_y",
+                    0
+                  ]
                 }
-            ]
-        };
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "id": "bottom_landing",
+          "material": "if($landing == 'on', 'timber_oak', 'invisible')",
+          "dimensions": [
+            "$landing_size",
+            0.04,
+            "$landing_size"
+          ],
+          "position": [
+            0,
+            0.02,
+            0
+          ]
+        },
+        {
+          "type": "box",
+          "id": "top_landing",
+          "material": "if($landing == 'on', 'timber_oak', 'invisible')",
+          "dimensions": [
+            "$landing_size",
+            0.04,
+            "$landing_size"
+          ],
+          "position": [
+            0,
+            "$total_height - 0.02",
+            0
+          ]
+        }
+      ]
+    }
+  ],
+  "materials": {
+    "timber_oak": {
+      "type": "standard",
+      "color": "#a27c4b",
+      "roughness": 0.7,
+      "metalness": 0.05
+    },
+    "metal_plate": {
+      "type": "standard",
+      "color": "#9ea1a3",
+      "roughness": 0.45,
+      "metalness": 0.8
+    },
+    "steel_brushed": {
+      "type": "standard",
+      "color": "#b0b0b0",
+      "roughness": 0.4,
+      "metalness": 0.9
+    },
+    "baluster_material": {
+      "type": "standard",
+      "color": "#404040",
+      "roughness": 0.8,
+      "metalness": 0.2
+    },
+    "metal_dark": {
+      "type": "standard",
+      "color": "#3a3a3a",
+      "roughness": 0.5,
+      "metalness": 0.9
+    },
+    "wood_oak": {
+      "type": "standard",
+      "color": "#a27c4b",
+      "roughness": 0.7,
+      "metalness": 0.05
+    },
+    "glass": {
+      "type": "standard",
+      "color": "#e6f0f5",
+      "roughness": 0.9,
+      "metalness": 0,
+      "transparent": true,
+      "opacity": 0.6
+    },
+    "invisible": {
+      "type": "standard",
+      "color": "#ffffff",
+      "transparent": true,
+      "opacity": 0
+    }
+  },
+  "ui_controls": {
+    "groups": {
+      "layout": {
+        "label": "📐 Layout",
+        "order": 1,
+        "default_open": true
+      },
+      "geometry": {
+        "label": "🔧 Geometry",
+        "order": 2,
+        "default_open": true
+      },
+      "column": {
+        "label": "⚙️ Column",
+        "order": 3,
+        "default_open": false
+      },
+      "balustrade": {
+        "label": "🛡️ Balustrade",
+        "order": 4,
+        "default_open": false
+      },
+      "handrail": {
+        "label": "🪵 Handrail",
+        "order": 5,
+        "default_open": false
+      },
+      "landing": {
+        "label": "🟦 Landing",
+        "order": 6,
+        "default_open": false
+      },
+      "materials": {
+        "label": "🎨 Materials",
+        "order": 7,
+        "default_open": false
+      }
+    }
+  }
+}
         
         const canvas = document.getElementById('canvas');
-        start(canvas, testSchema, true);
+        const viewer = await start(canvas, testSchema, true);
+        console.log(viewer)
+        viewer.updateParameter("riser", 0.5)
     </script>
 </body>
 </html>
