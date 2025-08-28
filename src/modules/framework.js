@@ -85,6 +85,7 @@ export function start(canvas, schema, enableGUI = false) {
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -0.01;
   ground.receiveShadow = true;
+  ground.name = 'ground'
   scene.add(ground);
 
   /* Build scene */
@@ -338,5 +339,5 @@ function setView(viewName) {
 
 
   // Return the export function along with other methods that may be added later
-  return { exportOBJ, destroy, fitToScene: () => fitCameraToScene(camera, scene, ctrls), setView };
+  return { exportOBJ, destroy, fitToScene: () => fitCameraToScene(camera, scene, ctrls), setView, regenerate };
 }
