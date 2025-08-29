@@ -353,7 +353,15 @@ function setView(viewName) {
     }
   }
 
+  // Capture screenshot
+  function captureScreenshot({ mime = 'image/jpeg', quality = 0.99 } = {}) {
+  // Render latest state
+  renderer.render(scene, camera);
+  const dataURL = renderer.domElement.toDataURL(mime, quality);
+  return dataURL; // or convert to Blob and return that
+}
+
 
   // Return the export function along with other methods that may be added later
-  return { exportOBJ, destroy, fitToScene: () => fitCameraToScene(camera, scene, ctrls), setView, regenerate, updateParameter };
+  return { exportOBJ, destroy, fitToScene: () => fitCameraToScene(camera, scene, ctrls), setView, regenerate, updateParameter, captureScreenshot };
 }
