@@ -1,170 +1,250 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spellshape Three Dev</title>
-    <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .container { 
-            flex: 1;
-            width: 100%;
-            display: flex;
-        }
-        canvas { 
-            display: block; 
-            flex: 1;
-            width: 100%;
-            height: 100%;
-        }
-        .controls{
-            z-index: 2;
-            position: absolute;
-            top: 10px;
-            right: 10px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spellshape Three Dev</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      flex: 1;
+      width: 100%;
+      display: flex;
+    }
+
+    canvas {
+      display: block;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+    }
+
+    .controls {
+      z-index: 2;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+  </style>
 </head>
+
 <body>
-    <div class="container">
-        <canvas id="canvas"></canvas>
-        
-        <div class="controls">
-            <div class="control-item">
-                <label>Width (0.1 - 5.0m)</label>
-                <input type="range" id="cube_width" min="0.1" max="5" step="0.01" value="3">
-                <span class="value-display" id="width_display">1.00m</span>
-            </div>
-        </div>
+  <div class="container">
+    <canvas id="canvas"></canvas>
+
+    <div class="controls">
+      <div class="control-item">
+        <label>Width (0.1 - 5.0m)</label>
+        <input type="range" id="cube_width" min="0.1" max="5" step="0.01" value="3">
+        <span class="value-display" id="width_display">1.00m</span>
+      </div>
     </div>
-    
-    <div id="validation-panel" style="position: absolute; top: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 10px; display: none;"></div>
-    <script type="module">
-        import { start } from './src/index.js';
-        
-        // Example schema for testing
-        const testSchema = {
-  "version": "3.1",
-  "type": "parametric_scene",
-  "children": [
-    {
-      "type": "parametric_template",
-      "id": "cube",
-      "parameters": {
-        "cube_width": {
-          "value": 1,
-          "type": "number",
-          "min": 0.1,
-          "max": 5,
-          "step": 0.01,
-          "group": "geometry"
+  </div>
+
+  <div id="validation-panel"
+    style="position: absolute; top: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 10px; display: none;">
+  </div>
+  <script type="module">
+    import { start } from './src/index.js';
+
+    // Example schema for testing
+    const testSchema = {
+      "version": "1.0",
+      "type": "spellshape_scene",
+      "ui_controls": {
+        "groups": {
+          "geometry": { "label": "Geometry", "order": 1, "default_open": true },
+          "materials": { "label": "Materials", "order": 2 }
         }
       },
-      "expressions": {},
-      "constraints": {},
-      "template": [
+      "materials": {
+        "floor":    { "color": "#d1ae75", "roughness": 0.45, "metalness": 0.04 },   
+  "wall":     { "color": "#e3e3ed", "roughness": 0.41, "metalness": 0.03 },  
+  "duct":     { "color": "#cce0ed", "roughness": 0.35, "metalness": 0.15 }   
+      },
+      "_ranges": {
+        "floorThickness": { "type": "number", "min": 0.1, "max": 0.5, "step": 0.01, "description": "Slab thickness (m)", "group": "geometry" },
+        "wallThickness": { "type": "number", "min": 0.1, "max": 0.4, "step": 0.01, "description": "Wall thickness (m)", "group": "geometry" },
+        "ductWidth": { "type": "number", "min": 0.2, "max": 1.2, "step": 0.05, "description": "Duct width (m)", "group": "geometry" },
+        "ductHeight": { "type": "number", "min": 0.1, "max": 0.9, "step": 0.05, "description": "Duct height (m)", "group": "geometry" }
+      },
+      "children": [
         {
-          "type": "box",
-          "id": "main_cube",
-          "material": "cube_material",
-          "dimensions": [
-            "$cube_width",
-            "$cube_width",
-            "$cube_width"
-          ],
-          "position": [0, 0.5, 0]
+          "type": "parametric_template",
+          "id": "floor_template",
+          "parameters": {
+            "floorThickness": { "type": "number", "value": 0.22, "min": 0.1, "max": 0.5, "step": 0.01, "label": "Slab thickness", "group": "geometry" }
+          },
+          "template": [
+            {
+              "id": "floor_slab",
+              "type": "extrude",
+              "material": "floor",
+              "position": [0, 0, 0],
+              "rotation": ["pi/2", 0, 0],
+              "dimensions": {
+                "outer": [[-5, -3], [5, -3], [5, 3], [-5, 3]],
+                "holes": [
+                  [[-1, -1], [1, -1], [1, 1], [-1, 1]]
+                ],
+                "options": {
+                  "depth": "$floorThickness",
+                  "curveSegments": 8,
+                  "bevelEnabled": false
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "parametric_template",
+          "id": "wall_template",
+          "parameters": {
+            "wallThickness": { "type": "number", "value": 0.2, "min": 0.1, "max": 0.4, "step": 0.01, "label": "Wall thickness", "group": "geometry" }
+          },
+          "template": [
+            {
+              "id": "wall_with_arc_window",
+              "type": "extrude",
+              "material": "wall",
+              "position": [0, 0, -3],
+              "rotation": [0, 0, 0],
+              "dimensions": {
+                "outer": [[-4, 0], [4, 0], [4, 3], [-4, 3]],
+                "holes": [
+                  [
+                    [0.8, 0.8],
+  { "kind": "arc", "cx": 0, "cy": 2.0, "r": 0.8, "a0": 0, "a1": 3.141592653589793, "segments": 18 },
+  { "kind": "arc", "cx": -2, "cy": 2.0, "r": 0.8, "a0": 0, "a1": 3.141592653589793, "segments": 18 },
+  [-2.8, 0.8]
+                  ]
+                ],
+                "options": {
+                  "depth": "$wallThickness",
+                  "curveSegments": 16,
+                  "bevelEnabled": false
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "parametric_template",
+          "id": "duct_template",
+          "parameters": {
+            "ductWidth": { "type": "number", "value": 0.8, "min": 0.2, "max": 1.2, "step": 0.05, "label": "Duct width", "group": "geometry" },
+            "ductHeight": { "type": "number", "value": 0.4, "min": 0.1, "max": 0.9, "step": 0.05, "label": "Duct height", "group": "geometry" }
+          },
+          "template": [
+            {
+              "id": "duct1",
+              "type": "extrude",
+              "material": "duct",
+              "position": [0, 3.0, 0],
+              "rotation": [0, 0, 0],
+              "dimensions": {
+                "outer": [
+                  ["-$ductHeight/2", "-$ductWidth/2"],
+                  ["$ductHeight/2", "-$ductWidth/2"],
+                  ["$ductHeight/2", "$ductWidth/2"],
+                  ["-$ductHeight/2", "$ductWidth/2"]
+                ],
+                "options": {
+                  "steps": 180,
+                  "bevelEnabled": false,
+                  "extrudePath": {
+                    "__spellshape_path": true,
+                    "spec": {
+                      "type": "segments",
+                      "start": [0, 0, 0],
+                      "segments": [
+                        { "kind": "line", "length": 6, "direction": [1, 0, 0] },
+                        { "kind": "turn", "angle": 90, "radius": 2 },
+                        { "kind": "line", "length": 4, "direction": [0, 0, 1] },
+                        { "kind": "elevation", "length": 3, "endHeight": 1, "curveType": "smooth" },
+                        { "kind": "line", "length": 4, "direction": [0, 0, 1] }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          ]
         }
       ]
     }
-  ],
-  "materials": {
-    "cube_material": {
-      "type": "standard",
-      "color": "#2196f3",
-      "roughness": 0.4,
-      "metalness": 0.1
-    }
-  },
-  "ui_controls": {
-    "groups": {
-      "geometry": {
-        "label": "🔷 Geometry",
-        "order": 1,
-        "default_open": true
-      }
-    }
-  }
-}
+    // Wait for DOM to be fully loaded
+    document.addEventListener('DOMContentLoaded', async () => {
+      const canvas = document.getElementById('canvas');
+      let viewer = null;
 
-       // Wait for DOM to be fully loaded
-        document.addEventListener('DOMContentLoaded', async () => {
-            const canvas = document.getElementById('canvas');
-            let viewer = null;
-            
-            // Initialize the viewer
-            async function initViewer() {
-                try {
-                    viewer = await start(canvas, testSchema, false);
-                    console.log('Viewer initialized:', viewer);
-                    
-                    // Check if updateParameter is available
-                    if (viewer.updateParameter) {
-                        console.log('✅ updateParameter function is available');
-                    } else {
-                        console.error('❌ updateParameter function is NOT available');
-                    }
-                } catch (error) {
-                    console.error('Error initializing viewer:', error);
-                }
-            }
-            
-            // Setup the single control
-            function setupControl() {
-                const heightInput = document.getElementById('cube_width');
-                const heightDisplay = document.getElementById('width_display');
-                
-                // Check if elements exist
-                if (!heightInput) {
-                    console.error('Height input element not found!');
-                    return;
-                }
-                if (!heightDisplay) {
-                    console.error('Height display element not found!');
-                    return;
-                }
-                
-                console.log('✅ Control elements found, setting up event listener');
-                
-                heightInput.addEventListener('input', (e) => {
-                    const value = parseFloat(e.target.value);
-                    
-                    // Update the 3D model using selective regeneration
-                    if (viewer && viewer.updateParameter) {
-                        const success = viewer.updateParameter('cube_width', value);
-                        console.log(`Updated cube_width to ${value}: ${success ? 'Success' : 'Failed'}`);
-                    } else {
-                        console.error('updateParameter function not available');
-                    }
-                    
-                    // Update the display
-                    heightDisplay.textContent = value.toFixed(2) + 'm';
-                });
-                
-                console.log('✅ Event listener attached successfully');
-            }
-            
-            // Initialize everything in proper order
-            await initViewer();
-            setupControl();
-            
-            console.log('🚀 Ready! Drag the slider to test updateParameter function.');
+      // Initialize the viewer
+      async function initViewer() {
+        try {
+          viewer = await start(canvas, testSchema, true);
+          console.log('Viewer initialized:', viewer);
+
+          // Check if updateParameter is available
+          if (viewer.updateParameter) {
+            console.log('✅ updateParameter function is available');
+          } else {
+            console.error('❌ updateParameter function is NOT available');
+          }
+        } catch (error) {
+          console.error('Error initializing viewer:', error);
+        }
+      }
+
+      // Setup the single control
+      function setupControl() {
+        const heightInput = document.getElementById('cube_width');
+        const heightDisplay = document.getElementById('width_display');
+
+        // Check if elements exist
+        if (!heightInput) {
+          console.error('Height input element not found!');
+          return;
+        }
+        if (!heightDisplay) {
+          console.error('Height display element not found!');
+          return;
+        }
+
+        console.log('✅ Control elements found, setting up event listener');
+
+        heightInput.addEventListener('input', (e) => {
+          const value = parseFloat(e.target.value);
+
+          // Update the 3D model using selective regeneration
+          if (viewer && viewer.updateParameter) {
+            const success = viewer.updateParameter('cube_width', value);
+            console.log(`Updated cube_width to ${value}: ${success ? 'Success' : 'Failed'}`);
+          } else {
+            console.error('updateParameter function not available');
+          }
+
+          // Update the display
+          heightDisplay.textContent = value.toFixed(2) + 'm';
         });
-    </script>
+
+        console.log('✅ Event listener attached successfully');
+      }
+
+      // Initialize everything in proper order
+      await initViewer();
+      setupControl();
+
+      console.log('🚀 Ready! Drag the slider to test updateParameter function.');
+    });
+  </script>
 </body>
+
 </html>

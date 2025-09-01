@@ -5,6 +5,11 @@
 //  Resolves $parameter references, supports basic math, utility helpers,
 //  nested if() expressions and a small cache for performance.
 // ---------------------------------------------------------------------------
+import {
+  arc2d, bezier2d, polygon2d, ellipse2d, catmullRom2d,
+  line2d, polyline2d, regularStar2d, rect2d, roundedRect2d,
+  offset2d, mirror2d, transform2d, spiral2d, kochSnowflake2d
+} from './helpers2d.js';
 
 export class FixedExpressionEvaluator {
   constructor() {
@@ -13,6 +18,25 @@ export class FixedExpressionEvaluator {
 
     // Functions and constants that the mini-language understands
     this.functions = {
+      /* Functions from helpers2d.js */
+      arc2d,           // arc2d(cx, cy, r, a0, a1, clockwise, segments)
+      bezier2d,        // bezier2d(points, segments)
+      polygon2d,       // polygon2d(cx, cy, r, sides, rotation)
+      ellipse2d,       // ellipse2d(cx, cy, rx, ry, a0, a1, segments)
+      catmullRom2d,    // catmullRom2d(points, segments, tension)
+      line2d,          // line2d(p0, p1, segments)
+      polyline2d,      // polyline2d(points)
+      regularStar2d,   // regularStar2d(cx, cy, rOuter, rInner, points, rotation)
+      rect2d,          // rect2d(cx, cy, width, height, rotation)
+      roundedRect2d,   // roundedRect2d(cx, cy, w, h, r, segments, rotation)
+      offset2d,        // offset2d(points, distance)
+      mirror2d,        // mirror2d(points, axis, value)
+      transform2d,     // transform2d(points, matrix3)
+      spiral2d,        // spiral2d(cx, cy, r0, turns, expansion, pointsPerTurn)
+      kochSnowflake2d, // kochSnowflake2d(p0, p1, level)
+
+      spline2d: catmullRom2d,
+
       /* Math functions */
       sin: Math.sin, cos: Math.cos, tan: Math.tan,
       abs: Math.abs, sqrt: Math.sqrt, pow: Math.pow,
@@ -24,30 +48,30 @@ export class FixedExpressionEvaluator {
 
       /* Utility helpers */
       clamp: (v, a, b) => Math.max(a, Math.min(b, v)),
-      lerp:  (a, b, t) => a + (b - a) * t,
-      mod:   (a, b)    => ((a % b) + b) % b,
+      lerp: (a, b, t) => a + (b - a) * t,
+      mod: (a, b) => ((a % b) + b) % b,
 
       /* NEW — HSV → Hex */
-      hsv_to_hex: (h,s,v) => {
+      hsv_to_hex: (h, s, v) => {
         // h 0–360 or 0–1,  s & v 0–1
         if (h <= 1) h *= 360;          // allow 0–1 hue
         h = ((h % 360) + 360) % 360;   // keep positive
         const c = v * s;
         const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
         const m = v - c;
-        let r=0, g=0, b=0;
-        if (h <  60) { r = c; g = x; }
-        else if (h <120) { r = x; g = c; }
-        else if (h <180) { g = c; b = x; }
-        else if (h <240) { g = x; b = c; }
-        else if (h <300) { r = x; b = c; }
-        else             { r = c; b = x; }
+        let r = 0, g = 0, b = 0;
+        if (h < 60) { r = c; g = x; }
+        else if (h < 120) { r = x; g = c; }
+        else if (h < 180) { g = c; b = x; }
+        else if (h < 240) { g = x; b = c; }
+        else if (h < 300) { r = x; b = c; }
+        else { r = c; b = x; }
         r = Math.round((r + m) * 255);
         g = Math.round((g + m) * 255);
         b = Math.round((b + m) * 255);
         return '#' + ((1 << 24) + (r << 16) + (g << 8) + b)
-                     .toString(16)
-                     .slice(1);
+          .toString(16)
+          .slice(1);
       },
 
       /* Array helpers */
@@ -62,7 +86,7 @@ export class FixedExpressionEvaluator {
 
   evaluate(expression, context = {}, debug = false) {
     if (typeof expression === 'number') return expression;
-    if (typeof expression !== 'string')  return expression;
+    if (typeof expression !== 'string') return expression;
 
     const key = expression + JSON.stringify(context);
     if (this.cache.has(key)) return this.cache.get(key);
@@ -120,7 +144,7 @@ export class FixedExpressionEvaluator {
   /* ---------- if(condition, a, b)  →  (condition ? a : b) ------------- */
   _convertIfToTernary(expr) {
     const IF_RE = /\bif\s*\(/g;
-    let changed   = true;
+    let changed = true;
     const MAX_RUN = 10;
 
     for (let run = 0; changed && run < MAX_RUN; ++run) {
@@ -128,7 +152,7 @@ export class FixedExpressionEvaluator {
       let match;
       while ((match = IF_RE.exec(expr))) {
         const start = match.index;
-        const open  = start + match[0].length - 1;
+        const open = start + match[0].length - 1;
         const close = this._findMatchingParen(expr, open);
         if (close === -1) break;
 
@@ -152,12 +176,12 @@ export class FixedExpressionEvaluator {
       let match;
       while ((match = RE.exec(expr))) {
         const start = match.index;
-        const open  = start + match[0].length - 1;
+        const open = start + match[0].length - 1;
         const close = this._findMatchingParen(expr, open);
         if (close === -1) break;
 
         const rawArgs = this._splitArgs(expr.slice(open + 1, close));
-        const args    = rawArgs.map(a => {
+        const args = rawArgs.map(a => {
           if (/^["'].*["']$/.test(a.trim())) return a.slice(1, -1);   // keep strings
           return this._safeEval(this._evaluateWithContext(a.trim(), ctx).toString());
         });
@@ -182,8 +206,8 @@ export class FixedExpressionEvaluator {
       const c = argStr[i];
       if (!inStr && (c === '"' || c === "'")) { inStr = true; strChr = c; buff += c; continue; }
       if (inStr && c === strChr) { inStr = false; buff += c; continue; }
-      if (!inStr && c === '(')  { depth++; buff += c; continue; }
-      if (!inStr && c === ')')  { depth--; buff += c; continue; }
+      if (!inStr && c === '(') { depth++; buff += c; continue; }
+      if (!inStr && c === ')') { depth--; buff += c; continue; }
       if (!inStr && c === ',' && depth === 0) { args.push(buff.trim()); buff = ''; continue; }
       buff += c;
     }
