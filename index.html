@@ -179,7 +179,7 @@
       // Initialize the viewer
       async function initViewer() {
         try {
-          viewer = await start(canvas, testSchema, false);
+          viewer = await start(canvas, testSchema, true);
           console.log('Viewer initialized:', viewer);
 
           // Check if updateParameter is available
