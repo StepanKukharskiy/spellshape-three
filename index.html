@@ -116,20 +116,19 @@
               "sides": "$star_points",
               "rotation": "pi/2"
             }]],
-            "options": {"depth": "$slab_thickness"}
+            "options": {"depth": "$slab_thickness", "bevelEnabled": false}
           },
-          "position": ["$offset_distance", 0, 0], 
-          "rotation": ["pi/2", 0, 0]
+          "position": ["$offset_distance", 0, 0],
+          "rotation": ["-pi/2", 0, 0]
         },
         {
           "type": "extrude",
           "id": "glass_facade",
           "material": "glass_mat",
-          "rotation": ["pi/2", 0, 0],
           "dimensions": {
             "outer": [{
               "kind": "polygon",
-              "cx": "$offset_distance",
+              "cx": 0,
               "cy": 0,
               "r": "$star_radius",
               "sides": "$star_points",
@@ -137,14 +136,15 @@
             }],
             "holes": [[{
               "kind": "polygon",
-              "cx": "$offset_distance",
+              "cx": 0,
               "cy": 0,
               "r": "$star_inner_radius",
               "sides": "$star_points",
               "rotation": "pi/2"
             }]],
-            "options": {"depth": "$glass_height"}
+            "options": {"depth": "$glass_height", "bevelEnabled": false}
           },
+          "rotation": ["pi/2", 0, 0],
           "position": ["$offset_distance + $wave_offset", "-$slab_thickness", 0]
         },
         {
@@ -171,6 +171,7 @@
     }
   }
 }
+
     // Wait for DOM to be fully loaded
     document.addEventListener('DOMContentLoaded', async () => {
       const canvas = document.getElementById('canvas');
