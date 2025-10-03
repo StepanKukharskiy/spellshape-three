@@ -82,23 +82,53 @@ export class FixedTemplateProcessor {
             ? !!this.evaluator.evaluate(elem.clockwise, ctx)
             : false;
         out.push(...arc2d(cx, cy, r, a0, a1, clockwise, segments));
-      }  else if (isBezier2d(elem)) {
-    out.push(...bezier2d(elem.points, elem.segments));
-  } else if (isEllipse2d(elem)) {
-    out.push(...ellipse2d(elem.cx, elem.cy, elem.rx, elem.ry, elem.a0, elem.a1, elem.segments));
-  } else if (isPolygon2d(elem)) {
-    out.push(...polygon2d(elem.cx, elem.cy, elem.r, elem.sides, elem.rotation));
-  } else if (isSpline2d(elem)) {
-    out.push(...catmullRom2d(elem.points, elem.segments, elem.tension));
-  }  else if (isBezier2d(elem)) {
-      out.push(...bezier2d(elem.points, elem.segments));
-    } else if (isEllipse2d(elem)) {
-      out.push(...ellipse2d(elem.cx, elem.cy, elem.rx, elem.ry, elem.a0, elem.a1, elem.segments));
-    } else if (isPolygon2d(elem)) {
-      out.push(...polygon2d(elem.cx, elem.cy, elem.r, elem.sides, elem.rotation));
-    } else if (isSpline2d(elem)) {
-      out.push(...catmullRom2d(elem.points, elem.segments, elem.tension));
-    } 
+      } else if (isBezier2d(elem)) {
+    const points = elem.points.map(p => 
+        Array.isArray(p) ? p.map(v => this.evaluator.evaluate(v, ctx)) : p
+    );
+    const segments = elem.segments !== undefined 
+        ? this.evaluator.evaluate(elem.segments, ctx) 
+        : 24;
+    out.push(...bezier2d(points, segments));
+} else if (isEllipse2d(elem)) {
+    const cx = this.evaluator.evaluate(elem.cx, ctx);
+    const cy = this.evaluator.evaluate(elem.cy, ctx);
+    const rx = this.evaluator.evaluate(elem.rx, ctx);
+    const ry = this.evaluator.evaluate(elem.ry, ctx);
+    const a0 = elem.a0 !== undefined 
+        ? this.evaluator.evaluate(elem.a0, ctx) 
+        : 0;
+    const a1 = elem.a1 !== undefined 
+        ? this.evaluator.evaluate(elem.a1, ctx) 
+        : 2 * Math.PI;
+    const segments = elem.segments !== undefined 
+        ? this.evaluator.evaluate(elem.segments, ctx) 
+        : 24;
+    out.push(...ellipse2d(cx, cy, rx, ry, a0, a1, segments));
+} else if (isPolygon2d(elem)) {
+    const cx = this.evaluator.evaluate(elem.cx, ctx);
+    const cy = this.evaluator.evaluate(elem.cy, ctx);
+    const r = this.evaluator.evaluate(elem.r, ctx);
+    const sides = elem.sides !== undefined 
+        ? this.evaluator.evaluate(elem.sides, ctx) 
+        : 3;
+    const rotation = elem.rotation !== undefined 
+        ? this.evaluator.evaluate(elem.rotation, ctx) 
+        : 0;
+    out.push(...polygon2d(cx, cy, r, sides, rotation));
+} else if (isSpline2d(elem)) {
+    const points = elem.points.map(p => 
+        Array.isArray(p) ? p.map(v => this.evaluator.evaluate(v, ctx)) : p
+    );
+    const segments = elem.segments !== undefined 
+        ? this.evaluator.evaluate(elem.segments, ctx) 
+        : 32;
+    const tension = elem.tension !== undefined 
+        ? this.evaluator.evaluate(elem.tension, ctx) 
+        : 0.5;
+    out.push(...catmullRom2d(points, segments, tension));
+}
+
     // --- New: ---
     else if (isLine2d(elem)) {
       const [p0, p1, segments] = [elem.p0, elem.p1, elem.segments ?? 1].map(e => 
