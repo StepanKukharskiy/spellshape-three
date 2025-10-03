@@ -57,130 +57,119 @@
 
     // Example schema for testing
     const testSchema = {
-      "version": "1.0",
-      "type": "spellshape_scene",
-      "ui_controls": {
-        "groups": {
-          "geometry": { "label": "Geometry", "order": 1, "default_open": true },
-          "materials": { "label": "Materials", "order": 2 }
-        }
+  "version": "3.1",
+  "type": "parametric_scene",
+  "children": [{
+    "type": "parametric_template",
+    "id": "star_tower",
+    "parameters": {
+      "floors": {"value": 30, "type": "integer", "min": 10, "max": 50, "step": 1, "group": "tower"},
+      "floor_height": {"value": 3.0, "type": "number", "min": 2.5, "max": 4.0, "step": 0.1, "group": "tower"},
+      "star_diameter": {"value": 20.0, "type": "number", "min": 10.0, "max": 30.0, "step": 1.0, "group": "form"},
+      "offset_distance": {"value": 3.0, "type": "number", "min": 1.0, "max": 5.0, "step": 0.5, "group": "form"},
+      "twist_per_floor": {"value": 3.0, "type": "number", "min": 0.0, "max": 10.0, "step": 0.5, "group": "rotation"},
+      "wave_amplitude": {"value": 0.8, "type": "number", "min": 0.0, "max": 2.0, "step": 0.1, "group": "facade"},
+      "wave_frequency": {"value": 1.0, "type": "number", "min": 0.1, "max": 3.0, "step": 0.1, "group": "facade"},
+      "core_width": {"value": 5.0, "type": "number", "min": 3.0, "max": 8.0, "step": 0.5, "group": "core"},
+      "core_depth": {"value": 3.0, "type": "number", "min": 2.0, "max": 5.0, "step": 0.5, "group": "core"}
+    },
+    "expressions": {
+      "slab_thickness": "0.3",
+      "glass_height": "$floor_height - 0.4",
+      "star_radius": "$star_diameter/2",
+      "star_points": "5",
+      "star_inner_radius": "$star_radius * 0.4"
+    },
+    "template": [{
+      "type": "repeat",
+      "id": "floor_repeat",
+      "count": "$floors",
+      "instance_parameters": {
+        "floor": "$index",
+        "progress": "$floor / max(($floors - 1), 1)",
+        "rotation_angle": "$floor * $twist_per_floor * pi / 180",
+        "wave_offset": "sin($progress * $wave_frequency * 2 * pi) * $wave_amplitude"
       },
-      "materials": {
-        "floor":    { "color": "#d1ae75", "roughness": 0.45, "metalness": 0.04 },   
-  "wall":     { "color": "#e3e3ed", "roughness": 0.41, "metalness": 0.03 },  
-  "duct":     { "color": "#cce0ed", "roughness": 0.35, "metalness": 0.15 }   
-      },
-      "_ranges": {
-        "floorThickness": { "type": "number", "min": 0.1, "max": 0.5, "step": 0.01, "description": "Slab thickness (m)", "group": "geometry" },
-        "wallThickness": { "type": "number", "min": 0.1, "max": 0.4, "step": 0.01, "description": "Wall thickness (m)", "group": "geometry" },
-        "ductWidth": { "type": "number", "min": 0.2, "max": 1.2, "step": 0.05, "description": "Duct width (m)", "group": "geometry" },
-        "ductHeight": { "type": "number", "min": 0.1, "max": 0.9, "step": 0.05, "description": "Duct height (m)", "group": "geometry" }
-      },
-      "children": [
-        {
-          "type": "parametric_template",
-          "id": "floor_template",
-          "parameters": {
-            "floorThickness": { "type": "number", "value": 0.22, "min": 0.1, "max": 0.5, "step": 0.01, "label": "Slab thickness", "group": "geometry" }
+      "distribution": {"type": "linear", "axis": "y", "start": "$floor_height/2", "step": "$floor_height"},
+      "children": [{
+        "type": "group",
+        "id": "floor_group",
+        "rotation": [0, "$rotation_angle", 0],
+        "children": [{
+          "type": "extrude",
+          "id": "star_slab",
+          "material": "concrete_mat",
+          "dimensions": {
+            "outer": [{
+              "kind": "polygon",
+              "cx": 0,
+              "cy": 0,
+              "r": "$star_radius",
+              "sides": "$star_points",
+              "rotation": "pi/2"
+            }],
+            "holes": [[{
+              "kind": "polygon",
+              "cx": 0,
+              "cy": 0,
+              "r": "$star_inner_radius",
+              "sides": "$star_points",
+              "rotation": "pi/2"
+            }]],
+            "options": {"depth": "$slab_thickness"}
           },
-          "template": [
-            {
-              "id": "floor_slab",
-              "type": "extrude",
-              "material": "floor",
-              "position": [0, 0, 0],
-              "rotation": ["pi/2", 0, 0],
-              "dimensions": {
-                "outer": [[-5, -3], [5, -3], [5, 3], [-5, 3]],
-                "holes": [
-                  [[-1, -1], [1, -1], [1, 1], [-1, 1]]
-                ],
-                "options": {
-                  "depth": "$floorThickness",
-                  "curveSegments": 8,
-                  "bevelEnabled": false
-                }
-              }
-            }
-          ]
+          "position": ["$offset_distance", 0, 0]
         },
         {
-          "type": "parametric_template",
-          "id": "wall_template",
-          "parameters": {
-            "wallThickness": { "type": "number", "value": 0.2, "min": 0.1, "max": 0.4, "step": 0.01, "label": "Wall thickness", "group": "geometry" }
+          "type": "extrude",
+          "id": "glass_facade",
+          "material": "glass_mat",
+          "rotation": ["pi/2", 0, 0],
+          "dimensions": {
+            "outer": [{
+              "kind": "polygon",
+              "cx": "$offset_distance",
+              "cy": 0,
+              "r": "$star_radius",
+              "sides": "$star_points",
+              "rotation": "pi/2"
+            }],
+            "holes": [[{
+              "kind": "polygon",
+              "cx": "$offset_distance",
+              "cy": 0,
+              "r": "$star_inner_radius",
+              "sides": "$star_points",
+              "rotation": "pi/2"
+            }]],
+            "options": {"depth": "$glass_height"}
           },
-          "template": [
-            {
-              "id": "wall_with_arc_window",
-              "type": "extrude",
-              "material": "wall",
-              "position": [0, 0, -3],
-              "rotation": [0, 0, 0],
-              "dimensions": {
-                "outer": [[-4, 0], [4, 0], [4, 3], [-4, 3]],
-                "holes": [
-                  [
-                    [0.8, 0.8],
-  { "kind": "arc", "cx": 0, "cy": 2.0, "r": 0.8, "a0": 0, "a1": 3.141592653589793, "segments": 18 },
-  { "kind": "arc", "cx": -2, "cy": 2.0, "r": 0.8, "a0": 0, "a1": 3.141592653589793, "segments": 18 },
-  [-2.8, 0.8]
-                  ]
-                ],
-                "options": {
-                  "depth": "$wallThickness",
-                  "curveSegments": 16,
-                  "bevelEnabled": false
-                }
-              }
-            }
-          ]
+          "position": ["$offset_distance + $wave_offset", "-$slab_thickness", 0]
         },
         {
-          "type": "parametric_template",
-          "id": "duct_template",
-          "parameters": {
-            "ductWidth": { "type": "number", "value": 0.8, "min": 0.2, "max": 1.2, "step": 0.05, "label": "Duct width", "group": "geometry" },
-            "ductHeight": { "type": "number", "value": 0.4, "min": 0.1, "max": 0.9, "step": 0.05, "label": "Duct height", "group": "geometry" }
-          },
-          "template": [
-            {
-              "id": "duct1",
-              "type": "extrude",
-              "material": "duct",
-              "position": [0, 3.0, 0],
-              "rotation": [0, 0, 0],
-              "dimensions": {
-                "outer": [
-                  ["-$ductHeight/2", "-$ductWidth/2"],
-                  ["$ductHeight/2", "-$ductWidth/2"],
-                  ["$ductHeight/2", "$ductWidth/2"],
-                  ["-$ductHeight/2", "$ductWidth/2"]
-                ],
-                "options": {
-                  "steps": 180,
-                  "bevelEnabled": false,
-                  "extrudePath": {
-                    "__spellshape_path": true,
-                    "spec": {
-                      "type": "segments",
-                      "start": [0, 0, 0],
-                      "segments": [
-                        { "kind": "line", "length": 6, "direction": [1, 0, 0] },
-                        { "kind": "turn", "angle": 90, "radius": 2 },
-                        { "kind": "line", "length": 4, "direction": [0, 0, 1] },
-                        { "kind": "elevation", "length": 3, "endHeight": 1, "curveType": "smooth" },
-                        { "kind": "line", "length": 4, "direction": [0, 0, 1] }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          ]
-        }
-      ]
+          "type": "box",
+          "id": "core",
+          "material": "concrete_mat",
+          "dimensions": ["$core_width", "$slab_thickness", "$core_depth"],
+          "position": [0, 0, 0]
+        }]
+      }]
+    }]
+  }],
+  "materials": {
+    "concrete_mat": {"type": "standard", "color": "cccccc", "roughness": 0.7, "metalness": 0.1},
+    "glass_mat": {"type": "standard", "color": "aaddff", "roughness": 0.1, "metalness": 0.3, "transparent": true, "opacity": 0.8}
+  },
+  "ui_controls": {
+    "groups": {
+      "tower": {"label": "🏢 Tower", "order": 1, "default_open": true},
+      "form": {"label": "⭐ Form", "order": 2, "default_open": true},
+      "rotation": {"label": "🌀 Rotation", "order": 3, "default_open": true},
+      "facade": {"label": "🌊 Facade", "order": 4, "default_open": true},
+      "core": {"label": "🟦 Core", "order": 5, "default_open": true}
     }
+  }
+}
     // Wait for DOM to be fully loaded
     document.addEventListener('DOMContentLoaded', async () => {
       const canvas = document.getElementById('canvas');
@@ -189,7 +178,7 @@
       // Initialize the viewer
       async function initViewer() {
         try {
-          viewer = await start(canvas, testSchema, true);
+          viewer = await start(canvas, testSchema, false);
           console.log('Viewer initialized:', viewer);
 
           // Check if updateParameter is available
