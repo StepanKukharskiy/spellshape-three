@@ -75,7 +75,9 @@ export const geometryPlugins = {
 
     // 5. Return geometry
     try {
-      return new THREE.ExtrudeGeometry(shape, opts);
+      const geom = new THREE.ExtrudeGeometry(shape, opts);
+geom.computeVertexNormals();
+return geom;
     } catch (e) {
       console.warn("Failed to extrude shape:", e);
       return new THREE.BufferGeometry(); // fallback, invisible

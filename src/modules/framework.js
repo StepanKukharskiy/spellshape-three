@@ -47,16 +47,16 @@ export function start(canvas, schema, enableGUI = false) {
   /* Lights / ground (same as original) */
   // Key Light (Main directional light from front-top-right)
   const sun = new THREE.DirectionalLight("#ffffff", 2.5);
-  sun.position.set(8, 12, 6);
+  sun.position.set(80, 120, 60);
   sun.castShadow = true;
   sun.shadow.mapSize.width = 2048;
   sun.shadow.mapSize.height = 2048;
   sun.shadow.camera.near = 0.5;
-  sun.shadow.camera.far = 50;
-  sun.shadow.camera.left = -100;
-  sun.shadow.camera.right = 100;
-  sun.shadow.camera.top = 100;
-  sun.shadow.camera.bottom = -100;
+  sun.shadow.camera.far = 300;
+  sun.shadow.camera.left = -150;
+  sun.shadow.camera.right = 150;
+  sun.shadow.camera.top = 250;
+  sun.shadow.camera.bottom = -50;
   sun.shadow.bias = -0.0001;
   scene.add(sun);
 
