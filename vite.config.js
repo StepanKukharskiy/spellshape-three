@@ -31,8 +31,10 @@ export default defineConfig({
     exclude: ['three']
   },
   server: {
+    host: '0.0.0.0',
+    port: 5173,
     allowedHosts: [
-      "5173-stepankukha-spellshapet-gh59y3ub1qr.ws-eu121.gitpod.io"
+      "5173--0199e76f-9146-7cc7-9f64-c4d4aee7dd04.eu-central-1-01.gitpod.dev"
     ]
   }
 });

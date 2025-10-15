@@ -57,121 +57,549 @@
 
     // Example schema for testing
     const testSchema = {
-  "version": "3.1",
-  "type": "parametric_scene",
-  "children": [{
-    "type": "parametric_template",
-    "id": "star_tower",
-    "parameters": {
-      "floors": {"value": 30, "type": "integer", "min": 10, "max": 50, "step": 1, "group": "tower"},
-      "floor_height": {"value": 3.0, "type": "number", "min": 2.5, "max": 4.0, "step": 0.1, "group": "tower"},
-      "star_diameter": {"value": 20.0, "type": "number", "min": 10.0, "max": 30.0, "step": 1.0, "group": "form"},
-      "offset_distance": {"value": 3.0, "type": "number", "min": 1.0, "max": 5.0, "step": 0.5, "group": "form"},
-      "twist_per_floor": {"value": 3.0, "type": "number", "min": 0.0, "max": 10.0, "step": 0.5, "group": "rotation"},
-      "wave_amplitude": {"value": 0.8, "type": "number", "min": 0.0, "max": 2.0, "step": 0.1, "group": "facade"},
-      "wave_frequency": {"value": 1.0, "type": "number", "min": 0.1, "max": 3.0, "step": 0.1, "group": "facade"},
-      "core_width": {"value": 5.0, "type": "number", "min": 3.0, "max": 8.0, "step": 0.5, "group": "core"},
-      "core_depth": {"value": 3.0, "type": "number", "min": 2.0, "max": 5.0, "step": 0.5, "group": "core"}
-    },
-    "expressions": {
-      "slab_thickness": "0.3",
-      "glass_height": "$floor_height - 0.4",
-      "star_radius": "$star_diameter/2",
-      "star_points": "5",
-      "star_inner_radius": "$star_radius * 0.4"
-    },
-    "template": [{
-      "type": "repeat",
-      "id": "floor_repeat",
-      "count": "$floors",
-      "instance_parameters": {
-        "floor": "$index",
-        "progress": "$floor / max(($floors - 1), 1)",
-        "rotation_angle": "$floor * $twist_per_floor * pi / 180",
-        "wave_offset": "sin($progress * $wave_frequency * 2 * pi) * $wave_amplitude"
+    "version": "3.1",
+    "type": "parametric_scene",
+    "children": [
+      {
+        "type": "parametric_template",
+        "id": "parametric_tower",
+        "parameters": {
+          "floors": {
+            "value": 40,
+            "type": "integer",
+            "min": 5,
+            "max": 60,
+            "step": 1,
+            "group": "structure"
+          },
+          "floor_height": {
+            "value": 3,
+            "type": "number",
+            "min": 2,
+            "max": 5,
+            "step": 0.1,
+            "group": "structure"
+          },
+          "total_twist": {
+            "value": 90,
+            "type": "number",
+            "min": 0,
+            "max": 180,
+            "step": 5,
+            "group": "structure"
+          },
+          "twist_zone": {
+            "value": 35,
+            "type": "number",
+            "min": 10,
+            "max": 90,
+            "step": 5,
+            "group": "structure"
+          },
+          "panels_per_side": {
+            "value": 15,
+            "type": "integer",
+            "min": 4,
+            "max": 20,
+            "step": 1,
+            "group": "facade"
+          },
+          "wall_width": {
+            "value": 1.1,
+            "type": "number",
+            "min": 0.5,
+            "max": 3,
+            "step": 0.1,
+            "group": "facade"
+          },
+          "wall_depth": {
+            "value": 0.8,
+            "type": "number",
+            "min": 0.1,
+            "max": 1,
+            "step": 0.05,
+            "group": "facade"
+          },
+          "window_width": {
+            "value": 1.2,
+            "type": "number",
+            "min": 0.5,
+            "max": 3,
+            "step": 0.1,
+            "group": "facade"
+          },
+          "window_depth": {
+            "value": 0.05,
+            "type": "number",
+            "min": 0.02,
+            "max": 0.5,
+            "step": 0.01,
+            "group": "facade"
+          },
+          "core_width": {
+            "value": 8,
+            "type": "number",
+            "min": 2,
+            "max": 15,
+            "step": 0.5,
+            "group": "core"
+          },
+          "core_depth": {
+            "value": 6,
+            "type": "number",
+            "min": 2,
+            "max": 12,
+            "step": 0.5,
+            "group": "core"
+          },
+          "column_radius": {
+            "value": 0.3,
+            "type": "number",
+            "min": 0.1,
+            "max": 1,
+            "step": 0.05,
+            "group": "structure"
+          },
+          "columns_per_side": {
+            "value": 3,
+            "type": "integer",
+            "min": 2,
+            "max": 8,
+            "step": 1,
+            "group": "structure"
+          },
+          "column_offset": {
+            "value": 2,
+            "type": "number",
+            "min": 1,
+            "max": 8,
+            "step": 0.2,
+            "group": "structure"
+          },
+          "slab_width": {
+            "value": 16.5,
+            "type": "number",
+            "min": 10,
+            "max": 30,
+            "step": 0.5,
+            "group": "floors"
+          },
+          "slab_depth": {
+            "value": 16.5,
+            "type": "number",
+            "min": 10,
+            "max": 30,
+            "step": 0.5,
+            "group": "floors"
+          },
+          "slab_thickness": {
+            "value": 0.3,
+            "type": "number",
+            "min": 0.1,
+            "max": 1,
+            "step": 0.05,
+            "group": "floors"
+          }
+        },
+        "expressions": {
+          "building_size": "$panels_per_side * $wall_width / 2",
+          "twist_radians": "$total_twist * pi / 180",
+          "twist_start": "(50 - $twist_zone/2) / 100",
+          "twist_end": "(50 + $twist_zone/2) / 100"
+        },
+        "template": [
+          {
+            "type": "repeat",
+            "id": "tower_floors",
+            "count": "$floors",
+            "instance_parameters": {
+              "floor_idx": "$index",
+              "normalized_pos": "$index / max(($floors - 1), 1)",
+              "twist_progress": "clamp(($normalized_pos - $twist_start) / max(($twist_end - $twist_start), 0.01), 0, 1)",
+              "floor_twist": "if($normalized_pos >= $twist_start && $normalized_pos <= $twist_end, $twist_radians * $twist_progress, if($normalized_pos > $twist_end, $twist_radians, 0))"
+            },
+            "distribution": {
+              "type": "linear",
+              "axis": "y",
+              "start": "$floor_height/2",
+              "step": "$floor_height"
+            },
+            "children": [
+              {
+                "type": "group",
+                "id": "floor_group",
+                "rotation": [
+                  0,
+                  "$floor_twist",
+                  0
+                ],
+                "children": [
+                  {
+                    "type": "box",
+                    "id": "core",
+                    "material": "core",
+                    "dimensions": [
+                      "$core_width",
+                      "$floor_height",
+                      "$core_depth"
+                    ],
+                    "position": [
+                      0,
+                      0,
+                      0
+                    ]
+                  },
+                  {
+                    "type": "repeat",
+                    "id": "front_columns",
+                    "count": "$columns_per_side",
+                    "instance_parameters": {
+                      "col_pos": "$index"
+                    },
+                    "distribution": {
+                      "type": "linear",
+                      "axis": "x",
+                      "start": "-$building_size + $column_offset",
+                      "step": "($building_size * 2 - $column_offset * 2) / max(($columns_per_side - 1), 1)"
+                    },
+                    "children": [
+                      {
+                        "type": "cylinder",
+                        "id": "column_front",
+                        "material": "column",
+                        "dimensions": [
+                          "$column_radius",
+                          "$column_radius",
+                          "$floor_height"
+                        ],
+                        "position": [
+                          0,
+                          0,
+                          "$building_size - $column_offset"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "repeat",
+                    "id": "back_columns",
+                    "count": "$columns_per_side",
+                    "instance_parameters": {
+                      "col_pos": "$index"
+                    },
+                    "distribution": {
+                      "type": "linear",
+                      "axis": "x",
+                      "start": "$building_size - $column_offset",
+                      "step": "-($building_size * 2 - $column_offset * 2) / max(($columns_per_side - 1), 1)"
+                    },
+                    "children": [
+                      {
+                        "type": "cylinder",
+                        "id": "column_back",
+                        "material": "column",
+                        "dimensions": [
+                          "$column_radius",
+                          "$column_radius",
+                          "$floor_height"
+                        ],
+                        "position": [
+                          0,
+                          0,
+                          "-$building_size + $column_offset"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "repeat",
+                    "id": "left_columns",
+                    "count": "max(($columns_per_side - 2), 0)",
+                    "instance_parameters": {
+                      "col_pos": "$index + 1"
+                    },
+                    "distribution": {
+                      "type": "linear",
+                      "axis": "z",
+                      "start": "-$building_size + $column_offset + ($building_size * 2 - $column_offset * 2) / max(($columns_per_side - 1), 1)",
+                      "step": "($building_size * 2 - $column_offset * 2) / max(($columns_per_side - 1), 1)"
+                    },
+                    "children": [
+                      {
+                        "type": "cylinder",
+                        "id": "column_left",
+                        "material": "column",
+                        "dimensions": [
+                          "$column_radius",
+                          "$column_radius",
+                          "$floor_height"
+                        ],
+                        "position": [
+                          "-$building_size + $column_offset",
+                          0,
+                          0
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "repeat",
+                    "id": "right_columns",
+                    "count": "max(($columns_per_side - 2), 0)",
+                    "instance_parameters": {
+                      "col_pos": "$index + 1"
+                    },
+                    "distribution": {
+                      "type": "linear",
+                      "axis": "z",
+                      "start": "$building_size - $column_offset - ($building_size * 2 - $column_offset * 2) / max(($columns_per_side - 1), 1)",
+                      "step": "-($building_size * 2 - $column_offset * 2) / max(($columns_per_side - 1), 1)"
+                    },
+                    "children": [
+                      {
+                        "type": "cylinder",
+                        "id": "column_right",
+                        "material": "column",
+                        "dimensions": [
+                          "$column_radius",
+                          "$column_radius",
+                          "$floor_height"
+                        ],
+                        "position": [
+                          "$building_size - $column_offset",
+                          0,
+                          0
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "repeat",
+                    "id": "front_panels",
+                    "count": "$panels_per_side",
+                    "instance_parameters": {
+                      "panel_pos": "$index",
+                      "is_window": "if(mod($floor_idx, 2) == 0, mod($index, 2) == 0, mod($index, 2) == 1)"
+                    },
+                    "distribution": {
+                      "type": "linear",
+                      "axis": "x",
+                      "start": "-$building_size + $wall_width/2",
+                      "step": "$wall_width"
+                    },
+                    "children": [
+                      {
+                        "type": "box",
+                        "id": "panel_front",
+                        "material": "if($is_window, 'window', 'wall')",
+                        "dimensions": [
+                          "if($is_window, $window_width, $wall_width)",
+                          "$floor_height",
+                          "if($is_window, $window_depth, $wall_depth)"
+                        ],
+                        "position": [
+                          0,
+                          0,
+                          "$building_size"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "repeat",
+                    "id": "right_panels",
+                    "count": "$panels_per_side",
+                    "instance_parameters": {
+                      "panel_pos": "$index",
+                      "is_window": "if(mod($floor_idx, 2) == 0, mod($index, 2) == 0, mod($index, 2) == 1)"
+                    },
+                    "distribution": {
+                      "type": "linear",
+                      "axis": "z",
+                      "start": "$building_size - $wall_width/2",
+                      "step": "-$wall_width"
+                    },
+                    "children": [
+                      {
+                        "type": "box",
+                        "id": "panel_right",
+                        "material": "if($is_window, 'window', 'wall')",
+                        "dimensions": [
+                          "if($is_window, $window_depth, $wall_depth)",
+                          "$floor_height",
+                          "if($is_window, $window_width, $wall_width)"
+                        ],
+                        "position": [
+                          "$building_size",
+                          0,
+                          0
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "repeat",
+                    "id": "back_panels",
+                    "count": "$panels_per_side",
+                    "instance_parameters": {
+                      "panel_pos": "$index",
+                      "is_window": "if(mod($floor_idx, 2) == 0, mod($index, 2) == 0, mod($index, 2) == 1)"
+                    },
+                    "distribution": {
+                      "type": "linear",
+                      "axis": "x",
+                      "start": "$building_size - $wall_width/2",
+                      "step": "-$wall_width"
+                    },
+                    "children": [
+                      {
+                        "type": "box",
+                        "id": "panel_back",
+                        "material": "if($is_window, 'window', 'wall')",
+                        "dimensions": [
+                          "if($is_window, $window_width, $wall_width)",
+                          "$floor_height",
+                          "if($is_window, $window_depth, $wall_depth)"
+                        ],
+                        "position": [
+                          0,
+                          0,
+                          "-$building_size"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "repeat",
+                    "id": "left_panels",
+                    "count": "$panels_per_side",
+                    "instance_parameters": {
+                      "panel_pos": "$index",
+                      "is_window": "if(mod($floor_idx, 2) == 0, mod($index, 2) == 0, mod($index, 2) == 1)"
+                    },
+                    "distribution": {
+                      "type": "linear",
+                      "axis": "z",
+                      "start": "-$building_size + $wall_width/2",
+                      "step": "$wall_width"
+                    },
+                    "children": [
+                      {
+                        "type": "box",
+                        "id": "panel_left",
+                        "material": "if($is_window, 'window', 'wall')",
+                        "dimensions": [
+                          "if($is_window, $window_depth, $wall_depth)",
+                          "$floor_height",
+                          "if($is_window, $window_width, $wall_width)"
+                        ],
+                        "position": [
+                          "-$building_size",
+                          0,
+                          0
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "box",
+                    "id": "floor_slab",
+                    "material": "floor_slab",
+                    "dimensions": [
+                      "$slab_width",
+                      "$slab_thickness",
+                      "$slab_depth"
+                    ],
+                    "position": [
+                      0,
+                      "$floor_height/2 + $slab_thickness/2 - 0.25",
+                      0
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "box",
+            "id": "roof_slab",
+            "material": "floor_slab",
+            "dimensions": [
+              "$slab_width",
+              "$slab_thickness",
+              "$slab_depth"
+            ],
+            "position": [
+              0,
+              "$floor_height/2 + ($floors - 1) * $floor_height + $floor_height/2 + $slab_thickness/2",
+              0
+            ],
+            "rotation": [
+              0,
+              "$twist_radians",
+              0
+            ]
+          }
+        ]
+      }
+    ],
+    "materials": {
+      "wall": {
+        "type": "standard",
+        "color": "#0000ff",
+        "roughness": 0.7,
+        "metalness": 0.1
       },
-      "distribution": {"type": "linear", "axis": "y", "start": "$floor_height/2", "step": "$floor_height"},
-      "children": [{
-        "type": "group",
-        "id": "floor_group",
-        "rotation": [0, "$rotation_angle", 0],
-        "children": [{
-          "type": "extrude",
-          "id": "star_slab",
-          "material": "concrete_mat",
-          "dimensions": {
-            "outer": [{
-              "kind": "polygon",
-              "cx": 0,
-              "cy": 0,
-              "r": "$star_radius",
-              "sides": "$star_points",
-              "rotation": "pi/2"
-            }],
-            "holes": [[{
-              "kind": "polygon",
-              "cx": 0,
-              "cy": 0,
-              "r": "$star_inner_radius",
-              "sides": "$star_points",
-              "rotation": "pi/2"
-            }]],
-            "options": {"depth": "$slab_thickness", "bevelEnabled": false}
-          },
-          "position": ["$offset_distance", 0, 0],
-          "rotation": ["-pi/2", 0, 0]
+      "window": {
+        "type": "standard",
+        "color": "#f2f2f2",
+        "roughness": 0.2,
+        "metalness": 0
+      },
+      "core": {
+        "type": "standard",
+        "color": "#d94026",
+        "roughness": 0.6,
+        "metalness": 0.1
+      },
+      "column": {
+        "type": "standard",
+        "color": "#404040",
+        "roughness": 0.8,
+        "metalness": 0.2
+      },
+      "floor_slab": {
+        "type": "standard",
+        "color": "#a6a6a6",
+        "roughness": 0.7,
+        "metalness": 0.1
+      }
+    },
+    "ui_controls": {
+      "groups": {
+        "structure": {
+          "label": "🏗️ Structure",
+          "order": 1,
+          "default_open": true
         },
-        {
-          "type": "extrude",
-          "id": "glass_facade",
-          "material": "glass_mat",
-          "dimensions": {
-            "outer": [{
-              "kind": "polygon",
-              "cx": 0,
-              "cy": 0,
-              "r": "$star_radius",
-              "sides": "$star_points",
-              "rotation": "pi/2"
-            }],
-            "holes": [[{
-              "kind": "polygon",
-              "cx": 0,
-              "cy": 0,
-              "r": "$star_inner_radius",
-              "sides": "$star_points",
-              "rotation": "pi/2"
-            }]],
-            "options": {"depth": "$glass_height", "bevelEnabled": false}
-          },
-          "rotation": ["pi/2", 0, 0],
-          "position": ["$offset_distance + $wave_offset", "-$slab_thickness", 0]
+        "facade": {
+          "label": "🏢 Facade",
+          "order": 2,
+          "default_open": false
         },
-        {
-          "type": "box",
-          "id": "core",
-          "material": "concrete_mat",
-          "dimensions": ["$core_width", "$slab_thickness", "$core_depth"],
-          "position": [0, 0, 0]
-        }]
-      }]
-    }]
-  }],
-  "materials": {
-    "concrete_mat": {"type": "standard", "color": "cccccc", "roughness": 0.7, "metalness": 0.1},
-    "glass_mat": {"type": "standard", "color": "aaddff", "roughness": 0.1, "metalness": 0.3, "transparent": true, "opacity": 0.8}
-  },
-  "ui_controls": {
-    "groups": {
-      "tower": {"label": "🏢 Tower", "order": 1, "default_open": true},
-      "form": {"label": "⭐ Form", "order": 2, "default_open": true},
-      "rotation": {"label": "🌀 Rotation", "order": 3, "default_open": true},
-      "facade": {"label": "🌊 Facade", "order": 4, "default_open": true},
-      "core": {"label": "🟦 Core", "order": 5, "default_open": true}
+        "core": {
+          "label": "🏛️ Core",
+          "order": 3,
+          "default_open": false
+        },
+        "floors": {
+          "label": "🏗️ Floors",
+          "order": 4,
+          "default_open": false
+        }
+      }
     }
   }
-}
-
     // Wait for DOM to be fully loaded
     document.addEventListener('DOMContentLoaded', async () => {
       const canvas = document.getElementById('canvas');
