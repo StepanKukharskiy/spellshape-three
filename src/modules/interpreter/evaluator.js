@@ -11,6 +11,10 @@ import {
   offset2d, mirror2d, transform2d, spiral2d, kochSnowflake2d
 } from './helpers2d.js';
 
+import {
+  checkerboardPanels3D, waveFacade3D, perimeterPanels3D, grid3D
+} from './helpers3d.js';
+
 export class FixedExpressionEvaluator {
   constructor() {
     // Memo-cache →  key = expr + JSON.stringify(context)
@@ -36,6 +40,12 @@ export class FixedExpressionEvaluator {
       kochSnowflake2d, // kochSnowflake2d(p0, p1, level)
 
       spline2d: catmullRom2d,
+
+      /* Functions from helpers3d.js */
+      checkerboardPanels3D,
+      waveFacade3D,
+      perimeterPanels3D,
+      grid3D,
 
       /* Math functions */
       sin: Math.sin, cos: Math.cos, tan: Math.tan,

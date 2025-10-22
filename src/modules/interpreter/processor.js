@@ -35,13 +35,38 @@ export class FixedTemplateProcessor {
   }
 
   _walk(list, ctx) {
-    const out = [];
-    for (const item of list) {
-      if (item.type === 'repeat') out.push(...this._repeat(item, ctx));
-      else out.push(this._item(item, ctx));
+  const out = [];
+  for (const item of list) {
+    if (item.type === 'repeat') {
+      out.push(...this._repeat(item, ctx));
+    } else if (Array.isArray(item)) {
+      for (const subItem of item) {
+        const processed = this._item(subItem, ctx);
+        if (Array.isArray(processed)) {
+          out.push(...processed);
+        } else if (processed && typeof processed === 'object') {
+          // If it's a group, recursively process its children and add them to out
+          if (processed.type === 'group' && Array.isArray(processed.children)) {
+            processed.children = this._walk(processed.children, ctx);
+          }
+          out.push(processed);
+        }
+      }
+    } else {
+      const processed = this._item(item, ctx);
+      if (Array.isArray(processed)) {
+        out.push(...processed);
+      } else if (processed && typeof processed === 'object') {
+        if (processed.type === 'group' && Array.isArray(processed.children)) {
+          processed.children = this._walk(processed.children, ctx);
+        }
+        out.push(processed);
+      }
     }
-    return out;
   }
+  return out;
+}
+
 
   _repeat(rep, ctx) {
     const count = this.evaluator.evaluate(rep.count, ctx);
@@ -322,6 +347,45 @@ export class FixedTemplateProcessor {
 
   _item(it, ctx) {
     const node = { ...it };
+
+    // Handle string expressions that might return arrays
+  if (node.type === 'helper3d') {
+    const helperFn = this.evaluator.functions[node.helper];
+    if (!helperFn) {
+      console.warn(`Helper function ${node.helper} not found`);
+      return [];
+    }
+    
+    // Evaluate all params
+    const evaluatedParams = {};
+    for (const [key, value] of Object.entries(node.params)) {
+      if (typeof value === 'string' && value.startsWith('$')) {
+  evaluatedParams[key] = this.evaluator.evaluate(value, ctx);
+} else if (Array.isArray(value)) {
+  evaluatedParams[key] = value.map(v => 
+    (typeof v === 'string' && v.includes('$'))
+      ? this.evaluator.evaluate(v, ctx)
+      : v
+  );
+} else {
+  evaluatedParams[key] = value;
+}
+    }
+    
+    // Call the helper function and return the array of objects
+    try {
+  const result = helperFn(evaluatedParams);
+  // Handle both "group" object and array return types:
+  if (result && typeof result === 'object' && result.type === 'group') {
+    return result; // Pass group node through
+  }
+  return Array.isArray(result) ? result : [];
+} catch (e) {
+  console.error(`Error calling helper ${node.helper}:`, e);
+  return [];
+}
+  }
+
     if (node.dimensions) {
       // Step 1: Evaluate all expressions, so all values are numbers/objects, not strings
       node.dimensions = this._deepEvaluate(node.dimensions, ctx);
