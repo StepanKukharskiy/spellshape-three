@@ -290,12 +290,19 @@
                   }
                 },
                 {
-                  "type": "box",
-                  "id": "floor_slab",
-                  "material": "floor_slab",
-                  "dimensions": ["$building_width", "$slab_thickness", "$building_depth"],
-                  "position": [0, "$floor_height/2 + $slab_thickness/2 - 0.25", 0]
-                }
+  "type": "box",
+  "id": "floor_slab_bottom",
+  "material": "floor_slab",
+  "dimensions": ["$building_width", "$slab_thickness", "$building_depth"],
+  "position": [0, "-$floor_height/2 + $slab_thickness/2", 0]
+},
+{
+  "type": "box",
+  "id": "floor_slab_top",
+  "material": "floor_slab",
+  "dimensions": ["$building_width", "$slab_thickness", "$building_depth"],
+  "position": [0, "$floor_height/2 - $slab_thickness/2", 0]
+}
               ]
             }
           ]
