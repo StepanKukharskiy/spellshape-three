@@ -1,4 +1,10 @@
 // helpers3d.js — Parametric 3D pattern helpers for spellshape-three
+import { 
+  rect2d, 
+  roundedRect2d, 
+  polygon2d, 
+  ellipse2d 
+} from './helpers2d.js';
 
 /**
  * Alternating wall/glass panel facade.
@@ -6,56 +12,98 @@
  */
 export function checkerboardPanels3D(params) {
   const {
-    count,
-    wallWidth = 1,
-    windowWidth = 1,
-    height = 3,
+    count,                    // Now this is the number of PAIRS
+    panelWidth = 1,           
+    wallRatio = 0.5,          
+    windowRatio = 0.5,        
+    height = 3,               
+    wallHeight = 3,           
     wallDepth = 0.1,
     windowDepth = 0.05,
     origin = [0, 0, 0],
     axis = 'x',
     start = 0,
-    direction = 1, // NEW: 1 for forward, -1 for backward
+    direction = 1,
     wallMaterial = 'wall',
     windowMaterial = 'window',
     startWith = 'wall',
     id = 'checkerboard_facade'
   } = params;
+  
   const panels = [];
   let pos = start;
 
-  for (let i = 0; i < count; ++i) {
-    const isWall = ((i % 2 === 0 && startWith === 'wall') || (i % 2 === 1 && startWith === 'window'));
-    const w = isWall ? wallWidth : windowWidth;
-    const d = isWall ? wallDepth : windowDepth;
-    const m = isWall ? wallMaterial : windowMaterial;
+  // Calculate actual widths based on ratios
+  const wallWidth = panelWidth * wallRatio;
+  const windowWidth = panelWidth * windowRatio;
 
+  for (let i = 0; i < count; ++i) {
+    // Determine order for this pair based on startWith and floor
+    const wallFirst = (startWith === 'wall');
+    
+    // First panel of the pair
+    const firstIsWall = wallFirst;
+    const firstW = firstIsWall ? wallWidth : windowWidth;
+    const firstH = firstIsWall ? wallHeight : height;
+    const firstD = firstIsWall ? wallDepth : windowDepth;
+    const firstM = firstIsWall ? wallMaterial : windowMaterial;
+    
     let panelPos;
     if (axis === 'x') {
-      panelPos = [Number(origin[0]) + pos + direction * w/2, origin[1], origin[2]];
+      panelPos = [Number(origin[0]) + pos + direction * firstW/2, origin[1], origin[2]];
       panels.push({
         type: 'box',
-        dimensions: [w, height, d],
+        dimensions: [firstW, firstH, firstD],
         position: panelPos,
-        material: m,
+        material: firstM,
       });
     } else {
-      panelPos = [origin[0], origin[1], Number(origin[2]) + pos + direction * w/2];
+      panelPos = [origin[0], origin[1], Number(origin[2]) + pos + direction * firstW/2];
       panels.push({
         type: 'box',
-        dimensions: [d, height, w],
+        dimensions: [firstD, firstH, firstW],
         position: panelPos,
-        material: m,
+        material: firstM,
       });
     }
-    pos += direction * w;
+    pos += direction * firstW;
+    
+    // Second panel of the pair
+    const secondIsWall = !wallFirst;
+    const secondW = secondIsWall ? wallWidth : windowWidth;
+    const secondH = secondIsWall ? wallHeight : height;
+    const secondD = secondIsWall ? wallDepth : windowDepth;
+    const secondM = secondIsWall ? wallMaterial : windowMaterial;
+    
+    if (axis === 'x') {
+      panelPos = [Number(origin[0]) + pos + direction * secondW/2, origin[1], origin[2]];
+      panels.push({
+        type: 'box',
+        dimensions: [secondW, secondH, secondD],
+        position: panelPos,
+        material: secondM,
+      });
+    } else {
+      panelPos = [origin[0], origin[1], Number(origin[2]) + pos + direction * secondW/2];
+      panels.push({
+        type: 'box',
+        dimensions: [secondD, secondH, secondW],
+        position: panelPos,
+        material: secondM,
+      });
+    }
+    pos += direction * secondW;
   }
+  
   return {
     type: 'group',
     id: id,
     children: panels
   };
 }
+
+
+
 
 
 
