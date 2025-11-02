@@ -4,20 +4,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spellshape Three Dev</title>
+  <title>Spellshape Three Dev - Schema Tester</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       overflow: hidden;
       height: 100vh;
       display: flex;
       flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
 
     .container {
       flex: 1;
       width: 100%;
       display: flex;
+      position: relative;
     }
 
     canvas {
@@ -27,11 +33,293 @@
       height: 100%;
     }
 
-    .controls {
-      z-index: 2;
+    /* Schema Editor Panel */
+    .schema-panel {
       position: absolute;
-      top: 10px;
-      right: 10px;
+      top: 0;
+      left: 0;
+      width: 450px;
+      height: 100%;
+      background: rgba(30, 30, 35, 0.95);
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      transition: transform 0.3s ease;
+      z-index: 10;
+    }
+
+    .schema-panel.collapsed {
+      transform: translateX(-410px);
+    }
+
+    .panel-header {
+      padding: 15px 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .panel-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .schema-editor {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 15px;
+      overflow: hidden;
+    }
+
+    .schema-editor label {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: block;
+      color: #a0a0a0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .schema-textarea {
+      flex: 1;
+      width: 100%;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: #e0e0e0;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .schema-textarea:focus {
+      border-color: rgba(100, 150, 255, 0.5);
+    }
+
+    .schema-textarea.error {
+      border-color: rgba(255, 100, 100, 0.7);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      padding: 0 15px 15px 15px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      outline: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #e0e0e0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .toggle-button {
+      position: absolute;
+      left: 450px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 40px;
+      height: 80px;
+      background: rgba(30, 30, 35, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-left: none;
+      border-radius: 0 8px 8px 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #e0e0e0;
+      font-size: 18px;
+      transition: all 0.3s ease;
+      z-index: 9;
+    }
+
+    .schema-panel.collapsed + .toggle-button {
+      left: 40px;
+    }
+
+    .toggle-button:hover {
+      background: rgba(40, 40, 45, 0.95);
+    }
+
+    /* Status Bar */
+    .status-bar {
+      padding: 8px 15px;
+      background: rgba(0, 0, 0, 0.3);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 11px;
+      color: #a0a0a0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4caf50;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .status-dot.error {
+      background: #f44336;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Error Message */
+    .error-message {
+      margin: 0 15px 15px 15px;
+      padding: 12px;
+      background: rgba(255, 100, 100, 0.15);
+      border: 1px solid rgba(255, 100, 100, 0.3);
+      border-radius: 6px;
+      color: #ff6b6b;
+      font-size: 12px;
+      line-height: 1.4;
+      display: none;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+
+    .error-message.visible {
+      display: block;
+    }
+
+    /* Presets Dropdown */
+    .presets-section {
+      padding: 0 15px 10px 15px;
+    }
+
+    .presets-section label {
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      display: block;
+      color: #a0a0a0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .preset-select {
+      width: 100%;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: #e0e0e0;
+      font-size: 12px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .preset-select:focus {
+      border-color: rgba(100, 150, 255, 0.5);
+    }
+
+    /* Category headers in dropdown */
+    .preset-select optgroup {
+      background: rgba(0, 0, 0, 0.8);
+      color: #4a9eff;
+      font-weight: 600;
+      font-size: 11px;
+      padding: 8px;
+    }
+
+    .preset-select option {
+      padding: 6px 12px;
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    /* Scrollbar Styling */
+    .schema-textarea::-webkit-scrollbar,
+    .error-message::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .schema-textarea::-webkit-scrollbar-track,
+    .error-message::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+    }
+
+    .schema-textarea::-webkit-scrollbar-thumb,
+    .error-message::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+    }
+
+    .schema-textarea::-webkit-scrollbar-thumb:hover,
+    .error-message::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Info badge */
+    .info-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      background: rgba(100, 150, 255, 0.2);
+      border: 1px solid rgba(100, 150, 255, 0.3);
+      border-radius: 3px;
+      font-size: 10px;
+      color: #88b3ff;
+      margin-left: 8px;
     }
   </style>
 </head>
@@ -40,386 +328,1011 @@
   <div class="container">
     <canvas id="canvas"></canvas>
 
-    <div class="controls">
-      <div class="control-item">
-        <label>Width (0.1 - 5.0m)</label>
-        <input type="range" id="cube_width" min="0.1" max="5" step="0.01" value="3">
-        <span class="value-display" id="width_display">1.00m</span>
+    <!-- Schema Editor Panel -->
+    <div class="schema-panel" id="schemaPanel">
+      <div class="panel-header">
+        <h2>📝 Schema Library</h2>
+        <span class="info-badge">Geometry-First</span>
       </div>
+
+      <div class="panel-content">
+        <!-- Presets -->
+        <div class="presets-section">
+          <label>Test Examples <span style="color: #666; font-size: 10px;">(20+ schemas)</span></label>
+          <select class="preset-select" id="presetSelect">
+            <optgroup label="🎯 BASIC TESTS">
+              <option value="single_box">Single Box</option>
+              <option value="three_primitives">Three Primitives (Box, Sphere, Cylinder)</option>
+            </optgroup>
+
+            <optgroup label="📐 LINEAR ARRAYS">
+              <option value="linear_spheres">Linear Sphere Array</option>
+              <option value="box_tower">Box Tower (Vertical)</option>
+              <option value="twisted_tower">Twisted Tower (Vertical)</option>
+              <option value="spiral_colonnade">Spiral Colonnade</option>
+            </optgroup>
+
+            <optgroup label="⭕ RADIAL PATTERNS">
+              <option value="radial_columns">Radial Column Array</option>
+            </optgroup>
+
+            <optgroup label="🌊 CURVE-BASED">
+              <option value="spline_path">Simple Spline Path</option>
+              <option value="helix_pattern">Helix Pattern</option>
+            </optgroup>
+
+            <optgroup label="🏛️ ARCH MODULES">
+              <option value="single_arch">Single Roman Arch</option>
+              <option value="viaduct_complete">Roman Viaduct</option>
+              <option value="growing_viaduct" selected>Growing Viaduct</option>
+            </optgroup>
+
+            <optgroup label="🔄 TRANSFORMATIONS">
+              <option value="twisted_column">Twisted Column</option>
+              <option value="tapered_tower">Tapered Tower</option>
+            </optgroup>
+
+            <optgroup label="🏗️ COMPLEX COMPOSITIONS">
+              <option value="pavilion">Pavilion Structure</option>
+              <option value="spiral_stair">Spiral Staircase</option>
+            </optgroup>
+
+            <optgroup label="✂️ EXTRUSIONS">
+              <option value="custom_extrude">Custom Profile Extrude</option>
+              <option value="pipe_path">Pipe Along Path</option>
+            </optgroup>
+
+            <optgroup label="⚡ ADVANCED">
+              <option value="grid_pattern">Grid Pattern</option>
+              <option value="noise_deform">Noise Deformation</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Schema Textarea -->
+        <div class="schema-editor">
+          <label>JSON Schema <span style="color: #666; font-size: 10px;">(Cmd/Ctrl+Enter to apply)</span></label>
+          <textarea 
+            class="schema-textarea" 
+            id="schemaTextarea" 
+            placeholder="Select a test example or paste your JSON schema..."
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <!-- Error Message -->
+        <div class="error-message" id="errorMessage"></div>
+
+        <!-- Action Buttons -->
+        <div class="button-group">
+          <button class="btn btn-secondary" id="formatBtn">Format</button>
+          <button class="btn btn-primary" id="applyBtn">Apply Schema</button>
+        </div>
+      </div>
+
+      <div class="status-bar">
+        <div class="status-indicator">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">Ready</span>
+        </div>
+        <span id="charCount">0 chars</span>
+      </div>
+    </div>
+
+    <!-- Toggle Button -->
+    <div class="toggle-button" id="toggleBtn">
+      ◀
     </div>
   </div>
 
-  <div id="validation-panel"
-    style="position: absolute; top: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 10px; display: none;">
-  </div>
   <script type="module">
     import { start } from './src/index.js';
 
-    // Example schema for testing
-    const testSchema = {
-  "version": "3.1",
+    // COMPLETE SCHEMA PRESETS LIBRARY
+    const SCHEMAS = {
+      // 1. BASIC PRIMITIVES
+      single_box: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "children": [{
+          "type": "parametric_template",
+          "id": "box_test",
+          "parameters": {
+            "size": { "value": 2, "type": "number", "min": 0.5, "max": 5 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "createBox",
+            "params": {
+              "width": "$size",
+              "height": "$size",
+              "depth": "$size",
+              "position": [0, "$size/2", 0],
+              "id": "box1"
+            }
+          }]
+        }]
+      },
+
+      three_primitives: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "materials": {
+          "red": { "color": "#ff0000", "roughness": 0.5 },
+          "green": { "color": "#00ff00", "roughness": 0.5 },
+          "blue": { "color": "#0000ff", "roughness": 0.5 }
+        },
+        "children": [{
+          "type": "parametric_template",
+          "id": "primitives",
+          "parameters": {},
+          "template": [
+            {
+              "type": "helper3d",
+              "helper": "createBox",
+              "params": {
+                "width": 1, "height": 1, "depth": 1,
+                "position": [-3, 0.5, 0],
+                "id": "box"
+              },
+              "material": "red"
+            },
+            {
+              "type": "helper3d",
+              "helper": "createSphere",
+              "params": {
+                "radius": 0.5,
+                "position": [0, 0.5, 0],
+                "id": "sphere"
+              },
+              "material": "green"
+            },
+            {
+              "type": "helper3d",
+              "helper": "createCylinder",
+              "params": {
+                "radiusTop": 0.5, "radiusBottom": 0.5, "height": 1,
+                "position": [3, 0.5, 0],
+                "id": "cylinder"
+              },
+              "material": "blue"
+            }
+          ]
+        }]
+      },
+
+      // 2. LINEAR ARRAYS
+      linear_spheres: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "children": [{
+          "type": "parametric_template",
+          "id": "linear_array",
+          "parameters": {
+            "count": { "value": 5, "type": "integer", "min": 2, "max": 10 },
+            "spacing": { "value": 2, "type": "number", "min": 1, "max": 5 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "repeatLinear3d",
+            "params": {
+              "geometry": {
+                "type": "helper3d",
+                "helper": "createSphere",
+                "params": { "radius": 0.5, "id": "sphere" }
+              },
+              "count": "$count",
+              "spacing": "$spacing",
+              "axis": "x",
+              "centered": true,
+              "id": "sphere_array"
+            }
+          }]
+        }]
+      },
+
+      box_tower: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "children": [{
+          "type": "parametric_template",
+          "id": "tower",
+          "parameters": {
+            "floors": { "value": 8, "type": "integer", "min": 2, "max": 20 },
+            "floorHeight": { "value": 3, "type": "number", "min": 2, "max": 5 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "repeatLinear3d",
+            "params": {
+              "geometry": {
+                "type": "helper3d",
+                "helper": "createBox",
+                "params": {
+                  "width": 10, "height": "$floorHeight", "depth": 10,
+                  "position": [0, "$floorHeight/2", 0],
+                  "id": "floor"
+                }
+              },
+              "count": "$floors",
+              "spacing": "$floorHeight",
+              "axis": "y",
+              "centered": false,
+              "id": "tower"
+            }
+          }]
+        }]
+      },
+
+      twisted_tower: {
+  "version": "3.2",
   "type": "parametric_scene",
   "children": [
     {
       "type": "parametric_template",
-      "id": "parametric_tower",
+      "id": "twisted_tower",
       "parameters": {
-        "floors": {"value": 40, "type": "integer", "min": 5, "max": 60, "step": 1, "group": "structure"},
-        "floor_height": {"value": 3, "type": "number", "min": 2, "max": 5, "step": 0.1, "group": "structure"},
-        "total_twist": {"value": 90, "type": "number", "min": 0, "max": 180, "step": 5, "group": "structure"},
-        "twist_zone": {"value": 35, "type": "number", "min": 10, "max": 90, "step": 5, "group": "structure"},
-        "building_width": {"value": 25, "type": "number", "min": 10, "max": 50, "step": 1, "group": "structure"},
-        "building_depth": {"value": 15, "type": "number", "min": 10, "max": 50, "step": 1, "group": "structure"},
-        "panels_per_side_width": {"value": 15, "type": "integer", "min": 4, "max": 40, "step": 1, "group": "facade"},
-        "panels_per_side_depth": {"value": 10, "type": "integer", "min": 4, "max": 40, "step": 1, "group": "facade"},
-        "min_wall_ratio": {"value": 0.2, "type": "number", "min": 0.1, "max": 0.5, "step": 0.05, "group": "facade"},
-        "max_wall_ratio": {"value": 0.8, "type": "number", "min": 0.5, "max": 0.9, "step": 0.05, "group": "facade"},
-        "wave_frequency": {"value": 2.0, "type": "number", "min": 0.5, "max": 5.0, "step": 0.1, "group": "facade"},
-        "wave_offset": {"value": 0.0, "type": "number", "min": 0.0, "max": 6.28, "step": 0.1, "group": "facade"},
-        "wall_depth": {"value": 0.8, "type": "number", "min": 0.1, "max": 1, "step": 0.05, "group": "facade"},
-        "window_depth": {"value": 0.05, "type": "number", "min": 0.02, "max": 0.5, "step": 0.01, "group": "facade"},
-        "wall_height_multiplier": {"value": 1.2, "type": "number", "min": 1.0, "max": 2.0, "step": 0.1, "group": "facade"},
-        "core_width": {"value": 8, "type": "number", "min": 2, "max": 15, "step": 0.5, "group": "core"},
-        "core_depth": {"value": 6, "type": "number", "min": 2, "max": 12, "step": 0.5, "group": "core"},
-        "column_radius": {"value": 0.3, "type": "number", "min": 0.1, "max": 1, "step": 0.05, "group": "structure"},
-        "columns_per_side": {"value": 3, "type": "integer", "min": 2, "max": 8, "step": 1, "group": "structure"},
-        "column_offset": {"value": 2, "type": "number", "min": 1, "max": 8, "step": 0.2, "group": "structure"},
-        "slab_thickness": {"value": 0.3, "type": "number", "min": 0.1, "max": 1, "step": 0.05, "group": "floors"}
-      },
-      "expressions": {
-        "building_half_width": "$building_width / 2",
-        "building_half_depth": "$building_depth / 2",
-        "panel_width_on_width_facades": "$building_width / $panels_per_side_width",
-        "panel_width_on_depth_facades": "$building_depth / $panels_per_side_depth",
-        "twist_radians": "$total_twist * pi / 180",
-        "twist_start": "(50 - $twist_zone/2) / 100",
-        "twist_end": "(50 + $twist_zone/2) / 100",
-        "front_start": "-$building_half_width",
-        "back_start": "$building_half_width",
-        "right_start": "$building_half_depth",
-        "left_start": "-$building_half_depth",
-        "wall_ratio_range": "$max_wall_ratio - $min_wall_ratio",
-        "wall_ratio_center": "($min_wall_ratio + $max_wall_ratio) / 2",
-        "wall_ratio_amplitude": "($max_wall_ratio - $min_wall_ratio) / 2"
+        "floors": { "value": 8, "type": "integer", "min": 2, "max": 30 },
+        "floorHeight": { "value": 3, "type": "number", "min": 1, "max": 5 },
+        "twistStep": { "value": 0.2, "type": "number", "min": 0.01, "max": 0.8, "step": 0.01 },
+        "scaleStep": { "value": -0.05, "type": "number", "min": -0.15, "max": 0, "step": 0.01 }
       },
       "template": [
         {
-          "type": "repeat",
-          "id": "tower_floors",
-          "count": "$floors",
-          "instance_parameters": {
-            "floor_idx": "$index",
-            "normalized_pos": "$index / max(($floors - 1), 1)",
-            "twist_progress": "clamp(($normalized_pos - $twist_start) / max(($twist_end - $twist_start), 0.01), 0, 1)",
-            "floor_twist": "if($normalized_pos >= $twist_start && $normalized_pos <= $twist_end, $twist_radians * $twist_progress, if($normalized_pos > $twist_end, $twist_radians, 0))",
-            "start_with": "if(mod($index, 2) == 0, \"wall\", \"window\")",
-            "wave_input": "$normalized_pos * $wave_frequency * 2 * pi + $wave_offset",
-            "wall_ratio": "$wall_ratio_center + $wall_ratio_amplitude * sin($wave_input)",
-            "window_ratio": "1 - $wall_ratio",
-            "current_wall_height": "$floor_height * $wall_height_multiplier"
-          },
-          "distribution": {
-            "type": "linear",
+          "type": "helper3d",
+          "helper": "repeatLinear3d",
+          "params": {
+            "geometry": {
+              "type": "helper3d",
+              "helper": "createBox",
+              "params": {
+                "width": 10,
+                "height": "$floorHeight",
+                "depth": 10,
+                "id": "floor"
+              }
+            },
+            "count": "$floors",
+            "spacing": "$floorHeight",
             "axis": "y",
-            "start": "$floor_height/2",
-            "step": "$floor_height"
-          },
-          "children": [
-            {
-              "type": "group",
-              "id": "floor_group",
-              "rotation": [0, "$floor_twist", 0],
-              "children": [
-                {
-                  "type": "box",
-                  "id": "core",
-                  "material": "core",
-                  "dimensions": ["$core_width", "$floor_height", "$core_depth"],
-                  "position": [0, 0, 0]
-                },
-                {
-                  "type": "repeat",
-                  "id": "front_columns",
-                  "count": "$columns_per_side",
-                  "instance_parameters": {"col_pos": "$index"},
-                  "distribution": {
-                    "type": "linear",
-                    "axis": "x",
-                    "start": "-$building_half_width + $column_offset",
-                    "step": "($building_width - $column_offset * 2) / max(($columns_per_side - 1), 1)"
-                  },
-                  "children": [
-                    {
-                      "type": "cylinder",
-                      "id": "column_front",
-                      "material": "column",
-                      "dimensions": ["$column_radius", "$column_radius", "$floor_height"],
-                      "position": [0, 0, "$building_half_depth - $column_offset"]
-                    }
-                  ]
-                },
-                {
-                  "type": "repeat",
-                  "id": "back_columns",
-                  "count": "$columns_per_side",
-                  "instance_parameters": {"col_pos": "$index"},
-                  "distribution": {
-                    "type": "linear",
-                    "axis": "x",
-                    "start": "$building_half_width - $column_offset",
-                    "step": "-($building_width - $column_offset * 2) / max(($columns_per_side - 1), 1)"
-                  },
-                  "children": [
-                    {
-                      "type": "cylinder",
-                      "id": "column_back",
-                      "material": "column",
-                      "dimensions": ["$column_radius", "$column_radius", "$floor_height"],
-                      "position": [0, 0, "-$building_half_depth + $column_offset"]
-                    }
-                  ]
-                },
-                {
-                  "type": "repeat",
-                  "id": "left_columns",
-                  "count": "max(($columns_per_side - 2), 0)",
-                  "instance_parameters": {"col_pos": "$index + 1"},
-                  "distribution": {
-                    "type": "linear",
-                    "axis": "z",
-                    "start": "-$building_half_depth + $column_offset + ($building_depth - $column_offset * 2) / max(($columns_per_side - 1), 1)",
-                    "step": "($building_depth - $column_offset * 2) / max(($columns_per_side - 1), 1)"
-                  },
-                  "children": [
-                    {
-                      "type": "cylinder",
-                      "id": "column_left",
-                      "material": "column",
-                      "dimensions": ["$column_radius", "$column_radius", "$floor_height"],
-                      "position": ["-$building_half_width + $column_offset", 0, 0]
-                    }
-                  ]
-                },
-                {
-                  "type": "repeat",
-                  "id": "right_columns",
-                  "count": "max(($columns_per_side - 2), 0)",
-                  "instance_parameters": {"col_pos": "$index + 1"},
-                  "distribution": {
-                    "type": "linear",
-                    "axis": "z",
-                    "start": "$building_half_depth - $column_offset - ($building_depth - $column_offset * 2) / max(($columns_per_side - 1), 1)",
-                    "step": "-($building_depth - $column_offset * 2) / max(($columns_per_side - 1), 1)"
-                  },
-                  "children": [
-                    {
-                      "type": "cylinder",
-                      "id": "column_right",
-                      "material": "column",
-                      "dimensions": ["$column_radius", "$column_radius", "$floor_height"],
-                      "position": ["$building_half_width - $column_offset", 0, 0]
-                    }
-                  ]
-                },
-                {
-                  "type": "helper3d",
-                  "helper": "checkerboardPanels3D",
-                  "params": {
-                    "count": "$panels_per_side_width",
-                    "panelWidth": "$panel_width_on_width_facades",
-                    "wallRatio": "$wall_ratio",
-                    "windowRatio": "$window_ratio",
-                    "height": "$floor_height",
-                    "wallHeight": "$current_wall_height",
-                    "wallDepth": "$wall_depth",
-                    "windowDepth": "$window_depth",
-                    "origin": [0, 0, "$building_half_depth"],
-                    "axis": "x",
-                    "start": "$front_start",
-                    "direction": 1,
-                    "wallMaterial": "wall",
-                    "windowMaterial": "window",
-                    "startWith": "$start_with",
-                    "id": "front_facade"
-                  }
-                },
-                {
-                  "type": "helper3d",
-                  "helper": "checkerboardPanels3D",
-                  "params": {
-                    "count": "$panels_per_side_width",
-                    "panelWidth": "$panel_width_on_width_facades",
-                    "wallRatio": "$wall_ratio",
-                    "windowRatio": "$window_ratio",
-                    "height": "$floor_height",
-                    "wallHeight": "$current_wall_height",
-                    "wallDepth": "$wall_depth",
-                    "windowDepth": "$window_depth",
-                    "origin": [0, 0, "-$building_half_depth"],
-                    "axis": "x",
-                    "start": "$back_start",
-                    "direction": -1,
-                    "wallMaterial": "wall",
-                    "windowMaterial": "window",
-                    "startWith": "$start_with",
-                    "id": "back_facade"
-                  }
-                },
-                {
-                  "type": "helper3d",
-                  "helper": "checkerboardPanels3D",
-                  "params": {
-                    "count": "$panels_per_side_depth",
-                    "panelWidth": "$panel_width_on_depth_facades",
-                    "wallRatio": "$wall_ratio",
-                    "windowRatio": "$window_ratio",
-                    "height": "$floor_height",
-                    "wallHeight": "$current_wall_height",
-                    "wallDepth": "$wall_depth",
-                    "windowDepth": "$window_depth",
-                    "origin": ["$building_half_width", 0, 0],
-                    "axis": "z",
-                    "start": "$right_start",
-                    "direction": -1,
-                    "wallMaterial": "wall",
-                    "windowMaterial": "window",
-                    "startWith": "$start_with",
-                    "id": "right_facade"
-                  }
-                },
-                {
-                  "type": "helper3d",
-                  "helper": "checkerboardPanels3D",
-                  "params": {
-                    "count": "$panels_per_side_depth",
-                    "panelWidth": "$panel_width_on_depth_facades",
-                    "wallRatio": "$wall_ratio",
-                    "windowRatio": "$window_ratio",
-                    "height": "$floor_height",
-                    "wallHeight": "$current_wall_height",
-                    "wallDepth": "$wall_depth",
-                    "windowDepth": "$window_depth",
-                    "origin": ["-$building_half_width", 0, 0],
-                    "axis": "z",
-                    "start": "$left_start",
-                    "direction": 1,
-                    "wallMaterial": "wall",
-                    "windowMaterial": "window",
-                    "startWith": "$start_with",
-                    "id": "left_facade"
-                  }
-                },
-                {
-                  "type": "box",
-                  "id": "floor_slab_bottom",
-                  "material": "floor_slab",
-                  "dimensions": ["$building_width", "$slab_thickness", "$building_depth"],
-                  "position": [0, "-$floor_height/2 + $slab_thickness/2", 0]
-                },
-                {
-                  "type": "box",
-                  "id": "floor_slab_top",
-                  "material": "floor_slab",
-                  "dimensions": ["$building_width", "$slab_thickness", "$building_depth"],
-                  "position": [0, "$floor_height/2 - $slab_thickness/2", 0]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "box",
-          "id": "roof_slab",
-          "material": "floor_slab",
-          "dimensions": ["$building_width", "$slab_thickness", "$building_depth"],
-          "position": [0, "$floor_height/2 + ($floors - 1) * $floor_height + $floor_height/2 + $slab_thickness/2", 0],
-          "rotation": [0, "$twist_radians", 0]
+            "rotationPerStep": [0, "$twistStep", 0],
+            "scalePerStep": ["$scaleStep", 0, "$scaleStep"],
+            "id": "twisted_tower"
+          }
         }
       ]
     }
-  ],
-  "materials": {
-    "wall": {"type": "standard", "color": "#f9f9f9", "roughness": 0.7, "metalness": 0.1},
-    "window": {"type": "standard", "color": "#f2f2f2", "roughness": 0.2, "metalness": 0, "opacity": 0.3},
-    "core": {"type": "standard", "color": "#d94026", "roughness": 0.6, "metalness": 0.1},
-    "column": {"type": "standard", "color": "#404040", "roughness": 0.8, "metalness": 0.2},
-    "floor_slab": {"type": "standard", "color": "#a6a6a6", "roughness": 0.7, "metalness": 0.1}
-  },
-  "ui_controls": {
-    "groups": {
-      "structure": {"label": "🏗️ Structure", "order": 1, "default_open": true},
-      "facade": {"label": "🏢 Facade", "order": 2, "default_open": false},
-      "core": {"label": "🏛️ Core", "order": 3, "default_open": false},
-      "floors": {"label": "🏗️ Floors", "order": 4, "default_open": false}
+  ]
+},
+spiral_colonnade: {
+  "version": "3.2",
+  "type": "parametric_scene",
+  "children": [
+    {
+      "type": "parametric_template",
+      "id": "spiral_colonnade",
+      "parameters": {
+        "count": { "value": 12, "type": "integer", "min": 4, "max": 36 },
+        "radius": { "value": 8, "type": "number", "min": 3, "max": 18 },
+        "height": { "value": 4, "type": "number", "min": 2, "max": 10 },
+        "rotStep": { "value": 0.1, "type": "number", "min": 0, "max": 1, "step": 0.01 },
+        "scaleStep": { "value": 0.02, "type": "number", "min": 0, "max": 0.2, "step": 0.01 }
+      },
+      "template": [
+        {
+          "type": "helper3d",
+          "helper": "repeatRadial3d",
+          "params": {
+            "geometry": {
+              "type": "helper3d",
+              "helper": "createCylinder",
+              "params": {
+                "radiusTop": 0.3,
+                "radiusBottom": 0.4,
+                "height": "$height",
+                "id": "column"
+              }
+            },
+            "count": "$count",
+            "radius": "$radius",
+            "axis": "y",
+            "faceCenter": true,
+            "rotationPerStep": ["$rotStep", 0, 0],
+            "scalePerStep": [0, "$scaleStep", 0],
+            "id": "spiral_colonnade"
+          }
+        }
+      ]
     }
-  }
+  ]
+},
+
+
+      // 3. RADIAL
+      radial_columns: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "children": [{
+          "type": "parametric_template",
+          "id": "radial_test",
+          "parameters": {
+            "count": { "value": 8, "type": "integer", "min": 3, "max": 16 },
+            "radius": { "value": 5, "type": "number", "min": 3, "max": 10 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "repeatRadial3d",
+            "params": {
+              "geometry": {
+                "type": "helper3d",
+                "helper": "createBox",
+                "params": {
+                  "width": 1, "height": 2, "depth": 1,
+                  "position": [0, 1, 0],
+                  "id": "column"
+                }
+              },
+              "count": "$count",
+              "radius": "$radius",
+              "axis": "y",
+              "id": "colonnade"
+            }
+          }]
+        }]
+      },
+
+      // 4. CURVES
+      spline_path: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "children": [{
+          "type": "parametric_template",
+          "id": "spline_test",
+          "parameters": {},
+          "template": [{
+            "type": "helper3d",
+            "helper": "repeatAlongCurve3d",
+            "params": {
+              "curve": {
+                "type": "helper3d",
+                "helper": "createSplinePath",
+                "params": {
+                  "controlPoints": [[0,0,0], [5,0,2], [10,0,5], [15,0,6]],
+                  "id": "path"
+                }
+              },
+              "geometry": {
+                "type": "helper3d",
+                "helper": "createSphere",
+                "params": { "radius": 0.5, "id": "sphere" }
+              },
+              "count": 6,
+              "align": true,
+              "id": "path_array"
+            }
+          }]
+        }]
+      },
+
+      helix_pattern: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "children": [{
+          "type": "parametric_template",
+          "id": "helix_test",
+          "parameters": {
+            "turns": { "value": 3, "type": "number", "min": 1, "max": 10 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "repeatAlongCurve3d",
+            "params": {
+              "curve": {
+                "type": "helper3d",
+                "helper": "createHelixPath",
+                "params": {
+                  "radius": 3,
+                  "height": 10,
+                  "turns": "$turns",
+                  "segments": 128,
+                  "id": "helix"
+                }
+              },
+              "geometry": {
+                "type": "helper3d",
+                "helper": "createBox",
+                "params": {
+                  "width": 0.5, "height": 0.5, "depth": 0.5,
+                  "id": "cube"
+                }
+              },
+              "count": 20,
+              "align": true,
+              "id": "helix_array"
+            }
+          }]
+        }]
+      },
+
+      // 5. ARCHES
+      single_arch: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "materials": {
+          "stone": { "color": "#d4c5b9", "roughness": 0.8, "metalness": 0.0 }
+        },
+        "children": [{
+          "type": "parametric_template",
+          "id": "single_arch",
+          "parameters": {
+            "width": { "value": 6, "type": "number", "min": 3, "max": 12 },
+            "pierHeight": { "value": 4, "type": "number", "min": 2, "max": 10 },
+            "archHeight": { "value": 3, "type": "number", "min": 1, "max": 8 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "createArchModule",
+            "params": {
+              "width": "$width",
+              "pierHeight": "$pierHeight",
+              "archHeight": "$archHeight",
+              "spandrelHeight": 1,
+              "depth": 3,
+              "wallThickness": 0.8,
+              "material": "stone",
+              "id": "arch"
+            }
+          }]
+        }]
+      },
+
+      viaduct_complete: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "materials": {
+          "stone": { "color": "#d4c5b9", "roughness": 0.8, "metalness": 0.0 }
+        },
+        "children": [{
+          "type": "parametric_template",
+          "id": "roman_viaduct",
+          "parameters": {
+            "spans": { "value": 8, "type": "integer", "min": 3, "max": 15 },
+            "archWidth": { "value": 6, "type": "number", "min": 4, "max": 10 },
+            "pierHeight": { "value": 5, "type": "number", "min": 3, "max": 12 },
+            "archHeight": { "value": 3, "type": "number", "min": 2, "max": 6 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "repeatAlongCurve3d",
+            "params": {
+              "curve": {
+                "type": "helper3d",
+                "helper": "createSplinePath",
+                "params": {
+                  "controlPoints": [
+                    [0, 0, 0], [10, 0, 2], [20, 0, 6], 
+                    [30, 0, 10], [40, 0, 12], [50, 0, 12]
+                  ],
+                  "id": "viaduct_path"
+                }
+              },
+              "geometry": {
+                "type": "helper3d",
+                "helper": "createArchModule",
+                "params": {
+                  "width": "$archWidth",
+                  "pierHeight": "$pierHeight",
+                  "archHeight": "$archHeight",
+                  "spandrelHeight": 1.5,
+                  "depth": 4,
+                  "wallThickness": 0.8,
+                  "archSegments": 32,
+                  "holeSupport": true,
+                  "material": "stone",
+                  "id": "arch"
+                }
+              },
+              "count": "$spans",
+              "align": true,
+              "id": "viaduct"
+            }
+          }]
+        }]
+      },
+      growing_viaduct: {
+  "version": "3.2",
+  "type": "parametric_scene",
+  "materials": {
+    "stone": { "color": "#d4c5b9", "roughness": 0.8 }
+  },
+  "children": [
+    {
+      "type": "parametric_template",
+      "id": "growing_viaduct",
+      "parameters": {
+        "count": { "value": 8, "type": "integer", "min": 3, "max": 15 },
+        "scaleStep": { "value": 0.05, "type": "number", "min": 0, "max": 0.3, "step": 0.01 },
+        "archWidth": { "value": 6, "type": "number", "min": 4, "max": 12 },
+        "pierHeight": { "value": 4, "type": "number", "min": 2, "max": 10 },
+        "archHeight": { "value": 3, "type": "number", "min": 1, "max": 8 }
+      },
+      "template": [
+        {
+          "type": "helper3d",
+          "helper": "repeatAlongCurve3d",
+          "params": {
+            "curve": {
+              "type": "helper3d",
+              "helper": "createSplinePath",
+              "params": {
+                "controlPoints": [
+                  [0, 0, 0], [10, 0, 2], [20, 0, 6],
+                  [30, 0, 10], [40, 0, 12], [50, 0, 12]
+                ],
+                "id": "viaduct_path"
+              }
+            },
+            "geometry": {
+              "type": "helper3d",
+              "helper": "createArchModule",
+              "params": {
+                "width": "$archWidth",
+                "pierHeight": "$pierHeight",
+                "archHeight": "$archHeight",
+                "spandrelHeight": 1.5,
+                "depth": 4,
+                "wallThickness": 0.8,
+                "archSegments": 32,
+                "holeSupport": true,
+                "material": "stone",
+                "id": "arch"
+              }
+            },
+            "count": "$count",
+            "align": true,
+            "scalePerStep": ["$scaleStep", "$scaleStep", "$scaleStep"],
+            "id": "growing_viaduct"
+          }
+        }
+      ]
+    }
+  ]
 }
+,
 
+      // 6. TRANSFORMATIONS
+      twisted_column: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "children": [{
+          "type": "parametric_template",
+          "id": "twisted_column",
+          "parameters": {
+            "twistAngle": { "value": 1.57, "type": "number", "min": 0, "max": 6.28 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "twistGeometry",
+            "params": {
+              "mesh": {
+                "type": "helper3d",
+                "helper": "createBox",
+                "params": {
+                  "width": 1, "height": 5, "depth": 1,
+                  "position": [0, 2.5, 0],
+                  "id": "column"
+                }
+              },
+              "angle": "$twistAngle",
+              "axis": [0, 1, 0],
+              "height": 5,
+              "id": "twisted"
+            }
+          }]
+        }]
+      },
 
-// Wait for DOM to be fully loaded
-    document.addEventListener('DOMContentLoaded', async () => {
-      const canvas = document.getElementById('canvas');
-      let viewer = null;
+      tapered_tower: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "children": [{
+          "type": "parametric_template",
+          "id": "tapered_tower",
+          "parameters": {
+            "topScale": { "value": 0.5, "type": "number", "min": 0.2, "max": 1.0 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "taperGeometry",
+            "params": {
+              "mesh": {
+                "type": "helper3d",
+                "helper": "createBox",
+                "params": {
+                  "width": 5, "height": 10, "depth": 5,
+                  "position": [0, 5, 0],
+                  "id": "tower"
+                }
+              },
+              "topScale": ["$topScale", "$topScale"],
+              "axis": [0, 1, 0],
+              "height": 10,
+              "id": "tapered"
+            }
+          }]
+        }]
+      },
 
-      // Initialize the viewer
-      async function initViewer() {
-        try {
-          viewer = await start(canvas, testSchema, true);
-          console.log('Viewer initialized:', viewer);
+      // 7. COMPLEX COMPOSITIONS
+      pavilion: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "materials": {
+          "concrete": { "color": "#cccccc", "roughness": 0.9 },
+          "glass": { "color": "#ffffff", "roughness": 0.1, "metalness": 0.5, "transparent": true, "opacity": 0.3 }
+        },
+        "children": [{
+          "type": "parametric_template",
+          "id": "pavilion",
+          "parameters": {
+            "columns": { "value": 8, "type": "integer", "min": 4, "max": 16 },
+            "radius": { "value": 8, "type": "number", "min": 5, "max": 15 },
+            "height": { "value": 4, "type": "number", "min": 3, "max": 6 }
+          },
+          "template": [
+            {
+              "type": "helper3d",
+              "helper": "repeatRadial3d",
+              "params": {
+                "geometry": {
+                  "type": "helper3d",
+                  "helper": "createCylinder",
+                  "params": {
+                    "radiusTop": 0.3, "radiusBottom": 0.4, "height": "$height",
+                    "position": [0, "$height/2", 0],
+                    "id": "column"
+                  }
+                },
+                "count": "$columns",
+                "radius": "$radius",
+                "axis": "y",
+                "id": "colonnade"
+              },
+              "material": "concrete"
+            },
+            {
+              "type": "helper3d",
+              "helper": "createCylinder",
+              "params": {
+                "radiusTop": "$radius + 1", "radiusBottom": "$radius + 1", "height": 0.3,
+                "position": [0, "$height + 0.15", 0],
+                "id": "roof"
+              },
+              "material": "glass"
+            }
+          ]
+        }]
+      },
 
-          // Check if updateParameter is available
-          if (viewer.updateParameter) {
-            console.log('✅ updateParameter function is available');
-          } else {
-            console.error('❌ updateParameter function is NOT available');
-          }
-        } catch (error) {
-          console.error('Error initializing viewer:', error);
-        }
+      spiral_stair: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "materials": {
+          "steel": { "color": "#888888", "roughness": 0.3, "metalness": 0.8 }
+        },
+        "children": [{
+          "type": "parametric_template",
+          "id": "spiral_stair",
+          "parameters": {
+            "steps": { "value": 20, "type": "integer", "min": 10, "max": 40 },
+            "turns": { "value": 2, "type": "number", "min": 1, "max": 5 }
+          },
+          "template": [
+            {
+              "type": "helper3d",
+              "helper": "createCylinder",
+              "params": {
+                "radiusTop": 0.15, "radiusBottom": 0.15, "height": "$steps * 0.2",
+                "position": [0, "$steps * 0.1", 0],
+                "id": "central_pole"
+              },
+              "material": "steel"
+            },
+            {
+              "type": "helper3d",
+              "helper": "repeatAlongCurve3d",
+              "params": {
+                "curve": {
+                  "type": "helper3d",
+                  "helper": "createHelixPath",
+                  "params": {
+                    "radius": 1.5,
+                    "height": "$steps * 0.2",
+                    "turns": "$turns",
+                    "segments": "$steps",
+                    "id": "helix"
+                  }
+                },
+                "geometry": {
+                  "type": "helper3d",
+                  "helper": "createBox",
+                  "params": {
+                    "width": 1.2, "height": 0.05, "depth": 0.3,
+                    "id": "step"
+                  }
+                },
+                "count": "$steps",
+                "align": true,
+                "id": "steps"
+              },
+              "material": "steel"
+            }
+          ]
+        }]
+      },
+
+      // 8. EXTRUSIONS
+      custom_extrude: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "children": [{
+          "type": "parametric_template",
+          "id": "extrude_test",
+          "parameters": {
+            "depth": { "value": 5, "type": "number", "min": 1, "max": 10 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "createExtrude",
+            "params": {
+              "profile": [
+                [-1, 0], [1, 0], [1, 1], [0.5, 2], [0, 1], [-0.5, 2], [-1, 1], [-1, 0]
+              ],
+              "depth": "$depth",
+              "holes": [],
+              "bevelEnabled": false,
+              "pos": [0, 1, 0],
+              "id": "extruded_shape"
+            }
+          }]
+        }]
+      },
+
+      pipe_path: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "materials": {
+          "pipe": { "color": "#ff8800", "roughness": 0.2, "metalness": 0.7 }
+        },
+        "children": [{
+          "type": "parametric_template",
+          "id": "pipe_test",
+          "parameters": {
+            "radius": { "value": 0.3, "type": "number", "min": 0.1, "max": 1 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "createPipe",
+            "params": {
+              "path": {
+                "type": "helper3d",
+                "helper": "createSplinePath",
+                "params": {
+                  "controlPoints": [[0,0,0], [3,2,1], [6,1,3], [9,3,2]],
+                  "id": "pipe_path"
+                }
+              },
+              "radius": "$radius",
+              "tubularSegments": 64,
+              "radialSegments": 16,
+              "closed": false,
+              "id": "pipe"
+            },
+            "material": "pipe"
+          }]
+        }]
+      },
+
+      // 9-10. ADVANCED
+      grid_pattern: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "children": [{
+          "type": "parametric_template",
+          "id": "grid_test",
+          "parameters": {
+            "rows": { "value": 5, "type": "integer", "min": 2, "max": 10 },
+            "cols": { "value": 5, "type": "integer", "min": 2, "max": 10 },
+            "spacing": { "value": 2, "type": "number", "min": 1, "max": 5 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "distributeOnGrid3d",
+            "params": {
+              "geometry": {
+                "type": "helper3d",
+                "helper": "createSphere",
+                "params": {
+                  "radius": 0.3,
+                  "position": [0, 0.3, 0],
+                  "id": "sphere"
+                }
+              },
+              "rows": "$rows",
+              "cols": "$cols",
+              "spacing": ["$spacing", 0, "$spacing"],
+              "id": "grid"
+            }
+          }]
+        }]
+      },
+
+      noise_deform: {
+        "version": "3.2",
+        "type": "parametric_scene",
+        "children": [{
+          "type": "parametric_template",
+          "id": "noise_deform",
+          "parameters": {
+            "amount": { "value": 0.3, "type": "number", "min": 0, "max": 1 },
+            "frequency": { "value": 2, "type": "number", "min": 0.5, "max": 5 }
+          },
+          "template": [{
+            "type": "helper3d",
+            "helper": "deformByNoise",
+            "params": {
+              "mesh": {
+                "type": "helper3d",
+                "helper": "createBox",
+                "params": {
+                  "width": 5, "height": 5, "depth": 5,
+                  "position": [0, 2.5, 0],
+                  "id": "box"
+                }
+              },
+              "amount": "$amount",
+              "frequency": "$frequency",
+              "axis": [0, 1, 0],
+              "id": "deformed"
+            }
+          }]
+        }]
       }
+    };
 
-      // Setup the single control
-      function setupControl() {
-        const heightInput = document.getElementById('cube_width');
-        const heightDisplay = document.getElementById('width_display');
 
-        // Check if elements exist
-        if (!heightInput) {
-          console.error('Height input element not found!');
-          return;
-        }
-        if (!heightDisplay) {
-          console.error('Height display element not found!');
-          return;
-        }
+    // DOM Elements
+    const schemaPanel = document.getElementById('schemaPanel');
+    const toggleBtn = document.getElementById('toggleBtn');
+    const schemaTextarea = document.getElementById('schemaTextarea');
+    const presetSelect = document.getElementById('presetSelect');
+    const applyBtn = document.getElementById('applyBtn');
+    const formatBtn = document.getElementById('formatBtn');
+    const errorMessage = document.getElementById('errorMessage');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const charCount = document.getElementById('charCount');
 
-        console.log('✅ Control elements found, setting up event listener');
+    let viewer = null;
+    const canvas = document.getElementById('canvas');
 
-        heightInput.addEventListener('input', (e) => {
-          const value = parseFloat(e.target.value);
+    // Initialize with default schema (viaduct_complete)
+    function initializeUI() {
+      const defaultSchema = SCHEMAS.viaduct_complete;
+      schemaTextarea.value = JSON.stringify(defaultSchema, null, 2);
+      updateCharCount();
+      console.log('🚀 Schema Tester Ready!');
+    }
 
-          // Update the 3D model using selective regeneration
-          if (viewer && viewer.updateParameter) {
-            const success = viewer.updateParameter('cube_width', value);
-            console.log(`Updated cube_width to ${value}: ${success ? 'Success' : 'Failed'}`);
-          } else {
-            console.error('updateParameter function not available');
-          }
-
-          // Update the display
-          heightDisplay.textContent = value.toFixed(2) + 'm';
-        });
-
-        console.log('✅ Event listener attached successfully');
+    // Load preset schema
+    presetSelect.addEventListener('change', (e) => {
+      const presetKey = e.target.value;
+      const schema = SCHEMAS[presetKey];
+      if (schema) {
+        schemaTextarea.value = JSON.stringify(schema, null, 2);
+        updateCharCount();
+        hideError();
+        setStatus('ready', 'Schema loaded');
       }
-
-      // Initialize everything in proper order
-      await initViewer();
-      setupControl();
-
-      console.log('🚀 Ready! Drag the slider to test updateParameter function.');
     });
+
+    // Apply schema
+    async function applySchema() {
+      try {
+        const schemaText = schemaTextarea.value.trim();
+        if (!schemaText) {
+          showError('Schema is empty');
+          return;
+        }
+
+        // Parse JSON
+        const schema = JSON.parse(schemaText);
+
+        hideError();
+        setStatus('loading', 'Generating...');
+        schemaTextarea.classList.remove('error');
+
+        // Initialize or regenerate viewer
+        viewer = await start(canvas, schema, true);
+
+        setStatus('success', 'Schema applied successfully');
+        console.log('✅ Schema applied:', schema);
+
+      } catch (error) {
+        console.error('❌ Error applying schema:', error);
+        schemaTextarea.classList.add('error');
+        setStatus('error', 'Error');
+
+        if (error instanceof SyntaxError) {
+          showError(`JSON Syntax Error: ${error.message}`);
+        } else {
+          showError(`Error: ${error.message || 'Unknown error'}`);
+        }
+      }
+    }
+
+    applyBtn.addEventListener('click', applySchema);
+
+    // Format JSON
+    formatBtn.addEventListener('click', () => {
+      try {
+        const schema = JSON.parse(schemaTextarea.value);
+        schemaTextarea.value = JSON.stringify(schema, null, 2);
+        schemaTextarea.classList.remove('error');
+        hideError();
+        updateCharCount();
+      } catch (error) {
+        schemaTextarea.classList.add('error');
+        showError(`Cannot format: ${error.message}`);
+      }
+    });
+
+    // Toggle panel
+    toggleBtn.addEventListener('click', () => {
+      const isCollapsed = schemaPanel.classList.toggle('collapsed');
+      toggleBtn.textContent = isCollapsed ? '▶' : '◀';
+    });
+
+    // Keyboard shortcut: Cmd/Ctrl+Enter to apply
+    schemaTextarea.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        applySchema();
+      }
+    });
+
+    // Update character count
+    schemaTextarea.addEventListener('input', updateCharCount);
+
+    function updateCharCount() {
+      const count = schemaTextarea.value.length;
+      charCount.textContent = `${count.toLocaleString()} chars`;
+    }
+
+    // Status management
+    function setStatus(type, text) {
+      statusDot.className = 'status-dot';
+      if (type === 'error') {
+        statusDot.classList.add('error');
+      }
+      statusText.textContent = text;
+    }
+
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.classList.add('visible');
+    }
+
+    function hideError() {
+      errorMessage.classList.remove('visible');
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+      initializeUI();
+      await applySchema(); // Auto-apply default schema
+    });
+
   </script>
 </body>
-
 </html>

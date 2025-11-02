@@ -1,10 +1,17 @@
+/* processor.js - Geometry-First Edition
+   Processes schema nodes, evaluates parameters, handles nested helper calls
+   Returns processed nodes for sceneBuilder to render
+*/
+
 import * as THREE from 'three';
 import { distributionPlugins } from '../plugins/distribution.js';
-import { arc2d, bezier2d, polygon2d, ellipse2d, catmullRom2d, line2d, polyline2d,
-  regularStar2d, rect2d, roundedRect2d, offset2d, mirror2d, transform2d,
-  spiral2d, kochSnowflake2d  } from './helpers2d.js';
+import {
+  arc2d, bezier2d, polygon2d, ellipse2d, catmullRom2d,
+  line2d, polyline2d, regularStar2d, rect2d, roundedRect2d,
+  offset2d, mirror2d, transform2d, spiral2d, kochSnowflake2d
+} from './helpers2d.js';
 
-
+// Helper type checking functions
 function isArc2d(obj) { return obj && typeof obj === 'object' && obj.kind === 'arc'; }
 function isBezier2d(obj) { return obj?.kind === 'bezier'; }
 function isEllipse2d(obj) { return obj?.kind === 'ellipse'; }
@@ -14,382 +21,105 @@ function isLine2d(obj) { return obj?.kind === 'line'; }
 function isPolyline2d(obj) { return obj?.kind === 'polyline'; }
 function isRegularStar2d(obj) { return obj?.kind === 'star'; }
 function isRect2d(obj) { return obj?.kind === 'rect'; }
-function isRoundedRect2d(obj) { return obj?.kind === 'rounded_rect'; }
+function isRoundedRect2d(obj) { return obj?.kind === 'roundedrect'; }
 function isOffset2d(obj) { return obj?.kind === 'offset'; }
 function isMirror2d(obj) { return obj?.kind === 'mirror'; }
 function isTransform2d(obj) { return obj?.kind === 'transform'; }
 function isSpiral2d(obj) { return obj?.kind === 'spiral'; }
-function isKochSnowflake2d(obj) { return obj?.kind === 'koch_snowflake'; }
-
-//console.log(arc2d(0, 2.2, 0.8, 0, Math.PI, false, 18));
-
+function isKochSnowflake2d(obj) { return obj?.kind === 'kochsnowflake'; }
 
 export class FixedTemplateProcessor {
   constructor(evaluator) {
     this.evaluator = evaluator;
   }
 
-  process(tpl, params, expr = {}, parentCtx = {}) {
-    const ctx = this._resolveParams(params, expr, parentCtx);
-    return this._walk(tpl, ctx);
+  process(template = [], parameters = {}, expressions = {}, context = {}) {
+    return this._walk(template, context);
   }
 
-  _walk(list, ctx) {
-  const out = [];
-  for (const item of list) {
-    if (item.type === 'repeat') {
-      out.push(...this._repeat(item, ctx));
-    } else if (Array.isArray(item)) {
-      for (const subItem of item) {
-        const processed = this._item(subItem, ctx);
-        if (Array.isArray(processed)) {
-          out.push(...processed);
-        } else if (processed && typeof processed === 'object') {
-          // If it's a group, recursively process its children and add them to out
-          if (processed.type === 'group' && Array.isArray(processed.children)) {
-            processed.children = this._walk(processed.children, ctx);
-          }
-          out.push(processed);
-        }
-      }
-    } else {
-      const processed = this._item(item, ctx);
-      if (Array.isArray(processed)) {
-        out.push(...processed);
-      } else if (processed && typeof processed === 'object') {
-        if (processed.type === 'group' && Array.isArray(processed.children)) {
-          processed.children = this._walk(processed.children, ctx);
-        }
-        out.push(processed);
-      }
-    }
-  }
-  return out;
-}
-
-
-  _repeat(rep, ctx) {
-    const count = this.evaluator.evaluate(rep.count, ctx);
-    const distro = distributionPlugins[rep.distribution?.type];
-    const poses = distro ? distro(rep.distribution, count, ctx, this.evaluator) : Array(count).fill([0, 0, 0]);
-    const res = [];
-    for (let i = 0; i < count; i++) {
-      const subCtx = { ...ctx, index: i };
-      if (rep.instance_parameters) {
-        for (const [k, expr] of Object.entries(rep.instance_parameters))
-          subCtx[k] = this.evaluator.evaluate(expr, subCtx);
-      }
-      res.push({
-        type: 'group',
-        id: `${rep.id}_${i}`,
-        position: poses[i],
-        children: this._walk(rep.children, subCtx)
-      });
-    }
-    return res;
-  }
-
-  _expandArcsInArray(arr, ctx) {
+  _walk(children, ctx) {
     const out = [];
-    for (let elem of arr) {
-      if (isArc2d(elem)) {
-        const cx = this.evaluator.evaluate(elem.cx, ctx);
-        const cy = this.evaluator.evaluate(elem.cy, ctx);
-        const r = this.evaluator.evaluate(elem.r, ctx);
-        const a0 = this.evaluator.evaluate(elem.a0, ctx);
-        const a1 = this.evaluator.evaluate(elem.a1, ctx);
-        const segments =
-          elem.segments !== undefined
-            ? this.evaluator.evaluate(elem.segments, ctx)
-            : 12;
-        const clockwise =
-          elem.clockwise !== undefined
-            ? !!this.evaluator.evaluate(elem.clockwise, ctx)
-            : false;
-        out.push(...arc2d(cx, cy, r, a0, a1, clockwise, segments));
-      } else if (isBezier2d(elem)) {
-    const points = elem.points.map(p => 
-        Array.isArray(p) ? p.map(v => this.evaluator.evaluate(v, ctx)) : p
-    );
-    const segments = elem.segments !== undefined 
-        ? this.evaluator.evaluate(elem.segments, ctx) 
-        : 24;
-    out.push(...bezier2d(points, segments));
-} else if (isEllipse2d(elem)) {
-    const cx = this.evaluator.evaluate(elem.cx, ctx);
-    const cy = this.evaluator.evaluate(elem.cy, ctx);
-    const rx = this.evaluator.evaluate(elem.rx, ctx);
-    const ry = this.evaluator.evaluate(elem.ry, ctx);
-    const a0 = elem.a0 !== undefined 
-        ? this.evaluator.evaluate(elem.a0, ctx) 
-        : 0;
-    const a1 = elem.a1 !== undefined 
-        ? this.evaluator.evaluate(elem.a1, ctx) 
-        : 2 * Math.PI;
-    const segments = elem.segments !== undefined 
-        ? this.evaluator.evaluate(elem.segments, ctx) 
-        : 24;
-    out.push(...ellipse2d(cx, cy, rx, ry, a0, a1, segments));
-} else if (isPolygon2d(elem)) {
-    const cx = this.evaluator.evaluate(elem.cx, ctx);
-    const cy = this.evaluator.evaluate(elem.cy, ctx);
-    const r = this.evaluator.evaluate(elem.r, ctx);
-    const sides = elem.sides !== undefined 
-        ? this.evaluator.evaluate(elem.sides, ctx) 
-        : 3;
-    const rotation = elem.rotation !== undefined 
-        ? this.evaluator.evaluate(elem.rotation, ctx) 
-        : 0;
-    out.push(...polygon2d(cx, cy, r, sides, rotation));
-} else if (isSpline2d(elem)) {
-    const points = elem.points.map(p => 
-        Array.isArray(p) ? p.map(v => this.evaluator.evaluate(v, ctx)) : p
-    );
-    const segments = elem.segments !== undefined 
-        ? this.evaluator.evaluate(elem.segments, ctx) 
-        : 32;
-    const tension = elem.tension !== undefined 
-        ? this.evaluator.evaluate(elem.tension, ctx) 
-        : 0.5;
-    out.push(...catmullRom2d(points, segments, tension));
-}
-
-    // --- New: ---
-    else if (isLine2d(elem)) {
-      const [p0, p1, segments] = [elem.p0, elem.p1, elem.segments ?? 1].map(e => 
-        (typeof e === 'string' ? this.evaluator.evaluate(e, ctx) : e)
-      );
-      out.push(...line2d(p0, p1, segments));
-    } else if (isPolyline2d(elem)) {
-      out.push(...polyline2d(elem.points));
-    } else if (isRegularStar2d(elem)) {
-      out.push(...regularStar2d(
-        this.evaluator.evaluate(elem.cx, ctx),
-        this.evaluator.evaluate(elem.cy, ctx),
-        this.evaluator.evaluate(elem.rOuter, ctx),
-        this.evaluator.evaluate(elem.rInner, ctx),
-        this.evaluator.evaluate(elem.points, ctx),
-        elem.rotation ? this.evaluator.evaluate(elem.rotation, ctx) : 0
-      ));
-    } else if (isRect2d(elem)) {
-      out.push(...rect2d(
-        this.evaluator.evaluate(elem.cx, ctx),
-        this.evaluator.evaluate(elem.cy, ctx),
-        this.evaluator.evaluate(elem.width, ctx),
-        this.evaluator.evaluate(elem.height, ctx),
-        elem.rotation ? this.evaluator.evaluate(elem.rotation, ctx) : 0
-      ));
-    } else if (isRoundedRect2d(elem)) {
-      out.push(...roundedRect2d(
-        this.evaluator.evaluate(elem.cx, ctx),
-        this.evaluator.evaluate(elem.cy, ctx),
-        this.evaluator.evaluate(elem.width, ctx),
-        this.evaluator.evaluate(elem.height, ctx),
-        this.evaluator.evaluate(elem.r, ctx),
-        elem.segments ? this.evaluator.evaluate(elem.segments, ctx) : 8,
-        elem.rotation ? this.evaluator.evaluate(elem.rotation, ctx) : 0
-      ));
-    } else if (isOffset2d(elem)) {
-      out.push(...offset2d(
-        elem.points,
-        this.evaluator.evaluate(elem.distance, ctx)
-      ));
-    } else if (isMirror2d(elem)) {
-      out.push(...mirror2d(
-        elem.points,
-        elem.axis || 'x',
-        elem.value !== undefined ? this.evaluator.evaluate(elem.value, ctx) : 0
-      ));
-    } else if (isTransform2d(elem)) {
-      out.push(...transform2d(
-        elem.points,
-        elem.matrix
-      ));
-    } else if (isSpiral2d(elem)) {
-      out.push(...spiral2d(
-        this.evaluator.evaluate(elem.cx, ctx),
-        this.evaluator.evaluate(elem.cy, ctx),
-        this.evaluator.evaluate(elem.r0, ctx),
-        this.evaluator.evaluate(elem.turns, ctx),
-        elem.expansion ? this.evaluator.evaluate(elem.expansion, ctx) : 1,
-        elem.pointsPerTurn ? this.evaluator.evaluate(elem.pointsPerTurn, ctx) : 24
-      ));
-    } else if (isKochSnowflake2d(elem)) {
-      out.push(...kochSnowflake2d(
-        elem.p0,
-        elem.p1,
-        elem.level !== undefined ? this.evaluator.evaluate(elem.level, ctx) : 3
-      ));
-    } else if (
-        Array.isArray(elem) &&
-        elem.length === 2 &&
-        typeof elem[0] !== 'object' &&
-        typeof elem[1] !== 'object'
-      ) {
-        // [x, y] point
-        out.push(
-          elem.map(v => (typeof v === 'string' ? this.evaluator.evaluate(v, ctx) : v))
-        );
-      } else if (Array.isArray(elem)) {
-        // Nested path/hole—recurse and flatten
-        out.push(...this._expandArcsInArray(elem, ctx));
-      } // else: skip
+    for (const it of children) {
+      if (it.type === 'group') {
+        out.push(this._group(it, ctx));
+      } else if (it.type === 'repeat') {
+        out.push(...this._repeat(it, ctx));
+      } else {
+        out.push(this._item(it, ctx));
+      }
     }
     return out;
   }
 
-  _compilePathSpec(spec) {
-    if (!spec || typeof spec !== 'object') return null;
-    // Compose a single array of points
-    if (spec.type === 'points' && Array.isArray(spec.points)) {
-      const pts = spec.points.map(p =>
-        new THREE.Vector3(
-          Number(p[0]) || 0,
-          Number(p[1]) || 0,
-          Number(p[2]) || 0
-        )
-      );
-      return new THREE.CatmullRomCurve3(pts, !!spec.closed, spec.curveType || 'centripetal', spec.tension ?? 0.5);
-    }
-    if (spec.type === 'segments' && Array.isArray(spec.segments)) {
-      let pos = spec.start && Array.isArray(spec.start) ? new THREE.Vector3(
-        Number(spec.start[0]) || 0,
-        Number(spec.start[1]) || 0,
-        Number(spec.start[2]) || 0
-      ) : new THREE.Vector3(0, 0, 0);
-      let dir = new THREE.Vector3(1, 0, 0);
-
-      const pathPoints = [pos.clone()];
-      for (const s of spec.segments) {
-        if (s.kind === 'line') {
-          const d = Array.isArray(s.direction)
-            ? new THREE.Vector3(Number(s.direction[0]) || 0, Number(s.direction[1]) || 0, Number(s.direction[2]) || 0).normalize()
-            : dir.clone();
-          const end = pos.clone().add(d.multiplyScalar(s.length || 0));
-          pathPoints.push(end.clone());
-          dir = end.clone().sub(pos).normalize();
-          pos = end;
-        } else if (s.kind === 'turn') {
-          const angle = (s.angle || 0) * Math.PI / 180;
-          const radius = Math.max(0.001, s.radius || 0.001);
-          const up = new THREE.Vector3(0, 1, 0);
-          const right = new THREE.Vector3().crossVectors(dir, up).normalize();
-          const sign = Math.sign(angle);
-          const center = pos.clone().add(right.multiplyScalar(radius * sign));
-          const startAng = Math.atan2(pos.z - center.z, pos.x - center.x);
-          const endAng = startAng + angle;
-          const segments = Math.max(8, Math.floor(Math.abs(angle) / (Math.PI / 24)));
-          for (let i = 1; i <= segments; i++) {
-            const t = i / segments;
-            const a = startAng + (endAng - startAng) * t;
-            pathPoints.push(new THREE.Vector3(center.x + radius * Math.cos(a), pos.y, center.z + radius * Math.sin(a)));
-          }
-          pos = pathPoints[pathPoints.length - 1].clone();
-          dir = new THREE.Vector3(Math.cos(endAng + Math.PI / 2), 0, Math.sin(endAng + Math.PI / 2)).normalize();
-        } else if (s.kind === 'elevation') {
-          let end = pos.clone().add(dir.clone().multiplyScalar(s.length || 0));
-          if (typeof s.endHeight === 'number') end.y = s.endHeight;
-          pathPoints.push(end.clone());
-          pos = end;
-          dir = end.clone().sub(pathPoints[pathPoints.length - 2]).normalize();
-        }
-      }
-      // Result: CatmullRomCurve3 for smooth interpolation
-      return new THREE.CatmullRomCurve3(pathPoints, false, 'centripetal', 0.5);
-    }
-    return null;
-  }
-
-
-  // Helper method to recursively evaluate all expressions in nested structures
-  _evaluateRecursively(value, ctx) {
-    if (value === null || value === undefined) return value;
-    if (typeof value === 'string') {
-      if (
-        value.includes('$') ||
-        value.includes('if(') ||
-        value.includes('mod(')
-      ) {
-        return this.evaluator.evaluate(value, ctx);
-      }
-      return value;
-    }
-    if (typeof value === 'number' || typeof value === 'boolean') {
-      return value;
-    }
-    if (Array.isArray(value)) {
-      return value.map(item => this._evaluateRecursively(item, ctx));
-    }
-    if (typeof value === 'object') {
-      const ctor = value.constructor?.name;
-      if (
-        ctor === 'CurvePath' ||
-        ctor?.endsWith('Curve3') ||
-        ctor?.endsWith('Curve')
-      ) {
-        return value;
-      }
-      if (value.__spellshape_path === true) {
-        return this._compilePathSpec(value.spec);
-      }
-      const result = {};
-      for (const [key, val] of Object.entries(value)) {
-        result[key] = this._evaluateRecursively(val, ctx);
-      }
-      return result;
-    }
-    return value;
-  }
-
-  _deepEvaluate(value, ctx) {
-    return this._evaluateRecursively(value, ctx);
-  }
-
+  /* ========== GEOMETRY-FIRST: Handle helper3d nodes ========== */
   _item(it, ctx) {
     const node = { ...it };
 
-    // Handle string expressions that might return arrays
-  if (node.type === 'helper3d') {
-    const helperFn = this.evaluator.functions[node.helper];
-    if (!helperFn) {
-      console.warn(`Helper function ${node.helper} not found`);
-      return [];
-    }
-    
-    // Evaluate all params
-    const evaluatedParams = {};
-    for (const [key, value] of Object.entries(node.params)) {
-      if (typeof value === 'string' && value.startsWith('$')) {
-  evaluatedParams[key] = this.evaluator.evaluate(value, ctx);
-} else if (Array.isArray(value)) {
-  evaluatedParams[key] = value.map(v => 
-    (typeof v === 'string' && v.includes('$'))
-      ? this.evaluator.evaluate(v, ctx)
-      : v
-  );
-} else {
-  evaluatedParams[key] = value;
-}
-    }
-    
-    // Call the helper function and return the array of objects
-    try {
-  const result = helperFn(evaluatedParams);
-  // Handle both "group" object and array return types:
-  if (result && typeof result === 'object' && result.type === 'group') {
-    return result; // Pass group node through
-  }
-  return Array.isArray(result) ? result : [];
-} catch (e) {
-  console.error(`Error calling helper ${node.helper}:`, e);
-  return [];
-}
-  }
+    // NEW: Handle helper3d nodes - recursively evaluate params including nested helpers
+    if (node.type === 'helper3d') {
+      const helperFn = this.evaluator.functions[node.helper];
+      if (!helperFn) {
+        console.warn(`Helper function ${node.helper} not found`);
+        return { type: 'group', id: node.id || 'unknown', children: [] };
+      }
 
+      // Recursively evaluate all params (handles nested helper3d calls)
+      const evaluatedParams = {};
+      for (const [key, value] of Object.entries(node.params || {})) {
+        evaluatedParams[key] = this._evaluateParam(value, ctx);
+      }
+
+      // Call the helper function
+      try {
+        const result = helperFn(evaluatedParams);
+
+        // Extract id from params (where it actually is)
+        const resultId = evaluatedParams.id || node.id || node.helper;
+
+        let material = node.material;
+        if (material && typeof material === 'string') {
+          // If it contains conditionals, evaluate it
+          if (material.includes('if(') || material.includes('$') || material.includes('mod(')) {
+            material = this.evaluator.evaluate(material, ctx);
+          }
+        }
+
+
+        // Return a marker that tells sceneBuilder this is a geometry object
+        return {
+          type: '__helper3d_result',
+          id: resultId,
+          geometryObject: result,
+          originalHelper: node.helper,
+          material: material
+        };
+      } catch (e) {
+        console.error(`Error calling helper ${node.helper}:`, e);
+        return { type: 'group', id: node.id || 'error', children: [] };
+      }
+    }
+
+    // Handle reference nodes (for cloning stored objects)
+    if (node.type === 'reference') {
+      const { target } = node;
+      if (!target) {
+        console.warn('reference node missing target:', node);
+        return { type: 'group', id: node.id || 'empty_ref', children: [] };
+      }
+
+      return {
+        type: '__reference',
+        id: node.id || `ref_${target}`,
+        target: target,
+        position: node.position,
+        rotation: node.rotation,
+        scale: node.scale
+      };
+    }
+
+    // Handle standard geometry nodes (box, extrude, etc.)
     if (node.dimensions) {
-      // Step 1: Evaluate all expressions, so all values are numbers/objects, not strings
       node.dimensions = this._deepEvaluate(node.dimensions, ctx);
-      // Step 2: Expand any arcs in outer/hole arrays
       if (node.dimensions.outer)
         node.dimensions.outer = this._expandArcsInArray(node.dimensions.outer, ctx);
       if (node.dimensions.holes)
@@ -397,6 +127,7 @@ export class FixedTemplateProcessor {
           this._expandArcsInArray(h, ctx)
         );
     }
+
     if (node.position)
       node.position = node.position.map(p => this.evaluator.evaluate(p, ctx));
     if (node.rotation)
@@ -416,12 +147,163 @@ export class FixedTemplateProcessor {
     return node;
   }
 
-  _resolveParams(p, expr, parent) {
-    const ctx = { ...parent };
-    for (const [k, v] of Object.entries(p))
-      ctx[k] = (v && v.value !== undefined) ? v.value : this.evaluator.evaluate(v, ctx);
-    for (const [k, e] of Object.entries(expr || {}))
-      ctx[k] = this.evaluator.evaluate(e, ctx);
-    return ctx;
+  /* ========== GEOMETRY-FIRST: Recursively evaluate parameters ========== */
+  _evaluateParam(value, ctx) {
+    // If it's a helper3d descriptor, call it and return the geometry
+    if (typeof value === 'object' && value !== null && value.type === 'helper3d') {
+      const helperFn = this.evaluator.functions[value.helper];
+      if (!helperFn) {
+        console.warn(`Nested helper ${value.helper} not found`);
+        return null;
+      }
+
+      // Recursively evaluate nested helper params
+      const evaluatedParams = { ...ctx };  // ← Pass context as base!
+      for (const [key, val] of Object.entries(value.params || {})) {
+        evaluatedParams[key] = this._evaluateParam(val, ctx);
+      }
+
+      // Call the helper and return the actual THREE.js object
+      try {
+        return helperFn(evaluatedParams);
+      } catch (e) {
+        console.error(`Error calling nested helper ${value.helper}:`, e);
+        return null;
+      }
+    }
+
+    // If it's a reference, return marker for sceneBuilder to resolve
+    if (typeof value === 'object' && value !== null && value.type === 'reference') {
+      return { __reference: value.target };
+    }
+
+    // If it's a string with $variable or function call, evaluate it
+    if (typeof value === 'string') {
+      if (value.includes('$') || value.includes('(')) {
+        return this.evaluator.evaluate(value, ctx);
+      }
+      return value;
+    }
+
+    // If it's an array, recursively evaluate each element
+    if (Array.isArray(value)) {
+      return value.map(v => this._evaluateParam(v, ctx));
+    }
+
+    // If it's an object, recursively evaluate properties
+    if (typeof value === 'object' && value !== null) {
+      const evaluated = {};
+      for (const [key, val] of Object.entries(value)) {
+        evaluated[key] = this._evaluateParam(val, ctx);
+      }
+      return evaluated;
+    }
+
+    // Otherwise return as-is (numbers, booleans, null)
+    return value;
+  }
+
+  _group(g, ctx) {
+    return {
+      ...g,
+      children: this._walk(g.children || [], ctx)
+    };
+  }
+
+  _repeat(rep, ctx) {
+    const count = this.evaluator.evaluate(rep.count, ctx);
+
+    // Get distribution plugin
+    const distro = distributionPlugins[rep.distribution?.type];
+
+    // Calculate positions
+    const poses = distro
+      ? distro(rep.distribution, count, ctx, this.evaluator)
+      : Array(count).fill([0, 0, 0]);
+
+    const res = [];
+    for (let i = 0; i < count; i++) {
+      const subCtx = { ...ctx, index: i };
+      if (rep.instance_parameters) {
+        for (const [k, expr] of Object.entries(rep.instance_parameters))
+          subCtx[k] = this.evaluator.evaluate(expr, subCtx);
+      }
+      res.push({
+        type: 'group',
+        id: `${rep.id}_${i}`,
+        position: poses[i],
+        children: this._walk(rep.children, subCtx)
+      });
+    }
+    return res;
+  }
+
+  _deepEvaluate(obj, ctx) {
+    if (typeof obj === 'string') return this.evaluator.evaluate(obj, ctx);
+    if (typeof obj === 'number') return obj;
+    if (Array.isArray(obj)) return obj.map(item => this._deepEvaluate(item, ctx));
+    if (obj && typeof obj === 'object') {
+      const out = {};
+      for (const [k, v] of Object.entries(obj)) {
+        out[k] = this._deepEvaluate(v, ctx);
+      }
+      return out;
+    }
+    return obj;
+  }
+
+  _expandArcsInArray(arr, ctx) {
+    const result = [];
+    for (const item of arr) {
+      if (isArc2d(item)) {
+        const pts = arc2d(item);
+        result.push(...pts);
+      } else if (isBezier2d(item)) {
+        const pts = bezier2d(item);
+        result.push(...pts);
+      } else if (isEllipse2d(item)) {
+        const pts = ellipse2d(item);
+        result.push(...pts);
+      } else if (isPolygon2d(item)) {
+        const pts = polygon2d(item);
+        result.push(...pts);
+      } else if (isSpline2d(item)) {
+        const pts = catmullRom2d(item);
+        result.push(...pts);
+      } else if (isLine2d(item)) {
+        const pts = line2d(item);
+        result.push(...pts);
+      } else if (isPolyline2d(item)) {
+        const pts = polyline2d(item);
+        result.push(...pts);
+      } else if (isRegularStar2d(item)) {
+        const pts = regularStar2d(item);
+        result.push(...pts);
+      } else if (isRect2d(item)) {
+        const pts = rect2d(item);
+        result.push(...pts);
+      } else if (isRoundedRect2d(item)) {
+        const pts = roundedRect2d(item);
+        result.push(...pts);
+      } else if (isOffset2d(item)) {
+        const pts = offset2d(item);
+        result.push(...pts);
+      } else if (isMirror2d(item)) {
+        const pts = mirror2d(item);
+        result.push(...pts);
+      } else if (isTransform2d(item)) {
+        const pts = transform2d(item);
+        result.push(...pts);
+      } else if (isSpiral2d(item)) {
+        const pts = spiral2d(item);
+        result.push(...pts);
+      } else if (isKochSnowflake2d(item)) {
+        const pts = kochSnowflake2d(item);
+        result.push(...pts);
+      } else {
+        result.push(this._deepEvaluate(item, ctx));
+      }
+    }
+    return result;
   }
 }

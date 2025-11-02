@@ -34,7 +34,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     allowedHosts: [
-      "5173--019a10a9-bd2f-7269-ba49-543507bf6565.eu-central-1-01.gitpod.dev"
+      "5173--019a115e-d261-7558-871b-add81087f321.eu-central-1-01.gitpod.dev"
     ]
   }
 });
