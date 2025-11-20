@@ -3,7 +3,7 @@
 // ============================================================================
 
 import * as THREE from 'three';
-import * as helpers3d from './helpers3d_core.js';
+import * as helpers from './helpers3d_core.js';
 import * as helpers2d from './helpers2d.js';
 import { FixedExpressionEvaluator } from './evaluator.js';
 import { FixedMaterialManager } from './materials.js';
@@ -11,8 +11,8 @@ import { FixedMaterialManager } from './materials.js';
 // procedural-executor.js - Updated for Emergent Architecture
 // Supports both v3.2 (backward compatible) and v4.0 (new format)
 
-import * as THREE from 'three';
-import * as helpers from './helpers3d_core.js';
+// import * as THREE from 'three';
+// import * as helpers from './helpers3d_core.js';
 
 export class ProceduralExecutor {
     constructor(scene) {
