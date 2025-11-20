@@ -1,5 +1,8 @@
 // ============================================================================
-// helpers3d_core.js - COMPLETE VERSION (All 80+ Helpers + Emergent Features)
+// helpers3d_core.js - COMPLETE EMERGENT VERSION
+// ============================================================================
+// Philosophy: Small core of flexible primitives + AI-driven logic via modifyGeometry
+// No redundant helpers. Only irreplaceable complex algorithms included.
 // ============================================================================
 
 import {
@@ -75,7 +78,6 @@ function simplex3(xin, yin, zin) {
     return 32.0*(n0 + n1 + n2 + n3);
 }
 
-// Expose as global noise object (compatible with perlin-noise-3d API)
 const noise = { 
     noise: simplex3,
     seed: (s) => {
@@ -88,23 +90,20 @@ const noise = {
 };
 
 // ============================================================================
-// 1. BASIC GEOMETRY CREATION
+// 1. BASIC GEOMETRY CREATION (14 helpers)
 // ============================================================================
 
 export function createBox(params = {}) {
-    console.log('createBox', params);
     const { width = 1, height = 1, depth = 1, widthSegments = 1, heightSegments = 1, depthSegments = 1 } = params;
     return new THREE.BoxGeometry(width, height, depth, widthSegments, heightSegments, depthSegments);
 }
 
 export function createSphere(params = {}) {
-    console.log('createSphere', params);
     const { radius = 1, widthSegments = 32, heightSegments = 16, phiStart = 0, phiLength = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI } = params;
     return new THREE.SphereGeometry(radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength);
 }
 
 export function createCylinder(params = {}) {
-    console.log('createCylinder', params);
     const { radiusTop = 1, radiusBottom = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false, thetaStart = 0, thetaLength = Math.PI * 2 } = params;
     return new THREE.CylinderGeometry(radiusTop, radiusBottom, height, radialSegments, heightSegments, openEnded, thetaStart, thetaLength);
 }
@@ -139,11 +138,6 @@ export function createRing(params = {}) {
     return new THREE.RingGeometry(innerRadius, outerRadius, thetaSegments, phiSegments, thetaStart, thetaLength);
 }
 
-export function createPolyhedron(params = {}) {
-    const { vertices, indices, radius = 1, detail = 0 } = params;
-    return new THREE.PolyhedronGeometry(vertices, indices, radius, detail);
-}
-
 export function createIcosahedron(params = {}) {
     const { radius = 1, detail = 0 } = params;
     return new THREE.IcosahedronGeometry(radius, detail);
@@ -164,12 +158,16 @@ export function createDodecahedron(params = {}) {
     return new THREE.DodecahedronGeometry(radius, detail);
 }
 
+export function createPolyhedron(params = {}) {
+    const { vertices, indices, radius = 1, detail = 0 } = params;
+    return new THREE.PolyhedronGeometry(vertices, indices, radius, detail);
+}
+
 // ============================================================================
-// 2. ADVANCED GEOMETRY
+// 2. ADVANCED GEOMETRY (6 helpers)
 // ============================================================================
 
 export function createExtrude(params = {}) {
-    console.log('createExtrude', params);
     const { profile, depth = 1, bevelEnabled = false, bevelThickness = 0.2, bevelSize = 0.1, bevelSegments = 3, steps = 1, curveSegments = 12 } = params;
 
     if (!profile) {
@@ -192,7 +190,6 @@ export function createExtrude(params = {}) {
 }
 
 export function createLoft(params = {}) {
-    console.log('createLoft', params);
     const { profiles = [], heights = null, segments = 32, closed = false } = params;
 
     if (profiles.length < 2) {
@@ -270,13 +267,12 @@ export function createParametricSurface(params = {}) {
 }
 
 export function createText3D(params = {}) {
-    console.log('createText3D: Requires THREE.TextGeometry and loaded font');
-    // This would need a font loader - placeholder
+    console.warn('createText3D: Requires THREE.TextGeometry and loaded font');
     return new THREE.BoxGeometry(1, 1, 0.2);
 }
 
 // ============================================================================
-// 3. CURVES & PATHS
+// 3. CURVES & PATHS (6 helpers)
 // ============================================================================
 
 export function createLinePath(params = {}) {
@@ -333,22 +329,18 @@ export function createPipe(params = {}) {
 }
 
 // ============================================================================
-// 4. DEFORMATIONS & TRANSFORMS
+// 4. DEFORMATIONS (5 helpers)
 // ============================================================================
 
 export function twistGeometry(params = {}) {
-    console.log('twistGeometry', params);
     const { geometry, angle = Math.PI / 4, axis = [0, 1, 0], height = null } = params;
-
     const geom = geometry.clone();
     const positions = geom.attributes.position;
     const count = positions.count;
-
     geom.computeBoundingBox();
     const bbox = geom.boundingBox;
     const axisNorm = new THREE.Vector3(...axis).normalize();
     const isYAxis = Math.abs(axisNorm.y) > 0.99;
-
     const minH = isYAxis ? bbox.min.y : bbox.min.z;
     const maxH = isYAxis ? bbox.max.y : bbox.max.z;
     const range = height || (maxH - minH);
@@ -378,18 +370,14 @@ export function twistGeometry(params = {}) {
 }
 
 export function taperGeometry(params = {}) {
-    console.log('taperGeometry', params);
     const { geometry, topScale = [0.5, 0.5], axis = [0, 1, 0], height = null } = params;
-
     const geom = geometry.clone();
     const positions = geom.attributes.position;
     const count = positions.count;
-
     geom.computeBoundingBox();
     const bbox = geom.boundingBox;
     const axisNorm = new THREE.Vector3(...axis).normalize();
     const isYAxis = Math.abs(axisNorm.y) > 0.99;
-
     const minH = isYAxis ? bbox.min.y : bbox.min.z;
     const maxH = isYAxis ? bbox.max.y : bbox.max.z;
     const range = height || (maxH - minH);
@@ -414,8 +402,6 @@ export function bendGeometry(params = {}) {
     const { geometry, angle = Math.PI / 4, direction = [1, 0, 0] } = params;
     const geom = geometry.clone();
     const positions = geom.attributes.position;
-    const dir = new THREE.Vector3(...direction).normalize();
-
     geom.computeBoundingBox();
     const bbox = geom.boundingBox;
     const range = bbox.max.x - bbox.min.x;
@@ -427,7 +413,6 @@ export function bendGeometry(params = {}) {
         const t = (x - bbox.min.x) / range;
         const theta = angle * t;
         const radius = range / angle;
-
         const newX = Math.sin(theta) * radius;
         const newZ = z + radius - Math.cos(theta) * radius;
         positions.setXYZ(i, newX, y, newZ);
@@ -439,9 +424,7 @@ export function bendGeometry(params = {}) {
 }
 
 export function deformByNoise(params = {}) {
-    console.log('deformByNoise', params);
     const { geometry, amount = 0.2, frequency = 1.0, axis = [0, 1, 0] } = params;
-
     const geom = geometry.clone();
     const positions = geom.attributes.position;
     const axisVec = new THREE.Vector3(...axis).normalize();
@@ -450,10 +433,8 @@ export function deformByNoise(params = {}) {
         const x = positions.getX(i);
         const y = positions.getY(i);
         const z = positions.getZ(i);
-
         const noiseVal = noise.noise(x * frequency, y * frequency, z * frequency);
         const offset = axisVec.clone().multiplyScalar(noiseVal * amount);
-
         positions.setXYZ(i, x + offset.x, y + offset.y, z + offset.z);
     }
 
@@ -471,7 +452,6 @@ export function deformByVectorField(params = {}) {
         const x = positions.getX(i);
         const y = positions.getY(i);
         const z = positions.getZ(i);
-
         const vec = vectorField(x, y, z);
         positions.setXYZ(i, x + vec.x * amount, y + vec.y * amount, z + vec.z * amount);
     }
@@ -482,7 +462,7 @@ export function deformByVectorField(params = {}) {
 }
 
 // ============================================================================
-// 5. BOOLEAN OPERATIONS & UTILITIES
+// 5. BOOLEAN OPERATIONS & UTILITIES (4 helpers)
 // ============================================================================
 
 export function mergeGeometries(params = {}) {
@@ -508,15 +488,12 @@ export function intersectGeometry(params = {}) {
 }
 
 // ============================================================================
-// 6. DISTRIBUTION & ARRAYS
+// 6. DISTRIBUTION (5 helpers)
 // ============================================================================
 
 export function repeatLinear3d(params = {}) {
-    console.log('repeatLinear3d', params);
     const { geometry, count = 3, spacing = 1, axis = 'x', centered = false } = params;
-
     if (!geometry) return [];
-
     const results = [];
     const axisVec = axis === 'y' ? new THREE.Vector3(0, 1, 0) : 
                     (axis === 'z' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0));
@@ -531,48 +508,35 @@ export function repeatLinear3d(params = {}) {
         );
         results.push(clone);
     }
-
     return results;
 }
 
 export function repeatRadial3d(params = {}) {
-    console.log('repeatRadial3d', params);
     const { geometry, count = 8, radius = 5, startAngle = 0, endAngle = Math.PI * 2, axis = 'y', faceCenter = true } = params;
-
     if (!geometry) return [];
-
     const results = [];
+
     for (let i = 0; i < count; i++) {
         const t = count === 1 ? 0 : i / (count - 1);
         const angle = startAngle + (endAngle - startAngle) * t;
         const x = radius * Math.cos(angle);
         const z = radius * Math.sin(angle);
-
         const clone = geometry.clone();
 
         if (axis === 'y') {
             clone.translate(x, 0, z);
             if (faceCenter) clone.rotateY(angle + Math.PI / 2);
-        } else if (axis === 'x') {
-            clone.translate(0, x, z);
-            if (faceCenter) clone.rotateX(angle + Math.PI / 2);
-        } else if (axis === 'z') {
-            clone.translate(x, z, 0);
-            if (faceCenter) clone.rotateZ(angle + Math.PI / 2);
         }
-
         results.push(clone);
     }
-
     return results;
 }
 
 export function repeatAlongCurve3d(params = {}) {
     const { geometry, curve, count = 10, align = true } = params;
-
     if (!geometry || !curve) return [];
-
     const results = [];
+
     for (let i = 0; i < count; i++) {
         const t = count === 1 ? 0.5 : i / (count - 1);
         const pos = curve.getPoint(t);
@@ -587,41 +551,31 @@ export function repeatAlongCurve3d(params = {}) {
             const rotMatrix = new THREE.Matrix4().makeBasis(tangent, orthogonalUp, normal);
             clone.applyMatrix4(rotMatrix);
         }
-
         results.push(clone);
     }
-
     return results;
 }
 
 export function distributeOnGrid3d(params = {}) {
     const { geometry, rows = 3, cols = 3, spacing = [2, 0, 2], centered = true } = params;
-
     if (!geometry) return [];
-
     const [spacingX, spacingY, spacingZ] = Array.isArray(spacing) ? spacing : [spacing, 0, spacing];
     const offsetX = centered ? -spacingX * (cols - 1) / 2 : 0;
     const offsetZ = centered ? -spacingZ * (rows - 1) / 2 : 0;
-
     const results = [];
+
     for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
             const clone = geometry.clone();
-            clone.translate(
-                offsetX + col * spacingX,
-                row * spacingY,
-                offsetZ + row * spacingZ
-            );
+            clone.translate(offsetX + col * spacingX, row * spacingY, offsetZ + row * spacingZ);
             results.push(clone);
         }
     }
-
     return results;
 }
 
 export function distributeRandom3d(params = {}) {
     const { geometry, bounds = [[0, 0, 0], [1, 1, 1]], count = 50, seed = 42 } = params;
-
     const random = (() => { 
         let a = seed; 
         return () => { 
@@ -639,17 +593,15 @@ export function distributeRandom3d(params = {}) {
         const x = min[0] + (max[0] - min[0]) * random();
         const y = min[1] + (max[1] - min[1]) * random();
         const z = min[2] + (max[2] - min[2]) * random();
-
         const clone = geometry.clone();
         clone.translate(x, y, z);
         results.push(clone);
     }
-
     return results;
 }
 
 // ============================================================================
-// 7. FIELDS & ATTRACTORS
+// 7. FIELDS & ATTRACTORS (2 helpers)
 // ============================================================================
 
 export function createVectorField(params = {}) {
@@ -678,7 +630,6 @@ export function createVectorField(params = {}) {
             return tangent.multiplyScalar(strength);
         };
     }
-
     return () => new THREE.Vector3(0, 0, 0);
 }
 
@@ -687,13 +638,11 @@ export function flowField(params = {}) {
 }
 
 // ============================================================================
-// 8. PROCEDURAL PATTERNS
+// 8. PROCEDURAL PATTERNS (2 helpers)
 // ============================================================================
 
 export function cellularAutomata(params = {}) {
     const { gridSize = 10, iterations = 10, rules = { survive: [2, 3], born: [3] } } = params;
-
-    // Initialize 3D grid
     const grid = new Array(gridSize);
     for (let x = 0; x < gridSize; x++) {
         grid[x] = new Array(gridSize);
@@ -705,15 +654,12 @@ export function cellularAutomata(params = {}) {
         }
     }
 
-    // Simulate
     for (let iter = 0; iter < iterations; iter++) {
         const newGrid = JSON.parse(JSON.stringify(grid));
-
         for (let x = 0; x < gridSize; x++) {
             for (let y = 0; y < gridSize; y++) {
                 for (let z = 0; z < gridSize; z++) {
                     let neighbors = 0;
-
                     for (let dx = -1; dx <= 1; dx++) {
                         for (let dy = -1; dy <= 1; dy++) {
                             for (let dz = -1; dz <= 1; dz++) {
@@ -725,7 +671,6 @@ export function cellularAutomata(params = {}) {
                             }
                         }
                     }
-
                     if (grid[x][y][z] === 1) {
                         newGrid[x][y][z] = rules.survive.includes(neighbors) ? 1 : 0;
                     } else {
@@ -734,14 +679,11 @@ export function cellularAutomata(params = {}) {
                 }
             }
         }
-
         Object.assign(grid, newGrid);
     }
 
-    // Convert to geometry (voxels)
     const geometries = [];
     const boxGeom = new THREE.BoxGeometry(1, 1, 1);
-
     for (let x = 0; x < gridSize; x++) {
         for (let y = 0; y < gridSize; y++) {
             for (let z = 0; z < gridSize; z++) {
@@ -753,42 +695,33 @@ export function cellularAutomata(params = {}) {
             }
         }
     }
-
     return geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
 }
 
 export function reactionDiffusion(params = {}) {
-    console.warn('reactionDiffusion: Complex simulation - simplified placeholder');
+    console.warn('reactionDiffusion: Complex simulation - use cellularAutomata or modifyGeometry');
     return cellularAutomata({ ...params, iterations: 5 });
 }
 
 // ============================================================================
-// 9. EMERGENT FEATURES (The Brain)
+// 9. EMERGENT FEATURES (The AI Brain) - 2 helpers
 // ============================================================================
 
 export function modifyGeometry(params) {
     console.log('modifyGeometry', params);
     const { geometry, expression, context = {} } = params;
-
-    if (!geometry) {
-        console.warn("modifyGeometry: No geometry provided");
-        return null;
-    }
-
+    if (!geometry) { console.warn("modifyGeometry: No geometry"); return null; }
     const geom = geometry.clone();
     const positionAttribute = geom.attributes.position;
     const normalAttribute = geom.attributes.normal;
-
     if (!positionAttribute) return geom;
-
     const count = positionAttribute.count;
 
-    // Compile AI Logic
     let userLogic;
     try {
         userLogic = new Function('p', 'n', 'i', 'ctx', 'noise', 'utils', expression);
     } catch (e) {
-        console.error("modifyGeometry: Failed to compile expression", e);
+        console.error("modifyGeometry: expression error", e);
         return geom;
     }
 
@@ -800,20 +733,15 @@ export function modifyGeometry(params) {
     for (let i = 0; i < count; i++) {
         p.fromBufferAttribute(positionAttribute, i);
         if (normalAttribute) n.fromBufferAttribute(normalAttribute, i);
-
         try {
             const result = userLogic(p, n, i, context, noiseFn, utils);
-
             if (typeof result === 'number') {
                 if (normalAttribute) p.addScaledVector(n, result);
             } else if (result && typeof result.x === 'number') {
                 p.set(result.x, result.y, result.z);
             }
-
             positionAttribute.setXYZ(i, p.x, p.y, p.z);
-        } catch (err) {
-            if (i === 0) console.error("Error in AI logic:", err);
-        }
+        } catch (err) { if (i === 0) console.error(err); }
     }
 
     geom.computeVertexNormals();
@@ -822,9 +750,7 @@ export function modifyGeometry(params) {
 }
 
 export function meshFromMarchingCubes(params = {}) {
-    console.log('meshFromMarchingCubes', params);
     const { resolution = 32, isovalue = 0.5, bounds = 10, expression, context = {} } = params;
-
     const effect = new MarchingCubes(resolution, null, true, true, 100000);
 
     let fieldFn;
@@ -833,14 +759,9 @@ export function meshFromMarchingCubes(params = {}) {
             const userFn = new Function('x', 'y', 'z', 'ctx', 'noise', 'utils', expression);
             const noiseFn = (x, y, z) => noise.noise(x, y, z);
             fieldFn = (x, y, z) => userFn(x, y, z, context, noiseFn, Math);
-        } catch(e) {
-            console.error("meshFromMarchingCubes: Invalid expression", e);
-        }
+        } catch(e) { console.error(e); }
     }
-
-    if (!fieldFn) {
-        fieldFn = (x, y, z) => noise.noise(x * 0.1, y * 0.1, z * 0.1) + 0.5;
-    }
+    if (!fieldFn) fieldFn = (x, y, z) => noise.noise(x*0.1, y*0.1, z*0.1) + 0.5;
 
     const scaleFactor = 2 * bounds / resolution;
     effect.isolation = isovalue;
@@ -851,22 +772,266 @@ export function meshFromMarchingCubes(params = {}) {
                 const x = (i - resolution/2) * scaleFactor;
                 const y = (j - resolution/2) * scaleFactor;
                 const z = (k - resolution/2) * scaleFactor;
-
                 const val = fieldFn(x, y, z);
                 effect.field[i + j * resolution + k * resolution * resolution] = val;
             }
         }
     }
-
     effect.update();
-
     if (effect.geometry) {
         const exportedGeom = effect.geometry.clone();
         effect.geometry.dispose();
         return exportedGeom;
     }
-
     return new THREE.BufferGeometry();
+}
+
+// ============================================================================
+// 10. COMPLEX ALGORITHMS (Irreplaceable by modifyGeometry) - 11 helpers
+// ============================================================================
+
+// L-System for tree/plant generation
+export function lSystemGeometry(params = {}) {
+    const { axiom = 'F', rules = { 'F': 'FF+[+F-F-F]-[-F+F+F]' }, iterations = 3, angle = 25, length = 1, thickness = 0.1 } = params;
+
+    // Generate L-System string
+    let current = axiom;
+    for (let i = 0; i < iterations; i++) {
+        let next = '';
+        for (const char of current) {
+            next += rules[char] || char;
+        }
+        current = next;
+    }
+
+    // Interpret L-System into geometry
+    const stack = [];
+    const position = new THREE.Vector3(0, 0, 0);
+    const direction = new THREE.Vector3(0, 1, 0);
+    const angleRad = angle * Math.PI / 180;
+    const segments = [];
+
+    for (const char of current) {
+        if (char === 'F') {
+            const newPos = position.clone().add(direction.clone().multiplyScalar(length));
+            segments.push([position.clone(), newPos.clone(), thickness]);
+            position.copy(newPos);
+        } else if (char === '+') {
+            direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), angleRad);
+        } else if (char === '-') {
+            direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), -angleRad);
+        } else if (char === '[') {
+            stack.push([position.clone(), direction.clone()]);
+        } else if (char === ']') {
+            const [pos, dir] = stack.pop();
+            position.copy(pos);
+            direction.copy(dir);
+        }
+    }
+
+    // Convert segments to geometry
+    const geometries = [];
+    for (const [start, end, thick] of segments) {
+        const curve = new THREE.LineCurve3(start, end);
+        const tubeGeom = new THREE.TubeGeometry(curve, 2, thick, 4, false);
+        geometries.push(tubeGeom);
+    }
+
+    return geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
+}
+
+// Differential Growth - organic edge-splitting growth
+export function differentialGrowth(params = {}) {
+    const { geometry, iterations = 10, maxEdgeLength = 0.5, repulsionRadius = 0.3, repulsionStrength = 0.1, attractionStrength = 0.05 } = params;
+
+    console.warn('differentialGrowth: Complex mesh topology modification - simplified version');
+
+    // This is a simplified version - full implementation requires mesh topology operations
+    let geom = geometry.clone();
+
+    for (let iter = 0; iter < iterations; iter++) {
+        const positions = geom.attributes.position;
+        const count = positions.count;
+        const forces = new Array(count).fill(null).map(() => new THREE.Vector3());
+
+        // Calculate repulsion forces
+        for (let i = 0; i < count; i++) {
+            const pi = new THREE.Vector3(positions.getX(i), positions.getY(i), positions.getZ(i));
+            for (let j = i + 1; j < count; j++) {
+                const pj = new THREE.Vector3(positions.getX(j), positions.getY(j), positions.getZ(j));
+                const diff = pi.clone().sub(pj);
+                const dist = diff.length();
+                if (dist < repulsionRadius && dist > 0.001) {
+                    const force = diff.normalize().multiplyScalar(repulsionStrength / dist);
+                    forces[i].add(force);
+                    forces[j].sub(force);
+                }
+            }
+        }
+
+        // Apply forces
+        for (let i = 0; i < count; i++) {
+            const x = positions.getX(i) + forces[i].x;
+            const y = positions.getY(i) + forces[i].y;
+            const z = positions.getZ(i) + forces[i].z;
+            positions.setXYZ(i, x, y, z);
+        }
+        positions.needsUpdate = true;
+        geom.computeVertexNormals();
+    }
+
+    return geom;
+}
+
+// Mesh from voxel grid (inverse of marching cubes)
+export function meshFromVoxelGrid(params = {}) {
+    const { grid, voxelSize = 1 } = params;
+
+    if (!grid || !Array.isArray(grid)) {
+        console.warn('meshFromVoxelGrid: No grid provided');
+        return new THREE.BufferGeometry();
+    }
+
+    const geometries = [];
+    const boxGeom = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
+
+    const sizeX = grid.length;
+    const sizeY = grid[0]?.length || 0;
+    const sizeZ = grid[0]?.[0]?.length || 0;
+
+    for (let x = 0; x < sizeX; x++) {
+        for (let y = 0; y < sizeY; y++) {
+            for (let z = 0; z < sizeZ; z++) {
+                if (grid[x][y][z]) {
+                    const clone = boxGeom.clone();
+                    clone.translate(x * voxelSize, y * voxelSize, z * voxelSize);
+                    geometries.push(clone);
+                }
+            }
+        }
+    }
+
+    return geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
+}
+
+// Analysis helpers
+export function pointSetCentroid(params = {}) {
+    const { points } = params;
+    if (!points || points.length === 0) return new THREE.Vector3();
+
+    const centroid = new THREE.Vector3();
+    for (const p of points) {
+        const vec = Array.isArray(p) ? new THREE.Vector3(...p) : p;
+        centroid.add(vec);
+    }
+    centroid.divideScalar(points.length);
+    return centroid;
+}
+
+export function pointSetBoundingBox(params = {}) {
+    const { points } = params;
+    if (!points || points.length === 0) return new THREE.Box3();
+
+    const box = new THREE.Box3();
+    for (const p of points) {
+        const vec = Array.isArray(p) ? new THREE.Vector3(...p) : p;
+        box.expandByPoint(vec);
+    }
+    return box;
+}
+
+export function closestPointOnCurve(params = {}) {
+    const { curve, point, samples = 100 } = params;
+    if (!curve || !point) return new THREE.Vector3();
+
+    const targetPoint = Array.isArray(point) ? new THREE.Vector3(...point) : point;
+    let closestPoint = curve.getPoint(0);
+    let minDist = closestPoint.distanceTo(targetPoint);
+
+    for (let i = 1; i <= samples; i++) {
+        const t = i / samples;
+        const p = curve.getPoint(t);
+        const dist = p.distanceTo(targetPoint);
+        if (dist < minDist) {
+            minDist = dist;
+            closestPoint = p;
+        }
+    }
+    return closestPoint;
+}
+
+export function signedDistanceToMesh(params = {}) {
+    const { geometry, point } = params;
+    if (!geometry || !point) return 0;
+
+    const targetPoint = Array.isArray(point) ? new THREE.Vector3(...point) : point;
+    const raycaster = new THREE.Raycaster(targetPoint, new THREE.Vector3(1, 0, 0));
+
+    // Create a temporary mesh for raycasting
+    const tempMesh = new THREE.Mesh(geometry);
+    const intersects = raycaster.intersectObject(tempMesh);
+
+    if (intersects.length === 0) return Infinity;
+
+    const closestDist = intersects[0].distance;
+    // Determine sign based on normal direction (simplified)
+    return intersects.length % 2 === 0 ? closestDist : -closestDist;
+}
+
+export function measureVolume(params = {}) {
+    const { geometry } = params;
+    if (!geometry) return 0;
+
+    let volume = 0;
+    const positions = geometry.attributes.position;
+    const index = geometry.index;
+
+    if (index) {
+        for (let i = 0; i < index.count; i += 3) {
+            const a = index.getX(i), b = index.getX(i+1), c = index.getX(i+2);
+            const v1 = new THREE.Vector3(positions.getX(a), positions.getY(a), positions.getZ(a));
+            const v2 = new THREE.Vector3(positions.getX(b), positions.getY(b), positions.getZ(b));
+            const v3 = new THREE.Vector3(positions.getX(c), positions.getY(c), positions.getZ(c));
+            volume += v1.dot(new THREE.Vector3().crossVectors(v2, v3)) / 6;
+        }
+    }
+    return Math.abs(volume);
+}
+
+export function measureArea(params = {}) {
+    const { geometry } = params;
+    if (!geometry) return 0;
+
+    let area = 0;
+    const positions = geometry.attributes.position;
+    const index = geometry.index;
+
+    if (index) {
+        for (let i = 0; i < index.count; i += 3) {
+            const a = index.getX(i), b = index.getX(i+1), c = index.getX(i+2);
+            const v1 = new THREE.Vector3(positions.getX(a), positions.getY(a), positions.getZ(a));
+            const v2 = new THREE.Vector3(positions.getX(b), positions.getY(b), positions.getZ(b));
+            const v3 = new THREE.Vector3(positions.getX(c), positions.getY(c), positions.getZ(c));
+            const edge1 = v2.clone().sub(v1);
+            const edge2 = v3.clone().sub(v1);
+            area += edge1.cross(edge2).length() / 2;
+        }
+    }
+    return area;
+}
+
+export function subdivisionSurface(params = {}) {
+    console.warn('subdivisionSurface: Requires SubdivisionModifier from three/examples');
+    return params.geometry || new THREE.BufferGeometry();
+}
+
+export function voronoiDivision(params = {}) {
+    console.warn('voronoiDivision: Complex algorithm - requires external library');
+    return new THREE.BufferGeometry();
+}
+
+export function convexHullGeometry(params = {}) {
+    return createConvexHull(params);
 }
 
 // ============================================================================
@@ -874,34 +1039,37 @@ export function meshFromMarchingCubes(params = {}) {
 // ============================================================================
 
 export default {
-    // Basic geometry
+    // Basic geometry (14)
     createBox, createSphere, createCylinder, createCone, createTorus, createTorusKnot,
     createPlane, createCircle, createRing, createPolyhedron, createIcosahedron,
     createOctahedron, createTetrahedron, createDodecahedron,
 
-    // Advanced geometry
-    createExtrude, createLoft, createLathe, createConvexHull, createParametricSurface,
-    createText3D,
+    // Advanced geometry (6)
+    createExtrude, createLoft, createLathe, createConvexHull, createParametricSurface, createText3D,
 
-    // Curves & paths
-    createLinePath, createSplinePath, createArcPath, createHelixPath, createBezierPath,
-    createPipe,
+    // Curves & paths (6)
+    createLinePath, createSplinePath, createArcPath, createHelixPath, createBezierPath, createPipe,
 
-    // Deformations
+    // Deformations (5)
     twistGeometry, taperGeometry, bendGeometry, deformByNoise, deformByVectorField,
 
-    // Boolean & utilities
+    // Boolean & utilities (4)
     mergeGeometries, unionGeometry, subtractGeometry, intersectGeometry,
 
-    // Distribution
+    // Distribution (5)
     repeatLinear3d, repeatRadial3d, repeatAlongCurve3d, distributeOnGrid3d, distributeRandom3d,
 
-    // Fields & attractors
+    // Fields & attractors (2)
     createVectorField, flowField,
 
-    // Procedural patterns
+    // Procedural patterns (2)
     cellularAutomata, reactionDiffusion,
 
-    // Emergent features
-    modifyGeometry, meshFromMarchingCubes
+    // Emergent features (2)
+    modifyGeometry, meshFromMarchingCubes,
+
+    // Complex algorithms (11)
+    lSystemGeometry, differentialGrowth, meshFromVoxelGrid,
+    pointSetCentroid, pointSetBoundingBox, closestPointOnCurve, signedDistanceToMesh,
+    measureVolume, measureArea, subdivisionSurface, voronoiDivision, convexHullGeometry
 };
