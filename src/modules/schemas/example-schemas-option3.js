@@ -6,16 +6,26 @@
 // EXAMPLE 1: Twisted Tower with Checkerboard Facade
 // ===========================================================================
 
-export const twistedTowerSchema = {
-  "version": "4.0",
+export const twistedTowerSchema ={
+  "version": "4.1",
   "type": "emergent_procedure",
-  "intent": "Twisted tower with checkerboard facade pattern",
+  "intent": "Corrected Twisted Tower",
   "materials": {
     "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
     "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.2, "transparent": true, "opacity": 0.3 },
     "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
     "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
     "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
+  },
+  "globalParameters": {
+    "floors": { "value": 12, "type": "integer", "min": 3, "max": 30 },
+    "floorHeight": { "value": 3, "type": "number", "min": 2, "max": 5 },
+    "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16 },
+    "coreDepth": { "value": 6, "type": "number", "min": 4, "max": 12 },
+    "slabExpansion": { "value": 1.1, "type": "number", "min": 1, "max": 2 },
+    "columnRad": { "value": 0.3, "type": "number", "min": 0.1, "max": 1 },
+    "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12 },
+    "twistTotal": { "value": 0.5, "type": "number", "min": 0, "max": 2 }
   },
   "context": {
     "floors": 12,
@@ -24,14 +34,12 @@ export const twistedTowerSchema = {
     "coreDepth": 6,
     "slabExpansion": 1.1,
     "columnRad": 0.3,
-    "panelsPerSide": 12,
-    "twistPerFloor": 0.06,
-    "twistStartFloor": 2,
-    "twistEndFloor": 9
+    "panelsPerSide": 6,
+    "twistTotal": 0.5
   },
   "actions": [
     {
-      "thought": "Create core box for single floor",
+      "thought": "1. Create Core (No Material yet - prevents double rendering)",
       "do": "createBox",
       "params": {
         "width": "ctx.coreWidth",
@@ -39,22 +47,22 @@ export const twistedTowerSchema = {
         "depth": "ctx.coreDepth",
         "heightSegments": "ctx.floors"
       },
-      "material": "core",
-      "as": "core_tower"
+      "as": "core_raw"
     },
     {
-      "thought": "Twist the core tower",
+      "thought": "2. Twist Core (Apply Material here)",
       "do": "twistGeometry",
       "params": {
-        "geometry": "core_tower",
-        "angle": "ctx.twistPerFloor * (ctx.twistEndFloor - ctx.twistStartFloor)",
-        "axis": [0, 1, 0]
+        "geometry": "core_raw",
+        "angle": "ctx.twistTotal",
+        "axis": [0, 1, 0],
+        "height": "ctx.floorHeight * ctx.floors"
       },
       "material": "core",
-      "as": "core_twisted"
+      "as": "core_final"
     },
     {
-      "thought": "Create single floor slab",
+      "thought": "3. Create Single Floor Slab",
       "do": "createBox",
       "params": {
         "width": "ctx.coreWidth * 2 * ctx.slabExpansion",
@@ -64,7 +72,7 @@ export const twistedTowerSchema = {
       "as": "slab_unit"
     },
     {
-      "thought": "Stack slabs vertically for all floors",
+      "thought": "4. Stack Slabs Vertically",
       "do": "repeatLinear3d",
       "params": {
         "geometry": "slab_unit",
@@ -73,43 +81,43 @@ export const twistedTowerSchema = {
         "axis": "y"
       },
       "material": "floor_slab",
-      "as": "slabs_stacked"
+      "as": "slabs_all"
     },
     {
-      "thought": "Create single column",
+      "thought": "5. Create Columns",
       "do": "createCylinder",
       "params": {
         "radiusTop": "ctx.columnRad",
         "radiusBottom": "ctx.columnRad",
         "height": "ctx.floorHeight * ctx.floors"
       },
-      "as": "column_single"
+      "as": "col_unit"
     },
     {
-      "thought": "Distribute 4 columns at corners",
+      "thought": "6. Place Columns",
       "do": "distributeOnGrid3d",
       "params": {
-        "geometry": "column_single",
+        "geometry": "col_unit",
         "rows": 2,
         "cols": 2,
         "spacing": ["ctx.coreWidth * 1.8", 0, "ctx.coreDepth * 1.8"],
         "centered": true
       },
       "material": "column",
-      "as": "columns_grid"
+      "as": "columns_all"
     },
     {
-      "thought": "Create single facade panel unit",
+      "thought": "7. Create Facade Panel (Single)",
       "do": "createBox",
       "params": {
         "width": "ctx.coreWidth * 2 * ctx.slabExpansion / ctx.panelsPerSide",
-        "height": "ctx.floorHeight - 0.1",
+        "height": "ctx.floorHeight - 0.2",
         "depth": 0.2
       },
       "as": "panel_unit"
     },
     {
-      "thought": "Create front facade panels",
+      "thought": "8. Create Facade Row (Horizontal)",
       "do": "repeatLinear3d",
       "params": {
         "geometry": "panel_unit",
@@ -117,73 +125,28 @@ export const twistedTowerSchema = {
         "spacing": "ctx.coreWidth * 2 * ctx.slabExpansion / ctx.panelsPerSide",
         "axis": "x",
         "centered": true
+      },
+      "as": "panel_row"
+    },
+    {
+      "thought": "9. Stack Facade Rows Vertically (The Missing Step!)",
+      "do": "repeatLinear3d",
+      "params": {
+        "geometry": "panel_row",
+        "count": "ctx.floors",
+        "spacing": "ctx.floorHeight",
+        "axis": "y",
+        "centered": false
       },
       "transform": {
         "position": [0, 0, "ctx.coreDepth * ctx.slabExpansion"]
       },
       "material": "wall",
-      "as": "facade_front"
-    },
-    {
-      "thought": "Create back facade panels",
-      "do": "repeatLinear3d",
-      "params": {
-        "geometry": "panel_unit",
-        "count": "ctx.panelsPerSide",
-        "spacing": "ctx.coreWidth * 2 * ctx.slabExpansion / ctx.panelsPerSide",
-        "axis": "x",
-        "centered": true
-      },
-      "transform": {
-        "position": [0, 0, "-ctx.coreDepth * ctx.slabExpansion"]
-      },
-      "material": "wall",
-      "as": "facade_back"
-    },
-    {
-      "thought": "Create side panel unit",
-      "do": "createBox",
-      "params": {
-        "width": 0.2,
-        "height": "ctx.floorHeight - 0.1",
-        "depth": "ctx.coreDepth * 2 * ctx.slabExpansion / ctx.panelsPerSide"
-      },
-      "as": "panel_side"
-    },
-    {
-      "thought": "Create left facade",
-      "do": "repeatLinear3d",
-      "params": {
-        "geometry": "panel_side",
-        "count": "ctx.panelsPerSide",
-        "spacing": "ctx.coreDepth * 2 * ctx.slabExpansion / ctx.panelsPerSide",
-        "axis": "z",
-        "centered": true
-      },
-      "transform": {
-        "position": ["-ctx.coreWidth * ctx.slabExpansion", 0, 0]
-      },
-      "material": "wall",
-      "as": "facade_left"
-    },
-    {
-      "thought": "Create right facade",
-      "do": "repeatLinear3d",
-      "params": {
-        "geometry": "panel_side",
-        "count": "ctx.panelsPerSide",
-        "spacing": "ctx.coreDepth * 2 * ctx.slabExpansion / ctx.panelsPerSide",
-        "axis": "z",
-        "centered": true
-      },
-      "transform": {
-        "position": ["ctx.coreWidth * ctx.slabExpansion", 0, 0]
-      },
-      "material": "wall",
-      "as": "facade_right"
+      "as": "facade_front_full"
     }
   ]
 }
+
 
 ;
 
