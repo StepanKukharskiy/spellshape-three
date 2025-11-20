@@ -9,143 +9,57 @@
 export const twistedTowerSchema ={
   "version": "4.1",
   "type": "emergent_procedure",
-  "intent": "Corrected Twisted Tower",
+  "intent": "Fixed Tower",
   "materials": {
-    "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
-    "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.2, "transparent": true, "opacity": 0.3 },
-    "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
-    "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
-    "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
+    "wall": { "color": "#1a3a5c" },
+    "core": { "color": "#c1440e" },
+    "slab": { "color": "#b8b8b8" }
   },
   "globalParameters": {
-    "floors": { "value": 12, "type": "integer", "min": 3, "max": 30 },
-    "floorHeight": { "value": 3, "type": "number", "min": 2, "max": 5 },
-    "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16 },
-    "coreDepth": { "value": 6, "type": "number", "min": 4, "max": 12 },
-    "slabExpansion": { "value": 1.1, "type": "number", "min": 1, "max": 2 },
-    "columnRad": { "value": 0.3, "type": "number", "min": 0.1, "max": 1 },
-    "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12 },
-    "twistTotal": { "value": 0.5, "type": "number", "min": 0, "max": 2 }
+    "floors": { "value": 12 },
+    "floorHeight": { "value": 3 }
   },
   "context": {
     "floors": 12,
-    "floorHeight": 3,
-    "coreWidth": 8,
-    "coreDepth": 6,
-    "slabExpansion": 1.1,
-    "columnRad": 0.3,
-    "panelsPerSide": 6,
-    "twistTotal": 0.5
+    "floorHeight": 3
   },
   "actions": [
     {
-      "thought": "1. Create Core (No Material yet - prevents double rendering)",
+      "thought": "1. Raw Core (Hidden - No Material)",
       "do": "createBox",
-      "params": {
-        "width": "ctx.coreWidth",
-        "height": "ctx.floorHeight * ctx.floors",
-        "depth": "ctx.coreDepth",
-        "heightSegments": "ctx.floors"
-      },
+      "params": { "width": 5, "height": 36, "depth": 5 },
       "as": "core_raw"
     },
     {
-      "thought": "2. Twist Core (Apply Material here)",
+      "thought": "2. Twisted Core (Visible)",
       "do": "twistGeometry",
-      "params": {
-        "geometry": "core_raw",
-        "angle": "ctx.twistTotal",
-        "axis": [0, 1, 0],
-        "height": "ctx.floorHeight * ctx.floors"
+      "params": { 
+        "geometry": "core_raw", 
+        "angle": 0.5, 
+        "axis": [0, 1, 0] // Explicit Vector Axis
       },
-      "material": "core",
-      "as": "core_final"
+      "material": "core"
     },
     {
-      "thought": "3. Create Single Floor Slab",
+      "thought": "3. Single Slab",
       "do": "createBox",
-      "params": {
-        "width": "ctx.coreWidth * 2 * ctx.slabExpansion",
-        "height": 0.25,
-        "depth": "ctx.coreDepth * 2 * ctx.slabExpansion"
-      },
+      "params": { "width": 8, "height": 0.2, "depth": 8 },
       "as": "slab_unit"
     },
     {
-      "thought": "4. Stack Slabs Vertically",
+      "thought": "4. Stack Slabs (Y-Up)",
       "do": "repeatLinear3d",
       "params": {
         "geometry": "slab_unit",
         "count": "ctx.floors",
         "spacing": "ctx.floorHeight",
-        "axis": "y"
+        "axis": "y" // This will now work with the executor fix
       },
-      "material": "floor_slab",
-      "as": "slabs_all"
-    },
-    {
-      "thought": "5. Create Columns",
-      "do": "createCylinder",
-      "params": {
-        "radiusTop": "ctx.columnRad",
-        "radiusBottom": "ctx.columnRad",
-        "height": "ctx.floorHeight * ctx.floors"
-      },
-      "as": "col_unit"
-    },
-    {
-      "thought": "6. Place Columns",
-      "do": "distributeOnGrid3d",
-      "params": {
-        "geometry": "col_unit",
-        "rows": 2,
-        "cols": 2,
-        "spacing": ["ctx.coreWidth * 1.8", 0, "ctx.coreDepth * 1.8"],
-        "centered": true
-      },
-      "material": "column",
-      "as": "columns_all"
-    },
-    {
-      "thought": "7. Create Facade Panel (Single)",
-      "do": "createBox",
-      "params": {
-        "width": "ctx.coreWidth * 2 * ctx.slabExpansion / ctx.panelsPerSide",
-        "height": "ctx.floorHeight - 0.2",
-        "depth": 0.2
-      },
-      "as": "panel_unit"
-    },
-    {
-      "thought": "8. Create Facade Row (Horizontal)",
-      "do": "repeatLinear3d",
-      "params": {
-        "geometry": "panel_unit",
-        "count": "ctx.panelsPerSide",
-        "spacing": "ctx.coreWidth * 2 * ctx.slabExpansion / ctx.panelsPerSide",
-        "axis": "x",
-        "centered": true
-      },
-      "as": "panel_row"
-    },
-    {
-      "thought": "9. Stack Facade Rows Vertically (The Missing Step!)",
-      "do": "repeatLinear3d",
-      "params": {
-        "geometry": "panel_row",
-        "count": "ctx.floors",
-        "spacing": "ctx.floorHeight",
-        "axis": "y",
-        "centered": false
-      },
-      "transform": {
-        "position": [0, 0, "ctx.coreDepth * ctx.slabExpansion"]
-      },
-      "material": "wall",
-      "as": "facade_front_full"
+      "material": "slab"
     }
   ]
 }
+
 
 
 ;
