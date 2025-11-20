@@ -488,12 +488,13 @@ export function intersectGeometry(params = {}) {
 }
 
 // ============================================================================
-// 6. DISTRIBUTION (5 helpers)
+// 6. DISTRIBUTION (5 helpers) - UPDATED WITH AUTO-MERGE
 // ============================================================================
 
 export function repeatLinear3d(params = {}) {
-    const { geometry, count = 3, spacing = 1, axis = 'x', centered = false } = params;
-    if (!geometry) return [];
+    const { geometry, count = 3, spacing = 1, axis = 'x', centered = false, autoMerge = true } = params;
+    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];
+
     const results = [];
     const axisVec = axis === 'y' ? new THREE.Vector3(0, 1, 0) : 
                     (axis === 'z' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0));
@@ -508,14 +509,15 @@ export function repeatLinear3d(params = {}) {
         );
         results.push(clone);
     }
-    return results;
-  // Auto-merge by default for backward compatibility
+
+    // Auto-merge by default for backward compatibility
     return autoMerge ? mergeGeometries({ geometries: results }) : results;
 }
 
 export function repeatRadial3d(params = {}) {
-    const { geometry, count = 8, radius = 5, startAngle = 0, endAngle = Math.PI * 2, axis = 'y', faceCenter = true } = params;
-    if (!geometry) return [];
+    const { geometry, count = 8, radius = 5, startAngle = 0, endAngle = Math.PI * 2, axis = 'y', faceCenter = true, autoMerge = true } = params;
+    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];
+
     const results = [];
 
     for (let i = 0; i < count; i++) {
@@ -531,12 +533,14 @@ export function repeatRadial3d(params = {}) {
         }
         results.push(clone);
     }
-    return results;
+
+    return autoMerge ? mergeGeometries({ geometries: results }) : results;
 }
 
 export function repeatAlongCurve3d(params = {}) {
-    const { geometry, curve, count = 10, align = true } = params;
-    if (!geometry || !curve) return [];
+    const { geometry, curve, count = 10, align = true, autoMerge = true } = params;
+    if (!geometry || !curve) return autoMerge ? new THREE.BufferGeometry() : [];
+
     const results = [];
 
     for (let i = 0; i < count; i++) {
@@ -555,12 +559,14 @@ export function repeatAlongCurve3d(params = {}) {
         }
         results.push(clone);
     }
-    return results;
+
+    return autoMerge ? mergeGeometries({ geometries: results }) : results;
 }
 
 export function distributeOnGrid3d(params = {}) {
-    const { geometry, rows = 3, cols = 3, spacing = [2, 0, 2], centered = true } = params;
-    if (!geometry) return [];
+    const { geometry, rows = 3, cols = 3, spacing = [2, 0, 2], centered = true, autoMerge = true } = params;
+    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];
+
     const [spacingX, spacingY, spacingZ] = Array.isArray(spacing) ? spacing : [spacing, 0, spacing];
     const offsetX = centered ? -spacingX * (cols - 1) / 2 : 0;
     const offsetZ = centered ? -spacingZ * (rows - 1) / 2 : 0;
@@ -573,11 +579,12 @@ export function distributeOnGrid3d(params = {}) {
             results.push(clone);
         }
     }
-    return results;
+
+    return autoMerge ? mergeGeometries({ geometries: results }) : results;
 }
 
 export function distributeRandom3d(params = {}) {
-    const { geometry, bounds = [[0, 0, 0], [1, 1, 1]], count = 50, seed = 42 } = params;
+    const { geometry, bounds = [[0, 0, 0], [1, 1, 1]], count = 50, seed = 42, autoMerge = true } = params;
     const random = (() => { 
         let a = seed; 
         return () => { 
@@ -599,7 +606,8 @@ export function distributeRandom3d(params = {}) {
         clone.translate(x, y, z);
         results.push(clone);
     }
-    return results;
+
+    return autoMerge ? mergeGeometries({ geometries: results }) : results;
 }
 
 // ============================================================================
@@ -792,11 +800,9 @@ export function meshFromMarchingCubes(params = {}) {
 // 10. COMPLEX ALGORITHMS (Irreplaceable by modifyGeometry) - 11 helpers
 // ============================================================================
 
-// L-System for tree/plant generation
 export function lSystemGeometry(params = {}) {
     const { axiom = 'F', rules = { 'F': 'FF+[+F-F-F]-[-F+F+F]' }, iterations = 3, angle = 25, length = 1, thickness = 0.1 } = params;
 
-    // Generate L-System string
     let current = axiom;
     for (let i = 0; i < iterations; i++) {
         let next = '';
@@ -806,7 +812,6 @@ export function lSystemGeometry(params = {}) {
         current = next;
     }
 
-    // Interpret L-System into geometry
     const stack = [];
     const position = new THREE.Vector3(0, 0, 0);
     const direction = new THREE.Vector3(0, 1, 0);
@@ -831,7 +836,6 @@ export function lSystemGeometry(params = {}) {
         }
     }
 
-    // Convert segments to geometry
     const geometries = [];
     for (const [start, end, thick] of segments) {
         const curve = new THREE.LineCurve3(start, end);
@@ -842,13 +846,11 @@ export function lSystemGeometry(params = {}) {
     return geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
 }
 
-// Differential Growth - organic edge-splitting growth
 export function differentialGrowth(params = {}) {
     const { geometry, iterations = 10, maxEdgeLength = 0.5, repulsionRadius = 0.3, repulsionStrength = 0.1, attractionStrength = 0.05 } = params;
 
     console.warn('differentialGrowth: Complex mesh topology modification - simplified version');
 
-    // This is a simplified version - full implementation requires mesh topology operations
     let geom = geometry.clone();
 
     for (let iter = 0; iter < iterations; iter++) {
@@ -856,7 +858,6 @@ export function differentialGrowth(params = {}) {
         const count = positions.count;
         const forces = new Array(count).fill(null).map(() => new THREE.Vector3());
 
-        // Calculate repulsion forces
         for (let i = 0; i < count; i++) {
             const pi = new THREE.Vector3(positions.getX(i), positions.getY(i), positions.getZ(i));
             for (let j = i + 1; j < count; j++) {
@@ -871,7 +872,6 @@ export function differentialGrowth(params = {}) {
             }
         }
 
-        // Apply forces
         for (let i = 0; i < count; i++) {
             const x = positions.getX(i) + forces[i].x;
             const y = positions.getY(i) + forces[i].y;
@@ -885,7 +885,6 @@ export function differentialGrowth(params = {}) {
     return geom;
 }
 
-// Mesh from voxel grid (inverse of marching cubes)
 export function meshFromVoxelGrid(params = {}) {
     const { grid, voxelSize = 1 } = params;
 
@@ -916,7 +915,6 @@ export function meshFromVoxelGrid(params = {}) {
     return geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
 }
 
-// Analysis helpers
 export function pointSetCentroid(params = {}) {
     const { points } = params;
     if (!points || points.length === 0) return new THREE.Vector3();
@@ -969,14 +967,12 @@ export function signedDistanceToMesh(params = {}) {
     const targetPoint = Array.isArray(point) ? new THREE.Vector3(...point) : point;
     const raycaster = new THREE.Raycaster(targetPoint, new THREE.Vector3(1, 0, 0));
 
-    // Create a temporary mesh for raycasting
     const tempMesh = new THREE.Mesh(geometry);
     const intersects = raycaster.intersectObject(tempMesh);
 
     if (intersects.length === 0) return Infinity;
 
     const closestDist = intersects[0].distance;
-    // Determine sign based on normal direction (simplified)
     return intersects.length % 2 === 0 ? closestDist : -closestDist;
 }
 
@@ -1058,7 +1054,7 @@ export default {
     // Boolean & utilities (4)
     mergeGeometries, unionGeometry, subtractGeometry, intersectGeometry,
 
-    // Distribution (5)
+    // Distribution (5) - NOW WITH AUTO-MERGE
     repeatLinear3d, repeatRadial3d, repeatAlongCurve3d, distributeOnGrid3d, distributeRandom3d,
 
     // Fields & attractors (2)
