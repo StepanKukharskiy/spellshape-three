@@ -1,18 +1,9 @@
 // ============================================================================
-// procedural-executor.js - FIXED with proper hierarchy flattening
+// procedural-executor.js - FIXED EMERGENENT ARCHITECTURE
 // ============================================================================
 
 import * as THREE from 'three';
 import * as helpers from './helpers3d_core.js';
-import * as helpers2d from './helpers2d.js';
-import { FixedExpressionEvaluator } from './evaluator.js';
-import { FixedMaterialManager } from './materials.js';
-
-// procedural-executor.js - Updated for Emergent Architecture
-// Supports both v3.2 (backward compatible) and v4.0 (new format)
-
-// import * as THREE from 'three';
-// import * as helpers from './helpers3d_core.js';
 
 export class ProceduralExecutor {
     constructor(scene) {
@@ -24,7 +15,7 @@ export class ProceduralExecutor {
 
     execute(schema, parameters = {}) {
         console.log('🚀 ProceduralExecutor.execute', { version: schema.version, type: schema.type });
-        
+
         // Clear previous state
         this.geometries.clear();
         this.materials.clear();
@@ -37,7 +28,7 @@ export class ProceduralExecutor {
 
         // Detect schema version
         const version = parseFloat(schema.version) || 3.2;
-        
+
         if (version >= 4.0) {
             return this._executeV4(schema, parameters);
         } else {
@@ -52,8 +43,23 @@ export class ProceduralExecutor {
     _executeV4(schema, parameters) {
         console.log('📘 Executing v4.0 schema (emergent format)');
 
-        // Merge context and parameters
-        this.context = { ...schema.context, ...parameters };
+        // 1. Merge Global Parameters (UI Inputs)
+        if (schema.globalParameters) {
+            for (const [key, param] of Object.entries(schema.globalParameters)) {
+                // Priority: User Input > Default Value
+                this.context[key] = parameters[key] ?? param.value ?? param;
+            }
+        }
+
+        // 2. Merge Internal Context (Schema Variables)
+        // This overrides globals if names collide, ensuring schema logic integrity
+        if (schema.context) {
+            for (const [key, value] of Object.entries(schema.context)) {
+                if (this.context[key] === undefined) {
+                    this.context[key] = value;
+                }
+            }
+        }
 
         const group = new THREE.Group();
         group.name = schema.intent || 'Generated';
@@ -74,22 +80,16 @@ export class ProceduralExecutor {
     _executeAction(action, group) {
         const { thought, do: helperName, params, transform, material, as: storeName, body } = action;
 
-        if (thought) {
-            console.log('💭', thought);
-        }
+        if (thought) console.log('💭', thought);
 
-        // Handle loop action
-        if (helperName === 'loop') {
-            return this._executeLoop(action, group);
-        }
-
-        // Handle clone action
-        if (helperName === 'clone') {
-            return this._executeClone(action, group);
-        }
+        // Handle Control Flow
+        if (helperName === 'loop') return this._executeLoop(action, group);
+        if (helperName === 'clone') return this._executeClone(action, group);
 
         // Get helper function
-        const helperFn = helpers[helperName] || helpers.default[helperName];
+        // Support both direct export and default export styles
+        const helperFn = helpers[helperName] || (helpers.default && helpers.default[helperName]);
+
         if (!helperFn) {
             console.warn(`⚠️ Helper not found: ${helperName}`);
             return;
@@ -102,16 +102,13 @@ export class ProceduralExecutor {
         let geometry;
         try {
             geometry = helperFn(evalParams);
-            console.log(`✓ ${helperName}`, { params: evalParams, hasGeometry: !!geometry });
+            console.log(`✓ ${helperName}`, { params: evalParams, success: !!geometry });
         } catch (error) {
             console.error(`❌ Error executing ${helperName}:`, error);
             return;
         }
 
-        if (!geometry) {
-            console.warn(`⚠️ ${helperName} returned null/undefined`);
-            return;
-        }
+        if (!geometry) return;
 
         // Store geometry if name provided
         if (storeName) {
@@ -125,17 +122,29 @@ export class ProceduralExecutor {
         }
 
         // Create mesh and add to group
-        if (geometry.isBufferGeometry) {
-            const mat = this._getMaterial(material);
-            const mesh = new THREE.Mesh(geometry, mat);
-            group.add(mesh);
-            console.log(`➕ Added mesh to group (material: ${material})`);
+        // Only add to scene if material is specified OR if it's a final output
+        // We prevent intermediate steps (like core_raw) from rendering if they have no material
+        if (geometry.isBufferGeometry || geometry.isGroup) {
+            if (material) {
+                const mat = this._getMaterial(material);
+                const mesh = geometry.isGroup ? geometry : new THREE.Mesh(geometry, mat);
+                if (!geometry.isGroup) mesh.material = mat;
+
+                // Apply context-based transforms (final placement)
+                if (transform) {
+                    // Transform is already applied to geometry, but for Groups we might need to set position
+                    // If it's a mesh, geometry.translate modified the vertices directly
+                }
+
+                group.add(mesh);
+                console.log(`➕ Added mesh to group (material: ${material})`);
+            }
         }
     }
 
     _executeLoop(action, group) {
         const { var: varName, from, to, body } = action;
-        
+
         const fromVal = this._evaluateExpression(from);
         const toVal = this._evaluateExpression(to);
 
@@ -144,25 +153,21 @@ export class ProceduralExecutor {
         for (let i = fromVal; i < toVal; i++) {
             // Set loop variable in context
             this.context[varName] = i;
-            
+
             // Execute loop body
             for (const bodyAction of body || []) {
                 this._executeAction(bodyAction, group);
             }
         }
-
-        // Clean up loop variable
+        // Clean up
         delete this.context[varName];
     }
 
     _executeClone(action, group) {
-        const { params, transform } = action;
+        const { params, transform, material } = action;
         const { id } = params || {};
 
-        if (!id) {
-            console.warn('⚠️ Clone action missing id parameter');
-            return;
-        }
+        if (!id) return;
 
         const sourceGeometry = this.geometries.get(id);
         if (!sourceGeometry) {
@@ -172,18 +177,20 @@ export class ProceduralExecutor {
 
         const clonedGeometry = sourceGeometry.clone();
 
-        // Apply transform
         if (transform) {
             this._applyTransform(clonedGeometry, transform);
         }
 
-        // Get material (usually from original)
-        const mat = this.materials.values().next().value || new THREE.MeshStandardMaterial({ color: 0x808080 });
-        const mesh = new THREE.Mesh(clonedGeometry, mat);
-        group.add(mesh);
+        if (material) {
+            const mat = this._getMaterial(material);
+            const mesh = new THREE.Mesh(clonedGeometry, mat);
+            group.add(mesh);
+        }
     }
 
     _applyTransform(geometry, transform) {
+        // Handle Arrays [x, y, z] and Objects {x, y, z}
+
         if (transform.position) {
             const pos = this._evaluateArray(transform.position);
             geometry.translate(pos[0], pos[1], pos[2]);
@@ -203,13 +210,12 @@ export class ProceduralExecutor {
     }
 
     // ============================================================================
-    // V3.2 EXECUTOR (Legacy Format - Backward Compatible)
+    // V3.2 EXECUTOR (Legacy Format)
     // ============================================================================
 
     _executeV3(schema, parameters) {
-        console.log('📗 Executing v3.2 schema (legacy format)');
+        console.log('📗 Executing v3.2 schema');
 
-        // Merge global parameters
         if (schema.globalParameters) {
             for (const [key, param] of Object.entries(schema.globalParameters)) {
                 this.context[key] = parameters[key] ?? param.value ?? param;
@@ -219,23 +225,12 @@ export class ProceduralExecutor {
         const group = new THREE.Group();
         group.name = 'Generated';
 
-        // Execute first procedure
         const procedure = schema.procedures?.[0];
-        if (!procedure) {
-            console.warn('⚠️ No procedures found in schema');
-            return group;
-        }
-
-        console.log(`📋 Executing procedure: ${procedure.name}`);
+        if (!procedure) return group;
 
         for (const step of procedure.steps || []) {
             this._executeStep(step, group);
         }
-
-        console.log('✅ V3.2 execution complete', { 
-            stored: this.geometries.size,
-            children: group.children.length 
-        });
 
         return group;
     }
@@ -243,48 +238,22 @@ export class ProceduralExecutor {
     _executeStep(step, group) {
         const { action, helper, params, material, store, transform } = step;
 
-        // Get helper function
-        const helperFn = helpers[helper] || helpers.default[helper];
-        if (!helperFn) {
-            console.warn(`⚠️ Helper not found: ${helper}`);
-            return;
-        }
+        const helperFn = helpers[helper] || (helpers.default && helpers.default[helper]);
+        if (!helperFn) return;
 
-        // Evaluate parameters
         const evalParams = this._evaluateParams(params);
+        let geometry = helperFn(evalParams);
 
-        // Execute helper
-        let geometry;
-        try {
-            geometry = helperFn(evalParams);
-            console.log(`✓ ${helper}`, { hasGeometry: !!geometry });
-        } catch (error) {
-            console.error(`❌ Error executing ${helper}:`, error);
-            return;
-        }
+        if (!geometry) return;
 
-        if (!geometry) {
-            console.warn(`⚠️ ${helper} returned null/undefined`);
-            return;
-        }
+        if (store) this.geometries.set(store, geometry);
+        if (transform) this._applyTransform(geometry, transform);
 
-        // Store geometry
-        if (store) {
-            this.geometries.set(store, geometry);
-            console.log(`💾 Stored: ${store}`);
-        }
-
-        // Apply transform
-        if (transform) {
-            this._applyTransform(geometry, transform);
-        }
-
-        // Create mesh and add to group
-        if (geometry.isBufferGeometry && material) {
+        if ((geometry.isBufferGeometry || geometry.isGroup) && material) {
             const mat = this._getMaterial(material);
-            const mesh = new THREE.Mesh(geometry, mat);
+            const mesh = geometry.isGroup ? geometry : new THREE.Mesh(geometry, mat);
+            if (!geometry.isGroup) mesh.material = mat;
             group.add(mesh);
-            console.log(`➕ Added mesh (material: ${material})`);
         }
     }
 
@@ -299,26 +268,15 @@ export class ProceduralExecutor {
                 roughness: config.roughness ?? 0.5,
                 metalness: config.metalness ?? 0.0,
                 transparent: config.transparent ?? false,
-                opacity: config.opacity ?? 1.0
+                opacity: config.opacity ?? 1.0,
+                side: THREE.DoubleSide
             });
             this.materials.set(name, material);
-            console.log(`🎨 Material created: ${name}`);
         }
     }
 
     _getMaterial(materialName) {
-        if (!materialName) {
-            return new THREE.MeshStandardMaterial({ color: 0x808080 });
-        }
-
-        // Check if material exists
-        if (this.materials.has(materialName)) {
-            return this.materials.get(materialName);
-        }
-
-        // Default fallback
-        console.warn(`⚠️ Material not found: ${materialName}, using default`);
-        return new THREE.MeshStandardMaterial({ color: 0x808080 });
+        return this.materials.get(materialName) || new THREE.MeshStandardMaterial({ color: 0x808080 });
     }
 
     _evaluateParams(params) {
@@ -326,15 +284,27 @@ export class ProceduralExecutor {
 
         const evaluated = {};
         for (const [key, value] of Object.entries(params)) {
-            if (typeof value === 'string') {
-                // Handle geometry references
+            if (key === 'expression') {
+                // Special case: Keep emergent logic as raw string
+                evaluated[key] = value;
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                // Handle array of values or references
+                evaluated[key] = value.map(item => {
+                    if (typeof item === 'string' && this.geometries.has(item)) {
+                        return this.geometries.get(item);
+                    }
+                    return (typeof item === 'string') ? this._evaluateExpression(item) : item;
+                });
+            } else if (typeof value === 'string') {
+                // Check if it is a geometry reference
                 if (this.geometries.has(value)) {
                     evaluated[key] = this.geometries.get(value);
                 } else {
                     evaluated[key] = this._evaluateExpression(value);
                 }
-            } else if (Array.isArray(value)) {
-                evaluated[key] = this._evaluateArray(value);
             } else if (typeof value === 'object' && value !== null) {
                 evaluated[key] = this._evaluateParams(value);
             } else {
@@ -356,28 +326,29 @@ export class ProceduralExecutor {
     _evaluateExpression(expr) {
         if (typeof expr !== 'string') return expr;
 
-        // Replace $variable or ctx.variable with actual values
+        // Handle direct variable access (e.g. "y" in repeatLinear3d axis)
+        if (expr === 'x' || expr === 'y' || expr === 'z') return expr;
+
         let processed = expr;
 
-        // Handle ctx.variable format (v4.0)
+        // V4.0 syntax: ctx.variable
         processed = processed.replace(/ctx\.(\w+)/g, (match, varName) => {
             return this.context[varName] ?? 0;
         });
 
-        // Handle $variable format (v3.2)
+        // V3.2 syntax: $variable
         processed = processed.replace(/\$(\w+)/g, (match, varName) => {
             return this.context[varName] ?? 0;
         });
 
-        // Evaluate as JavaScript expression
         try {
-            // Create safe evaluation context
             const ctx = this.context;
-            const evalFunc = new Function('ctx', `with(ctx) { return ${processed}; }`);
-            return evalFunc(ctx);
+            // Safe evaluation with access to Math functions
+            const evalFunc = new Function('ctx', 'Math', `with(ctx) { return ${processed}; }`);
+            return evalFunc(ctx, Math);
         } catch (error) {
-            console.warn(`⚠️ Expression evaluation failed: ${expr}`, error);
-            return 0;
+            // If evaluation fails, it might be a string literal (like a texture name)
+            return expr;
         }
     }
 }
