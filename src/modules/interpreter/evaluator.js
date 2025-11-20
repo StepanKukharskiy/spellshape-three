@@ -28,30 +28,39 @@ import {
 
 // NEW: Import all 88 geometry-returning helpers from helpers3D_core
 import { 
-  createBox, createCylinder, createSphere, createExtrude, createLoft, 
-  translateGeometry, rotateGeometry, scaleGeometry, twistGeometry, 
-  taperGeometry, mirrorGeometry, arrayGeometry, repeatLinear3d, 
-  repeatAlongCurve3d, repeatRadial3d, distributeAlongPerimeter3d, 
-  distributeOnSurface3d, distributeInVolume3d, distributeOnGrid3d, 
-  distributeRandom3d, sweepGeometry, createPipe, createArcPath, 
-  createSplinePath, createHelixPath, createGridPath, offsetCurve, 
-  connectPaths, loftBetweenCurves, tessellateSurface, thickenSurface, 
-  normalOnSurface, uvOnSurface, projectOnSurface, deformByNoise, 
-  deformByVectorField, deformByAttractor, morphBetween, bendAlongCurve, 
-  radialDeform, createVectorField, attractorField, repellerField, 
-  flowField, combineFields, unionGeometries, subtractGeometries, 
-  intersectGeometries, splitGeometryByPlane, voronoiDivision, 
-  delaunayTriangulation, subdivisionSurface, lSystemGeometry, noisefield, 
-  convexHullGeometry, skeletonizeGeometry, packingAlgorithm, 
-  cellularAutomata, differentialGrowth, reactionDiffusion, 
-  meshFromParametric, meshFromVoxelGrid, meshFromMarchingCubes, 
-  randomPointsInMesh, pointSetCentroid, pointSetBoundingBox, 
-  closestPointOnCurve, signedDistanceToMesh, createArrow, labeledPoint, 
-  optimizeTopology, calculateAcoustics, deepCloneNode, samplePointOnPath, 
-  tangentOnPath, boundingBox, calculateFootprintCentroid, 
-  closestPointOnMesh, intersectRayMesh, measureDistance, measureArea, 
-  measureVolume, validateGeometry, mergeGeometries, flockingBehavior, 
-  antColonyOptimization, particleSwarmOptimization, agentBasedGrowth, createArchModule, group, repeatWithFunction, createFacadePanel
+  // Basic geometry (14)
+    createBox, createSphere, createCylinder, createCone, createTorus, createTorusKnot,
+    createPlane, createCircle, createRing, createPolyhedron, createIcosahedron,
+    createOctahedron, createTetrahedron, createDodecahedron,
+
+    // Advanced geometry (6)
+    createExtrude, createLoft, createLathe, createConvexHull, createParametricSurface, createText3D,
+
+    // Curves & paths (6)
+    createLinePath, createSplinePath, createArcPath, createHelixPath, createBezierPath, createPipe,
+
+    // Deformations (5)
+    twistGeometry, taperGeometry, bendGeometry, deformByNoise, deformByVectorField,
+
+    // Boolean & utilities (4)
+    mergeGeometries, unionGeometry, subtractGeometry, intersectGeometry,
+
+    // Distribution (5)
+    repeatLinear3d, repeatRadial3d, repeatAlongCurve3d, distributeOnGrid3d, distributeRandom3d,
+
+    // Fields & attractors (2)
+    createVectorField, flowField,
+
+    // Procedural patterns (2)
+    cellularAutomata, reactionDiffusion,
+
+    // Emergent features (2)
+    modifyGeometry, meshFromMarchingCubes,
+
+    // Complex algorithms (11)
+    lSystemGeometry, differentialGrowth, meshFromVoxelGrid,
+    pointSetCentroid, pointSetBoundingBox, closestPointOnCurve, signedDistanceToMesh,
+    measureVolume, measureArea, subdivisionSurface, voronoiDivision, convexHullGeometry
 } from './helpers3d_core.js';
 
 export class FixedExpressionEvaluator {
