@@ -509,6 +509,8 @@ export function repeatLinear3d(params = {}) {
         results.push(clone);
     }
     return results;
+  // Auto-merge by default for backward compatibility
+    return autoMerge ? mergeGeometries({ geometries: results }) : results;
 }
 
 export function repeatRadial3d(params = {}) {
