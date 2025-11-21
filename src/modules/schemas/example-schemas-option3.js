@@ -1,46 +1,27 @@
-export const twistedTowerSchema = {
-  version: "3.2",
-  type: "parametric_procedure",
+export const twistedTowerSchema = export const twistedTowerSchema = {
+  version: "4.4",
+  type: "emergent_procedure",
+  intent: "True Checkerboard Tower",
   materials: {
     wall: { color: "#1a3a5c", roughness: 0.7, metalness: 0.1 },
-    window: { color: "#b3d9ff", roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.3 },
-    core: { color: "#c1440e", roughness: 0.6, metalness: 0.0 },
+    window: { color: "#b3d9ff", roughness: 0.1, metalness: 0.8, transparent: true, opacity: 0.6 },
+    core: { color: "#c1440e", roughness: 0.6, metalness: 0 },
+    column: { color: "#2a2a2a", roughness: 0.8, metalness: 0.3 },
     floor_slab: { color: "#b8b8b8", roughness: 0.7, metalness: 0.1 }
   },
-
-  globalParameters: {
-    floors: { value: 10, type: "integer", min: 3, max: 20 },
-    floorHeight: { value: 3, type: "number", min: 2, max: 6 },
-    coreSize: { value: 8, type: "number", min: 4, max: 16 },
-    twistPerFloor: { value: 0.06, type: "number", min: 0, max: 0.2 }
+  context: {
+    floors: 15,
+    floorHeight: 3.5,
+    coreWidth: 8,
+    coreDepth: 8,
+    slabExpansion: 2,
+    rotationPerFloor: 0.08,
+    panelsPerSide: 6
   },
-
-  procedures: [
-    {
-      name: "buildSimpleTower",
-      steps: [
-        // Repeat floor cores
-        {
-          action: "repeat",
-          helper: "createBox",
-          count: "$floors",
-          axis: "y",
-          spacing: "$floorHeight",
-          params: {
-            width: "$coreSize",
-            height: "$floorHeight",
-            depth: "$coreSize",
-            id: "core"
-          },
-          material: "core",
-          rotationPerStep: [0, "$twistPerFloor", 0]
-        }
-      ]
-    }
+  actions: [
+    // ... (paste the rest of the actions array here) ...
   ]
 };
-;
-
 
 // ============================================================================
 // Alternative: Simpler approach - use flat structure
