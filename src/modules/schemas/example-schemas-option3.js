@@ -173,7 +173,7 @@ export const twistedTowerSchema = {
     }
   ]
 }
-s
+
 
 
 
