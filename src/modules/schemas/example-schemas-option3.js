@@ -43,7 +43,7 @@ export const twistedTowerSchema = {
     },
     {
       "do": "distributeOnGrid3d",
-      "params": { "geometry": "col_base", "rows": 2, "cols": 2, "spacing": ["ctx.coreWidth + 1", 0, "ctx.coreDepth + 1"], "centered": true, "autoMerge": true },
+      "params": { "geometry": "col_base", "rows": 2, "cols": 2, "spacing": ["ctx.coreWidth + 3", 0, "ctx.coreDepth + 3"], "centered": true, "autoMerge": true },
       "as": "cols_mesh"
     },
 
