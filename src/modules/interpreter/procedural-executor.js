@@ -287,42 +287,60 @@ export class ProceduralExecutor {
         return this.materials.get(materialName) || new THREE.MeshStandardMaterial({ color: 0x808080 });
     }
 
-    _evaluateParams(params) {
+        _evaluateParams(params) {
         if (!params) return {};
 
         const evaluated = {};
         for (const [key, value] of Object.entries(params)) {
+            
+            // 1. Handle Raw Expression Strings (Interpolation only)
             if (key === 'expression') {
-    // Interpolate variables, but keep the code structure
-    let expr = value;
-    expr = expr.replace(/ctx\.(\w+)/g, (match, varName) => {
-        return this.context[varName] ?? 0;
-    });
-    evaluated[key] = expr;
-    continue;
-}
+                let expr = value;
+                // Replace ctx.varName with its numeric value
+                expr = expr.replace(/ctx\.(\w+)/g, (match, varName) => {
+                    return this.context[varName] ?? 0;
+                });
+                evaluated[key] = expr;
+                continue;
+            }
 
+            // 2. Handle Arrays (Recursion is key here!)
             if (Array.isArray(value)) {
                 evaluated[key] = value.map(item => {
-                    if (typeof item === 'string' && this.geometries.has(item)) {
-                        return this.geometries.get(item);
+                    if (typeof item === 'string') {
+                        if (this.geometries.has(item)) return this.geometries.get(item);
+                        return this._evaluateExpression(item);
                     }
-                    return (typeof item === 'string') ? this._evaluateExpression(item) : item;
+                    // RECURSION: If item is an object (like an operation), evaluate IT too
+                    if (typeof item === 'object' && item !== null) {
+                        return this._evaluateParams(item);
+                    }
+                    return item;
                 });
-            } else if (typeof value === 'string') {
+            } 
+            
+            // 3. Handle Geometry References
+            else if (typeof value === 'string') {
                 if (this.geometries.has(value)) {
                     evaluated[key] = this.geometries.get(value);
                 } else {
                     evaluated[key] = this._evaluateExpression(value);
                 }
-            } else if (typeof value === 'object' && value !== null) {
+            } 
+            
+            // 4. Handle Nested Objects
+            else if (typeof value === 'object' && value !== null) {
                 evaluated[key] = this._evaluateParams(value);
-            } else {
+            } 
+            
+            // 5. Primitives
+            else {
                 evaluated[key] = value;
             }
         }
         return evaluated;
     }
+
 
     _evaluateArray(arr) {
         return arr.map(item => {
