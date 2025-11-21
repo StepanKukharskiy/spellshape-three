@@ -52,7 +52,7 @@ export const twistedTowerSchema = {
       "thought": "4. Create Single Panel Geometry",
       "do": "createBox",
       "params": {
-        "width": "(ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide", 
+        "width": "(ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide - 0.2", 
         "height": "ctx.floorHeight",
         "depth": 0.2
       },
