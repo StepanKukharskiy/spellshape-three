@@ -51,7 +51,7 @@ export const twistedTowerSchema ={
         "width": "ctx.coreWidth + 4",
         "height": 0.3,
         "depth": "ctx.coreDepth + 4",
-        "position": [0, 0, 0] // At floor level
+        "position": [0, "-ctx.floorHeight/2", 0] // At floor level
       },
       "material": "floor_slab",
       "as": "slab_piece"
