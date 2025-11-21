@@ -4,7 +4,7 @@ export const twistedTowerSchema = {
   "intent": "True Checkerboard Tower",
   "materials": {
     "wall": { "color": "#0000ff", "roughness": 0.7, "metalness": 0.1 },
-    "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
+    "window": { "color": "#ff00ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
     "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
     "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
     "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
