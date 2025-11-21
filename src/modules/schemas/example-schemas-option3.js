@@ -9,15 +9,16 @@ export const twistedTowerSchema = {
     "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
     "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
   },
-  "context": {
-    "floors": 15,
-    "floorHeight": 3.5,
-    "coreWidth": 8,
-    "coreDepth": 8,
-    "slabExpansion": 2,
-    "rotationPerFloor": 0.08,
-    "panelsPerSide": 6
+  "globalParameters": {
+    "floors": { "value": 15, "type": "integer", "min": 3, "max": 30 },
+    "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5 },
+    "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16 },
+    "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 12 },
+    "slabExpansion": { "value": 2, "type": "number", "min": 0, "max": 4 },
+    "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2 },
+    "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12 }
   },
+  "context": {  },
   "actions": [
     // --- BASE STRUCTURE ---
     { "do": "createBox", "params": { "width": "ctx.coreWidth + ctx.slabExpansion", "height": 0.3, "depth": "ctx.coreDepth + ctx.slabExpansion" }, "transform": { "position": [0, -0.15, 0] }, "as": "slab_mesh" },
