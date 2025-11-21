@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spellshape - Narrative UI</title>
+  <title>Spellshape Integrated</title>
   
   <script type="importmap">
     {
@@ -17,13 +17,12 @@
   <style>
     :root {
       --bg: #121214;
-      --panel: #1e1e24;
-      --card: #2b2b33;
+      --panel: #1c1c21;
+      --card: #25252b;
       --border: #333;
       --accent: #646cff;
       --text: #ececec;
       --text-dim: #888;
-      --var: #ffae57;
     }
 
     body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); }
@@ -31,89 +30,92 @@
     
     /* SIDEBAR */
     .sidebar {
-      flex: 0 0 400px;
       width: 400px;
       background: var(--panel);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       z-index: 10;
-      box-shadow: 4px 0 20px rgba(0,0,0,0.4);
     }
 
     .header {
       padding: 20px;
       border-bottom: 1px solid var(--border);
-      background: var(--panel);
+      background: var(--bg);
     }
-    .header h1 { margin: 0; font-size: 18px; font-weight: 700; }
-    .header p { margin: 4px 0 0 0; font-size: 12px; color: var(--text-dim); }
+    .header h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.5px; }
 
-    /* RECIPE LIST */
-    .recipe-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-      scrollbar-width: thin;
-      scrollbar-color: #444 transparent;
+    /* TABS */
+    .tabs { display: flex; padding: 0 20px; border-bottom: 1px solid var(--border); }
+    .tab {
+      padding: 12px 0; margin-right: 20px;
+      font-size: 12px; font-weight: 600; color: var(--text-dim);
+      cursor: pointer; border-bottom: 2px solid transparent;
+      transition: all 0.2s;
     }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab:hover { color: #fff; }
 
-    /* STEP CARD */
-    .step-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 16px;
-      position: relative;
-      transition: border-color 0.2s;
-    }
-    .step-card:hover { border-color: #555; }
+    /* CONTENT AREA */
+    .content { flex: 1; overflow-y: auto; padding: 20px; display: none; }
+    .content.active { display: block; }
 
-    /* Connector Line */
-    .step-card:not(:last-child)::after {
-      content: ''; position: absolute; left: 24px; bottom: -18px; 
-      width: 2px; height: 18px; background: var(--border);
-    }
-
-    .step-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .step-num { 
-      background: #333; color: #aaa; font-size: 11px; font-weight: 700;
-      width: 20px; height: 20px; border-radius: 50%; 
-      display: flex; align-items: center; justify-content: center;
-    }
-    .step-title { font-size: 13px; font-weight: 600; color: #fff; }
-
-    /* CONTROLS INSIDE CARD */
-    .step-controls {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(255,255,255,0.05);
-    }
-    .control { margin-bottom: 10px; }
-    .control:last-child { margin-bottom: 0; }
-    
-    .control-label { 
-      display: flex; justify-content: space-between; 
-      font-size: 11px; margin-bottom: 6px; 
-    }
-    .var-name { color: var(--var); font-family: monospace; }
-    .var-val { color: #ccc; font-family: monospace; }
+    /* SHARED SLIDER STYLES */
+    .control { margin-bottom: 16px; }
+    .control-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; }
+    .control-val { font-family: monospace; color: var(--accent); }
+    .control-label { color: #ccc; font-weight: 500; }
 
     input[type=range] {
       width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer;
     }
     input[type=range]::-webkit-slider-runnable-track {
-      width: 100%; height: 4px; background: #444; border-radius: 2px;
+      width: 100%; height: 4px; background: #333; border-radius: 2px;
     }
     input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%;
-      background: var(--accent); margin-top: -4px; box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+      -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%;
+      background: #fff; margin-top: -5px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      transition: background 0.2s, transform 0.2s;
+    }
+    input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); transform: scale(1.1); }
+
+    /* TAB 1: GROUPS */
+    .group-title {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-dim);
+      margin: 24px 0 12px 0; letter-spacing: 1px; border-bottom: 1px solid #333; padding-bottom: 4px;
+    }
+    .group-title:first-child { margin-top: 0; }
+
+    /* TAB 2: RECIPE CARDS */
+    .step-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+      padding: 14px; margin-bottom: 12px; position: relative;
+    }
+    .step-card:not(:last-child)::after {
+      content: ''; position: absolute; left: 20px; bottom: -14px; 
+      width: 1px; height: 14px; background: var(--border);
+    }
+    .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .step-num { 
+      width: 18px; height: 18px; background: #333; border-radius: 50%; 
+      font-size: 10px; font-weight: bold; color: #888; 
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step-title { font-size: 13px; font-weight: 600; color: #fff; }
+    
+    .step-controls { 
+      margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); 
+    }
+
+    /* TAB 3: JSON */
+    textarea {
+      width: 100%; height: 100%; background: #111; border: none;
+      color: #ccc; font-family: monospace; font-size: 11px; padding: 10px; resize: none;
     }
 
     /* VIEWPORT */
     .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #222 0%, #111 100%); }
-    canvas { display: block; width: 100%; height: 100%; }
+    canvas { display: block; width: 100%; height: 100%; outline: none; }
     
     .stats {
       position: absolute; bottom: 20px; right: 20px;
@@ -128,11 +130,31 @@
   <div class="app">
     <div class="sidebar">
       <div class="header">
-        <h1>Spellshape Narrative</h1>
-        <p>Adjust logic steps directly</p>
+        <h1>Spellshape</h1>
       </div>
-      <div class="recipe-list" id="recipe-container">
-        <!-- Cards Injected Here -->
+      
+      <div class="tabs">
+        <div class="tab active" onclick="setTab('controls')">Controls</div>
+        <div class="tab" onclick="setTab('recipe')">Recipe</div>
+        <div class="tab" onclick="setTab('json')">JSON</div>
+      </div>
+
+      <!-- TAB 1: CONTROLS -->
+      <div id="tab-controls" class="content active">
+        <!-- Generated JS -->
+      </div>
+
+      <!-- TAB 2: RECIPE -->
+      <div id="tab-recipe" class="content">
+        <!-- Generated JS -->
+      </div>
+
+      <!-- TAB 3: JSON -->
+      <div id="tab-json" class="content" style="padding:0;">
+        <textarea id="json-input" spellcheck="false"></textarea>
+        <div style="padding: 10px; background: var(--panel); border-top: 1px solid var(--border);">
+          <button onclick="updateFromJSON()" style="width:100%; padding:8px; background:var(--accent); border:none; border-radius:4px; color:white; cursor:pointer; font-weight:600;">Update</button>
+        </div>
       </div>
     </div>
 
@@ -145,10 +167,10 @@
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
+    import { ProceduralExecutor } from './procedural-executor_FINAL_v2.js';
 
     // --- SCHEMA (v4.6) ---
-    const schema = {
+    let schema = {
       "version": "4.6",
       "type": "emergent_procedure",
       "intent": "Complete Checkerboard Tower",
@@ -160,13 +182,13 @@
         "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
       },
       "globalParameters": {
-        "floors": { "value": 15, "type": "integer", "min": 3, "max": 30 },
-        "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5 },
-        "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16 },
-        "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 12 },
-        "slabExpansion": { "value": 2, "type": "number", "min": 0, "max": 4 },
-        "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2 },
-        "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12 }
+        "floors": { "value": 15, "type": "integer", "min": 3, "max": 30, "group": "Structure" },
+        "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5, "group": "Structure" },
+        "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Dimensions" },
+        "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 12, "group": "Dimensions" },
+        "slabExpansion": { "value": 2, "type": "number", "min": 0, "max": 4, "group": "Dimensions" },
+        "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2, "group": "Animation" },
+        "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12, "group": "Facade" }
       },
       "context": {},
       "actions": [
@@ -204,91 +226,140 @@
       ]
     };
 
-    // --- UI GENERATOR ---
-    const container = document.getElementById('recipe-container');
-    const varRegex = /ctx\.([a-zA-Z0-9_]+)/g;
+    // --- UI LOGIC ---
+    const tabs = { controls: document.getElementById('tab-controls'), recipe: document.getElementById('tab-recipe'), json: document.getElementById('tab-json') };
+    const jsonInput = document.getElementById('json-input');
 
-    function extractVars(obj) {
-      const vars = new Set();
-      const str = JSON.stringify(obj);
-      let match;
-      while ((match = varRegex.exec(str)) !== null) {
-        vars.add(match[1]);
+    window.setTab = (name) => {
+      document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+      
+      document.querySelector(`.tab[onclick="setTab('${name}')"]`).classList.add('active');
+      tabs[name].classList.add('active');
+
+      if (name === 'json') {
+        jsonInput.value = JSON.stringify(schema, null, 2);
       }
-      return Array.from(vars);
+    };
+
+    // --- HELPER: Create Slider ---
+    function createSlider(key, def, uniqueId) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'control';
+      
+      const header = document.createElement('div');
+      header.className = 'control-header';
+      header.innerHTML = `<span class="control-label">${key}</span><span class="control-val" id="val-${uniqueId}">${def.value}</span>`;
+      
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = def.min;
+      input.max = def.max;
+      input.step = def.step || (def.type === 'integer' ? 1 : 0.01);
+      input.value = def.value;
+      input.setAttribute('data-key', key);
+
+      input.oninput = (e) => {
+        const val = parseFloat(e.target.value);
+        def.value = val;
+        
+        // Update ALL sliders for this key
+        document.querySelectorAll(`input[data-key="${key}"]`).forEach(el => el.value = val);
+        document.querySelectorAll(`[id^="val-"]`).forEach(el => {
+          // Simple check if ID belongs to this key might be hard, so we update DOM state
+          // For simplicity in this demo, we just re-render or use shared class?
+          // Better: just update the specific text spans
+        });
+        // Since IDs are unique, we iterate:
+        document.querySelectorAll('.control-val').forEach(span => {
+           if (span.id.includes(key)) span.innerText = val; // Rough heuristic, or use data attribute
+        });
+
+        // Update this one specific label
+        document.getElementById(`val-${uniqueId}`).innerText = val;
+
+        run();
+      };
+
+      wrapper.appendChild(header);
+      wrapper.appendChild(input);
+      return wrapper;
     }
 
-    function renderRecipe() {
-      container.innerHTML = '';
+    // --- RENDER TABS ---
+    function renderUI() {
+      // 1. CONTROLS TAB
+      const controlsDiv = tabs.controls;
+      controlsDiv.innerHTML = '';
       
-      schema.actions.forEach((action, i) => {
-        if (!action.thought) return; // Only render steps with thoughts
+      const groups = {};
+      for (const [key, def] of Object.entries(schema.globalParameters)) {
+        const g = def.group || 'General';
+        if (!groups[g]) groups[g] = [];
+        groups[g].push({ key, def });
+      }
 
-        // Create Card
+      for (const [gName, items] of Object.entries(groups)) {
+        const title = document.createElement('div');
+        title.className = 'group-title';
+        title.innerText = gName;
+        controlsDiv.appendChild(title);
+        
+        items.forEach(({ key, def }) => {
+          controlsDiv.appendChild(createSlider(key, def, `ctrl-${key}`));
+        });
+      }
+
+      // 2. RECIPE TAB (De-duplicated)
+      const recipeDiv = tabs.recipe;
+      recipeDiv.innerHTML = '';
+      const seenParams = new Set();
+      const varRegex = /ctx\.([a-zA-Z0-9_]+)/g;
+
+      schema.actions.forEach((action, i) => {
+        if (!action.thought) return;
+
         const card = document.createElement('div');
         card.className = 'step-card';
-        
-        // Header
-        const header = document.createElement('div');
-        header.className = 'step-header';
-        header.innerHTML = `<div class="step-num">${i+1}</div><div class="step-title">${action.thought}</div>`;
-        card.appendChild(header);
+        card.innerHTML = `<div class="step-header"><div class="step-num">${i+1}</div><div class="step-title">${action.thought}</div></div>`;
 
-        // Find Vars
-        const vars = extractVars(action);
-        
-        if (vars.length > 0) {
-          const controlsDiv = document.createElement('div');
-          controlsDiv.className = 'step-controls';
-          
-          vars.forEach(key => {
-            const def = schema.globalParameters[key];
-            if (!def) return;
-
-            const control = document.createElement('div');
-            control.className = 'control';
-            
-            const label = document.createElement('div');
-            label.className = 'control-label';
-            label.innerHTML = `<span class="var-name">${key}</span><span class="var-val" id="val-${key}-${i}">${def.value}</span>`; // Unique ID per instance
-            
-            const input = document.createElement('input');
-            input.type = 'range';
-            input.min = def.min;
-            input.max = def.max;
-            input.step = def.step || (def.type === 'integer' ? 1 : 0.01);
-            input.value = def.value;
-            
-            // Sync logic: When this slider moves, update schema AND all other sliders for same var
-            input.oninput = (e) => {
-              const val = parseFloat(e.target.value);
-              def.value = val;
-              
-              // Update all sliders synced to this variable
-              document.querySelectorAll(`input[data-var="${key}"]`).forEach(el => el.value = val);
-              
-              // Update all text displays
-              document.querySelectorAll(`.var-val`).forEach(el => {
-                if (el.id.startsWith(`val-${key}`)) el.innerText = val;
-              });
-              
-              run();
-            };
-            input.setAttribute('data-var', key);
-
-            control.appendChild(label);
-            control.appendChild(input);
-            controlsDiv.appendChild(control);
-          });
-          
-          card.appendChild(controlsDiv);
+        // Find Params
+        const vars = new Set();
+        let match;
+        const str = JSON.stringify(action);
+        while ((match = varRegex.exec(str)) !== null) {
+          vars.add(match[1]);
         }
 
-        container.appendChild(card);
+        // Filter: Only new params
+        const newVars = Array.from(vars).filter(v => !seenParams.has(v));
+        newVars.forEach(v => seenParams.add(v));
+
+        if (newVars.length > 0) {
+          const controlsArea = document.createElement('div');
+          controlsArea.className = 'step-controls';
+          newVars.forEach(key => {
+            if (schema.globalParameters[key]) {
+              controlsArea.appendChild(createSlider(key, schema.globalParameters[key], `recipe-${key}`));
+            }
+          });
+          card.appendChild(controlsArea);
+        }
+
+        recipeDiv.appendChild(card);
       });
     }
 
-    // --- 3D RUNTIME ---
+    window.updateFromJSON = () => {
+      try {
+        schema = JSON.parse(jsonInput.value);
+        renderUI();
+        run();
+        setTab('controls');
+      } catch(e) { alert('Invalid JSON'); }
+    }
+
+    // --- 3D ENGINE ---
     const canvas = document.querySelector('#gl');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -327,6 +398,7 @@
       try {
         currentMesh = executor.execute(schema, params);
         scene.add(currentMesh);
+        
         let count = 0;
         currentMesh.traverse(c => { if (c.isMesh) count++; });
         document.getElementById('stats').innerText = `Geometry: ${count} meshes`;
@@ -335,8 +407,8 @@
       }
     }
 
-    // Init
-    renderRecipe();
+    // INIT
+    renderUI();
     run();
 
     function animate() {
