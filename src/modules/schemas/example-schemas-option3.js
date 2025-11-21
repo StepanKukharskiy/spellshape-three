@@ -73,7 +73,7 @@ export const twistedTowerSchema = {
       "params": {
         "geometry": "col_geometry",
         "rows": 2, "cols": 2,
-        "spacing": ["ctx.coreWidth - 1", 0, "ctx.coreDepth - 1"],
+        "spacing": ["ctx.coreWidth + 1", 0, "ctx.coreDepth + 1"],
         "centered": true
       },
       "as": "cols_group"
