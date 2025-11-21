@@ -134,7 +134,7 @@ export const twistedTowerSchema = {
           "do": "clone",
           "params": { "id": "slab_geometry" },
           // Position: Shift entire floor unit UP by i * floorHeight
-          "transform": { "position": [0, "i * ctx.floorHeight", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
+          "transform": { "position": [0, "i * ctx.floorHeight - ctx.floorHeight / 2", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
           "material": "floor_slab"
         },
         {
