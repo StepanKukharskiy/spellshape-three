@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spellshape Integrated</title>
+  <title>Spellshape - Curated Narrative</title>
   
   <script type="importmap">
     {
@@ -169,9 +169,9 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
 
-    // --- SCHEMA (v4.6) ---
+    // --- ENHANCED SCHEMA (v4.7) with Explicit Control Mapping ---
     let schema = {
-      "version": "4.6",
+      "version": "4.7",
       "type": "emergent_procedure",
       "intent": "Complete Checkerboard Tower",
       "materials": {
@@ -192,13 +192,57 @@
       },
       "context": {},
       "actions": [
-        { "thought": "1. Create Slab Base", "do": "createBox", "params": { "width": "ctx.coreWidth + ctx.slabExpansion", "height": 0.3, "depth": "ctx.coreDepth + ctx.slabExpansion" }, "transform": { "position": [0, -0.15, 0] }, "as": "slab_mesh" },
-        { "thought": "2. Create Core", "do": "createBox", "params": { "width": "ctx.coreWidth", "height": "ctx.floorHeight", "depth": "ctx.coreDepth" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "core_mesh" },
-        { "thought": "3. Create Columns", "do": "createCylinder", "params": { "radiusTop": 0.4, "radiusBottom": 0.4, "height": "ctx.floorHeight" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "col_base" },
-        { "thought": "4. Distribute Columns", "do": "distributeOnGrid3d", "params": { "geometry": "col_base", "rows": 2, "cols": 2, "spacing": ["ctx.coreWidth + 1", 0, "ctx.coreDepth + 1"], "centered": true, "autoMerge": true }, "as": "cols_mesh" },
-        { "thought": "5. Create Facade Panels", "do": "createBox", "params": { "width": "(ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide - 0.1", "height": "ctx.floorHeight", "depth": 0.2 }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "panel_horz" },
-        { "do": "createBox", "params": { "width": 0.2, "height": "ctx.floorHeight", "depth": "(ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide - 0.1" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "panel_vert" },
-        { "thought": "6. Assemble Patterns", "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "(ctx.coreDepth + ctx.slabExpansion)/2 - 0.1"] }, "as": "front_even" },
+        { 
+          "thought": "1. Create Slab Base", 
+          "do": "createBox", 
+          "params": { "width": "ctx.coreWidth + ctx.slabExpansion", "height": 0.3, "depth": "ctx.coreDepth + ctx.slabExpansion" }, 
+          "transform": { "position": [0, -0.15, 0] }, 
+          "as": "slab_mesh",
+          "controls": ["slabExpansion"]  // <--- EXPLICIT CONTROL
+        },
+        { 
+          "thought": "2. Create Core", 
+          "do": "createBox", 
+          "params": { "width": "ctx.coreWidth", "height": "ctx.floorHeight", "depth": "ctx.coreDepth" }, 
+          "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+          "as": "core_mesh",
+          "controls": ["coreWidth", "coreDepth", "floorHeight"]
+        },
+        { 
+          "thought": "3. Create Columns", 
+          "do": "createCylinder", 
+          "params": { "radiusTop": 0.4, "radiusBottom": 0.4, "height": "ctx.floorHeight" }, 
+          "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+          "as": "col_base" 
+        },
+        { 
+          "thought": "4. Distribute Columns", 
+          "do": "distributeOnGrid3d", 
+          "params": { "geometry": "col_base", "rows": 2, "cols": 2, "spacing": ["ctx.coreWidth + 1", 0, "ctx.coreDepth + 1"], "centered": true, "autoMerge": true }, 
+          "as": "cols_mesh" 
+        },
+        { 
+          "thought": "5. Create Facade Panels", 
+          "do": "createBox", 
+          "params": { "width": "(ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide - 0.1", "height": "ctx.floorHeight", "depth": 0.2 }, 
+          "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+          "as": "panel_horz",
+          "controls": ["panelsPerSide"]
+        },
+        { 
+          "do": "createBox", 
+          "params": { "width": 0.2, "height": "ctx.floorHeight", "depth": "(ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide - 0.1" }, 
+          "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+          "as": "panel_vert" 
+        },
+        { 
+          "thought": "6. Assemble Patterns", 
+          "do": "repeatLinear3d", 
+          "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, 
+          "transform": { "position": ["-((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "(ctx.coreDepth + ctx.slabExpansion)/2 - 0.1"] }, 
+          "as": "front_even" 
+        },
+        // ... (Hidden repetitive steps for brevity in source code, usually full list here) ...
         { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "(ctx.coreDepth + ctx.slabExpansion)/2 - 0.1"] }, "as": "front_odd" },
         { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "-(ctx.coreDepth + ctx.slabExpansion)/2 + 0.1"] }, "as": "back_even" },
         { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "-(ctx.coreDepth + ctx.slabExpansion)/2 + 0.1"] }, "as": "back_odd" },
@@ -206,13 +250,16 @@
         { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-(ctx.coreWidth + ctx.slabExpansion)/2 + 0.1", 0, "((ctx.coreDepth + ctx.slabExpansion)/ctx.panelsPerSide)/2"] }, "as": "left_odd" },
         { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["(ctx.coreWidth + ctx.slabExpansion)/2 - 0.1", 0, "-((ctx.coreDepth + ctx.slabExpansion)/ctx.panelsPerSide)/2"] }, "as": "right_even" },
         { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["(ctx.coreWidth + ctx.slabExpansion)/2 - 0.1", 0, "((ctx.coreDepth + ctx.slabExpansion)/ctx.panelsPerSide)/2"] }, "as": "right_odd" },
+        
         { 
           "thought": "7. Stack Floors", 
           "do": "loop", "var": "i", "from": 0, "to": "ctx.floors",
+          "controls": ["floors", "rotationPerFloor"],
           "body": [
              { "do": "clone", "params": {"id":"slab_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "floor_slab" },
              { "do": "clone", "params": {"id":"core_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "core" },
              { "do": "clone", "params": {"id":"cols_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "column" },
+             
              { "do": "clone", "params": {"id":"front_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
              { "do": "clone", "params": {"id":"front_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
              { "do": "clone", "params": {"id":"back_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
@@ -265,17 +312,8 @@
         
         // Update ALL sliders for this key
         document.querySelectorAll(`input[data-key="${key}"]`).forEach(el => el.value = val);
-        document.querySelectorAll(`[id^="val-"]`).forEach(el => {
-          // Simple check if ID belongs to this key might be hard, so we update DOM state
-          // For simplicity in this demo, we just re-render or use shared class?
-          // Better: just update the specific text spans
-        });
-        // Since IDs are unique, we iterate:
-        document.querySelectorAll('.control-val').forEach(span => {
-           if (span.id.includes(key)) span.innerText = val; // Rough heuristic, or use data attribute
-        });
-
-        // Update this one specific label
+        
+        // Update specific text
         document.getElementById(`val-${uniqueId}`).innerText = val;
 
         run();
@@ -288,10 +326,9 @@
 
     // --- RENDER TABS ---
     function renderUI() {
-      // 1. CONTROLS TAB
+      // 1. CONTROLS TAB (Grouped)
       const controlsDiv = tabs.controls;
       controlsDiv.innerHTML = '';
-      
       const groups = {};
       for (const [key, def] of Object.entries(schema.globalParameters)) {
         const g = def.group || 'General';
@@ -304,41 +341,25 @@
         title.className = 'group-title';
         title.innerText = gName;
         controlsDiv.appendChild(title);
-        
-        items.forEach(({ key, def }) => {
-          controlsDiv.appendChild(createSlider(key, def, `ctrl-${key}`));
-        });
+        items.forEach(({ key, def }) => controlsDiv.appendChild(createSlider(key, def, `ctrl-${key}`)));
       }
 
-      // 2. RECIPE TAB (De-duplicated)
+      // 2. RECIPE TAB (Curated)
       const recipeDiv = tabs.recipe;
       recipeDiv.innerHTML = '';
-      const seenParams = new Set();
-      const varRegex = /ctx\.([a-zA-Z0-9_]+)/g;
 
       schema.actions.forEach((action, i) => {
-        if (!action.thought) return;
+        if (!action.thought) return; // Skip hidden steps
 
         const card = document.createElement('div');
         card.className = 'step-card';
         card.innerHTML = `<div class="step-header"><div class="step-num">${i+1}</div><div class="step-title">${action.thought}</div></div>`;
 
-        // Find Params
-        const vars = new Set();
-        let match;
-        const str = JSON.stringify(action);
-        while ((match = varRegex.exec(str)) !== null) {
-          vars.add(match[1]);
-        }
-
-        // Filter: Only new params
-        const newVars = Array.from(vars).filter(v => !seenParams.has(v));
-        newVars.forEach(v => seenParams.add(v));
-
-        if (newVars.length > 0) {
+        // Render Explicit Controls from 'action.controls' array
+        if (action.controls && action.controls.length > 0) {
           const controlsArea = document.createElement('div');
           controlsArea.className = 'step-controls';
-          newVars.forEach(key => {
+          action.controls.forEach(key => {
             if (schema.globalParameters[key]) {
               controlsArea.appendChild(createSlider(key, schema.globalParameters[key], `recipe-${key}`));
             }
