@@ -35,29 +35,31 @@ export const twistedTowerSchema = {
   },
   "actions": [
     {
-      "thought": "1. Create Slab - Shifted DOWN so Top is at Y=0",
+      "thought": "1. Create Slab - Centered vertically at y=0, thickness 0.3",
       "do": "createBox",
       "params": {
         "width": "ctx.coreWidth + ctx.slabExpansion",
         "height": 0.3,
         "depth": "ctx.coreDepth + ctx.slabExpansion",
+        // Pivot is center, so shift down by half height to make top surface at y=0
         "position": [0, "-0.15", 0] 
       },
       "as": "slab_geometry"
     },
     {
-      "thought": "2. Create Core - Shifted UP so Bottom is at Y=0",
+      "thought": "2. Create Core - Sitting on top of slab (y=0 to y=floorHeight)",
       "do": "createBox",
       "params": {
         "width": "ctx.coreWidth",
         "height": "ctx.floorHeight", 
         "depth": "ctx.coreDepth",
+        // Shift up by half-height so bottom is at y=0
         "position": [0, "ctx.floorHeight/2", 0]
       },
       "as": "core_geometry"
     },
     {
-      "thought": "3. Create Columns - Shifted UP so Bottom is at Y=0",
+      "thought": "3. Create Columns - Sitting on top of slab",
       "do": "createCylinder",
       "params": {
         "radiusTop": 0.4, "radiusBottom": 0.4, "height": "ctx.floorHeight",
@@ -77,12 +79,13 @@ export const twistedTowerSchema = {
       "as": "cols_group"
     },
     {
-      "thought": "4. Create Facade Panels - Aligned to Slab Edge",
+      "thought": "4. Create Facade Panels - Correctly aligned to Slab Edge",
       "do": "createBox",
       "params": {
-        "width": "ctx.coreWidth + ctx.slabExpansion",
+        "width": "ctx.coreWidth + ctx.slabExpansion", // Matches slab width
         "height": "ctx.floorHeight",
         "depth": 0.2,
+        // Position: Up half-height, Z-offset matches SLAB EDGE
         "position": [0, "ctx.floorHeight/2", "(ctx.coreDepth + ctx.slabExpansion)/2 - 0.1"] 
       },
       "as": "wall_front"
@@ -104,7 +107,7 @@ export const twistedTowerSchema = {
       "params": {
         "width": 0.2,
         "height": "ctx.floorHeight",
-        "depth": "ctx.coreDepth + ctx.slabExpansion - 0.4", // Subtract overlapping corners
+        "depth": "ctx.coreDepth + ctx.slabExpansion", // Matches slab depth
         "position": ["(ctx.coreWidth + ctx.slabExpansion)/2 - 0.1", "ctx.floorHeight/2", 0]
       },
       "as": "wall_right"
@@ -115,7 +118,7 @@ export const twistedTowerSchema = {
       "params": {
         "width": 0.2,
         "height": "ctx.floorHeight",
-        "depth": "ctx.coreDepth + ctx.slabExpansion - 0.4", // Subtract overlapping corners
+        "depth": "ctx.coreDepth + ctx.slabExpansion",
         "position": ["-(ctx.coreWidth + ctx.slabExpansion)/2 + 0.1", "ctx.floorHeight/2", 0]
       },
       "as": "wall_left"
@@ -130,7 +133,8 @@ export const twistedTowerSchema = {
         {
           "do": "clone",
           "params": { "id": "slab_geometry" },
-          "transform": { "position": [0, "i * ctx.floorHeight", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
+          // Position: Shift entire floor unit UP by i * floorHeight
+          "transform": { "position": [0, "i * ctx.floorHeight - ctx.floorHeight / 20", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
           "material": "floor_slab"
         },
         {
@@ -173,7 +177,6 @@ export const twistedTowerSchema = {
     }
   ]
 }
-
 
 
 
