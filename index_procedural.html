@@ -166,7 +166,7 @@
     import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
 
     // --- SCHEMA (v4.8 - Curated Controls) ---
-    const schema = {
+    const schema2 = {
   "version": "4.9",
   "type": "emergent_procedure",
   "intent": "Decoupled Logic Tower",
@@ -335,6 +335,104 @@
          { "do": "clone", "params": {"id":"right_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
          { "do": "clone", "params": {"id":"right_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" }
       ] 
+    }
+  ]
+};
+
+    const schema = {
+  "version": "4.9",
+  "type": "emergent_procedure",
+  "intent": "Noise Eroded Column",
+  "materials": {
+    "concrete": { "color": "#8c8c8c", "roughness": 0.9, "metalness": 0.1 },
+    "inner_core": { "color": "#333333", "roughness": 0.5, "metalness": 0.5 }
+  },
+  "globalParameters": {
+    "height": { "value": 12, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
+    "width": { "value": 3, "type": "number", "min": 1, "max": 6, "group": "Dimensions" },
+    
+    // Resolution: Higher = Smoother, Slower
+    "layerCount": { "value": 100, "type": "integer", "min": 20, "max": 200, "group": "Resolution" },
+    
+    // Noise Parameters
+    "erosionScale": { "value": 0.8, "type": "number", "min": 0.1, "max": 2.0, "group": "Erosion" },
+    "erosionDepth": { "value": 1.2, "type": "number", "min": 0, "max": 2.0, "group": "Erosion" },
+    "chaos": { "value": 1.5, "type": "number", "min": 0, "max": 5.0, "group": "Erosion" }
+  },
+  "context": {},
+  "actions": [
+    // 1. Define the "Slice" (A single layer of the column)
+    {
+      "thought": "1. Create Base Slice",
+      "do": "createBox",
+      "params": {
+        "width": "ctx.width",
+        "height": "ctx.height / ctx.layerCount", // Thickness depends on resolution
+        "depth": "ctx.width"
+      },
+      "as": "slice_geo",
+      "controls": ["width", "height", "layerCount"]
+    },
+    
+    // 2. Define a darker inner core (so erosion reveals something)
+    {
+      "thought": "2. Create Inner Core Slice",
+      "do": "createBox",
+      "params": {
+        "width": "ctx.width * 0.4",
+        "height": "ctx.height / ctx.layerCount",
+        "depth": "ctx.width * 0.4"
+      },
+      "as": "core_geo"
+    },
+
+    // 3. The Emergent Loop
+    // We calculate 'y' (normalized height 0-1) and use it to drive Sine waves
+    {
+      "thought": "3. Erode & Stack Layers",
+      "do": "loop",
+      "var": "i",
+      "from": 0,
+      "to": "ctx.layerCount",
+      "controls": ["erosionScale", "erosionDepth", "chaos"],
+      "body": [
+        // --- LOGIC EXPLAINED ---
+        // n1: Large, slow wave (General shape)
+        // n2: Fast, chaotic wave (Detail/Roughness)
+        // erosion: Combine them. If > 0, subtract from scale.
+        
+        // Outer Shell (Eroded)
+        {
+          "do": "clone",
+          "params": { "id": "slice_geo" },
+          "transform": {
+            "position": [0, "i * (ctx.height / ctx.layerCount)", 0],
+            
+            // Erosion Logic X:
+            // Scale = 1.0 - max(0, (sin(slow) + cos(fast)) * depth)
+            "scale": [
+              "1.0 - Math.max(0, (Math.sin(i * 0.1 * ctx.erosionScale) + Math.cos(i * 0.3 * ctx.chaos)) * ctx.erosionDepth * 0.5)", 
+              1, 
+              "1.0 - Math.max(0, (Math.cos(i * 0.1 * ctx.erosionScale) + Math.sin(i * 0.33 * ctx.chaos)) * ctx.erosionDepth * 0.5)"
+            ],
+            
+            // Slight rotation for organic feel
+            "rotation": [0, "i * 0.02", 0]
+          },
+          "material": "concrete"
+        },
+        
+        // Inner Core (Solid, visible through cracks)
+        {
+          "do": "clone",
+          "params": { "id": "core_geo" },
+          "transform": {
+            "position": [0, "i * (ctx.height / ctx.layerCount)", 0],
+            "rotation": [0, "i * 0.02", 0]
+          },
+          "material": "inner_core"
+        }
+      ]
     }
   ]
 };
