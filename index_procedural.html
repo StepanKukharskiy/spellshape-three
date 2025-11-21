@@ -166,7 +166,7 @@
     import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
 
     // --- SCHEMA (v4.8 - Curated Controls) ---
-    const schema2 = {
+    const schema1 = {
   "version": "4.9",
   "type": "emergent_procedure",
   "intent": "Decoupled Logic Tower",
@@ -339,7 +339,7 @@
   ]
 };
 
-    const schema = {
+    const schema2 = {
   "version": "4.9",
   "type": "emergent_procedure",
   "intent": "Noise Eroded Column",
@@ -436,6 +436,69 @@
     }
   ]
 };
+
+    const schema = {
+  "version": "4.9",
+  "type": "emergent_procedure",
+  "intent": "Deformed Surface Monolith",
+  "materials": {
+    "stone": { "color": "#e0e0e0", "roughness": 0.8, "metalness": 0.1 }
+  },
+  "globalParameters": {
+    "width": { "value": 6, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
+    "height": { "value": 12, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
+    "depth": { "value": 6, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
+    
+    // Resolution determines vertex count
+    "resolution": { "value": 20, "type": "integer", "min": 5, "max": 50, "group": "Quality" },
+    
+    // Noise/Wave parameters
+    "waveFreq": { "value": 0.5, "type": "number", "min": 0.1, "max": 2.0, "group": "Deformation" },
+    "waveAmp": { "value": 0.8, "type": "number", "min": 0.0, "max": 2.0, "group": "Deformation" },
+    "twist": { "value": 0.5, "type": "number", "min": 0.0, "max": 2.0, "group": "Deformation" }
+  },
+  "context": {},
+  "actions": [
+    {
+      "thought": "1. Create High-Res Box",
+      "do": "createBox",
+      "params": {
+        "width": "ctx.width",
+        "height": "ctx.height",
+        "depth": "ctx.depth",
+        "widthSegments": "ctx.resolution",
+        "heightSegments": "ctx.resolution",
+        "depthSegments": "ctx.resolution"
+      },
+      "as": "base_mesh",
+      "controls": ["width", "height", "resolution"]
+    },
+    {
+      "thought": "2. Deform Surface",
+      "do": "modifyGeometry",
+      "params": {
+        "geometry": "base_mesh",
+        "operations": [
+          // Sinusoidal Displacement (Ripple)
+          // We modify 'position' directly. v = current vertex position {x,y,z}
+          // Logic: Add sine wave based on height (y) to x and z
+          {
+            "type": "displace", 
+            "expression": "v.x += Math.sin(v.y * ctx.waveFreq) * ctx.waveAmp; v.z += Math.cos(v.y * ctx.waveFreq) * ctx.waveAmp;"
+          },
+          // Tapering effect
+          {
+            "type": "scale",
+            "expression": "scaleFactor = 1.0 - (v.y / ctx.height) * 0.3; v.x *= scaleFactor; v.z *= scaleFactor;"
+          }
+        ]
+      },
+      "material": "stone",
+      "controls": ["waveFreq", "waveAmp"]
+    }
+  ]
+};
+
 
 
 
