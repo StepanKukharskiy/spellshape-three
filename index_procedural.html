@@ -475,28 +475,19 @@
       "controls": ["width", "height", "resolution"]
     },
     {
-      "thought": "2. Deform Surface",
-      "do": "modifyGeometry",
-      "params": {
-        "geometry": "base_mesh",
-        "operations": [
-          // Sinusoidal Displacement (Ripple)
-          // We modify 'position' directly. v = current vertex position {x,y,z}
-          // Logic: Add sine wave based on height (y) to x and z
-          {
-            "type": "displace", 
-            "expression": "v.x += Math.sin(v.y * ctx.waveFreq) * ctx.waveAmp; v.z += Math.cos(v.y * ctx.waveFreq) * ctx.waveAmp;"
-          },
-          // Tapering effect
-          {
-            "type": "scale",
-            "expression": "scaleFactor = 1.0 - (v.y / ctx.height) * 0.3; v.x *= scaleFactor; v.z *= scaleFactor;"
-          }
-        ]
-      },
-      "material": "stone",
-      "controls": ["waveFreq", "waveAmp"]
-    }
+  "thought": "2. Deform Surface (debug)",
+  "do": "modifyGeometry",
+  "params": {
+    "geometry": "base_mesh",
+    "operations": [
+      {
+        "type": "displace",
+        "expression": "v.x += Math.sin(v.y * 0.8) * 1.5; v.z += Math.cos(v.y * 0.8) * 1.5;"
+      }
+    ]
+  },
+  "material": "stone"
+}
   ]
 };
 
