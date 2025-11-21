@@ -81,6 +81,10 @@ export class ProceduralExecutor {
 
         if (thought) console.log('💭', thought);
 
+      if (helperName === 'modifyGeometry') {
+  console.log('🧪 modifyGeometry params AFTER eval:', evalParams);
+}
+
         // Handle Control Flow
         if (helperName === 'loop') return this._executeLoop(action, group);
         if (helperName === 'clone') return this._executeClone(action, group);
