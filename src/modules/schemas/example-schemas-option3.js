@@ -1,5 +1,3 @@
-
-
 export const twistedTowerSchema ={
   "version": "4.4",
   "type": "emergent_procedure",
