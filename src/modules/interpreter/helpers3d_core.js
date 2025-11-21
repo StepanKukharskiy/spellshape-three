@@ -719,45 +719,65 @@ export function reactionDiffusion(params = {}) {
 
 export function modifyGeometry(params) {
     console.log('modifyGeometry', params);
-    const { geometry, expression, context = {} } = params;
-    if (!geometry) { console.warn("modifyGeometry: No geometry"); return null; }
+    
+    // 1. Handle both "operations" (Array) and legacy "expression" (String)
+    let { geometry, operations = [], expression, context = {} } = params;
+    
+    if (expression) {
+        operations.push({ expression }); // Convert legacy single expression to array
+    }
+
+    if (!geometry) { 
+        console.warn("modifyGeometry: No geometry"); 
+        return null; 
+    }
+
     const geom = geometry.clone();
     const positionAttribute = geom.attributes.position;
     const normalAttribute = geom.attributes.normal;
+    
     if (!positionAttribute) return geom;
+    
     const count = positionAttribute.count;
-
-    let userLogic;
-    try {
-        userLogic = new Function('p', 'n', 'i', 'ctx', 'noise', 'utils', expression);
-    } catch (e) {
-        console.error("modifyGeometry: expression error", e);
-        return geom;
-    }
-
     const p = new THREE.Vector3();
     const n = new THREE.Vector3();
     const utils = Math;
-    const noiseFn = (x, y, z) => noise.noise(x, y, z);
 
+    // 2. Pre-compile all operation functions
+    // We inject 'v' as an argument so your schema's "v.x" code works.
+    const funcs = operations.map(op => {
+        try {
+            // Arguments: position, normal, index, context, utils, vertexAlias
+            return new Function('p', 'n', 'i', 'ctx', 'utils', 'v', op.expression);
+        } catch (e) {
+            console.error("modifyGeometry: Failed to compile expression", op.expression, e);
+            return null;
+        }
+    });
+
+    // 3. Iterate Vertices
     for (let i = 0; i < count; i++) {
         p.fromBufferAttribute(positionAttribute, i);
         if (normalAttribute) n.fromBufferAttribute(normalAttribute, i);
-        try {
-            const result = userLogic(p, n, i, context, noiseFn, utils);
-            if (typeof result === 'number') {
-                if (normalAttribute) p.addScaledVector(n, result);
-            } else if (result && typeof result.x === 'number') {
-                p.set(result.x, result.y, result.z);
+
+        // Run the pipeline
+        funcs.forEach(fn => {
+            if (fn) {
+                // We pass 'p' twice: once as 'p' and once as 'v' (for convenience)
+                // Modifying 'v' inside the script modifies 'p' because it's a reference.
+                fn(p, n, i, context, utils, p);
             }
-            positionAttribute.setXYZ(i, p.x, p.y, p.z);
-        } catch (err) { if (i === 0) console.error(err); }
+        });
+
+        positionAttribute.setXYZ(i, p.x, p.y, p.z);
     }
 
     geom.computeVertexNormals();
     positionAttribute.needsUpdate = true;
+    
     return geom;
 }
+
 
 export function meshFromMarchingCubes(params = {}) {
     const { resolution = 32, isovalue = 0.5, bounds = 10, expression, context = {} } = params;
