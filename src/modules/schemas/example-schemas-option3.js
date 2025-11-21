@@ -39,7 +39,7 @@ export const twistedTowerSchema ={
         "width": "ctx.coreWidth",
         "height": "ctx.floorHeight",
         "depth": "ctx.coreDepth",
-        "position": [0, "ctx.floorHeight/2", 0] // Center vertically
+        "position": [0, "ctx.floorHeight", 0] // Center vertically
       },
       "material": "core",
       "as": "core_piece"
