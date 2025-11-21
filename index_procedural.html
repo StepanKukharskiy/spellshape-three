@@ -1,858 +1,337 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spellshape - Procedural Schema Tester</title>
-
-  <!-- Import Map for Module Resolution -->
+  <title>Spellshape - Emergent Architecture</title>
+  
+  <!-- Import Map -->
   <script type="importmap">
     {
       "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@r128/build/three.module.js",
-        "three/addons/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@r128/examples/jsm/controls/OrbitControls.js",
-        "three/addons/modifiers/SimplifyModifier.js": "https://cdn.jsdelivr.net/npm/three@r128/examples/jsm/modifiers/SimplifyModifier.js",
-        "three/addons/geometries/ConvexGeometry.js": "https://cdn.jsdelivr.net/npm/three@r128/examples/jsm/geometries/ConvexGeometry.js",
-        "three/addons/utils/BufferGeometryUtils.js": "https://cdn.jsdelivr.net/npm/three@r128/examples/jsm/utils/BufferGeometryUtils.js"
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
       }
     }
   </script>
 
   <style>
-    * {
-      box-sizing: border-box;
+    :root {
+      --bg: #1a1a1f;
+      --panel-bg: rgba(30, 30, 35, 0.95);
+      --border: rgba(255, 255, 255, 0.1);
+      --accent: #6699ff;
+      --text: #e0e0e0;
+      --text-dim: #808080;
     }
 
-    body {
-      margin: 0;
-      overflow: hidden;
-      height: 100vh;
+    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', sans-serif; color: var(--text); }
+    
+    .container { display: flex; height: 100vh; }
+    canvas { flex: 1; outline: none; }
+
+    /* Panel */
+    .panel {
+      width: 400px;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: #1a1a1f;
-    }
-
-    .container {
-      flex: 1;
-      width: 100%;
-      display: flex;
-      position: relative;
-    }
-
-    canvas {
-      display: block;
-      flex: 1;
-      width: 100%;
-      height: 100%;
-    }
-
-    /* Schema Editor Panel */
-    .schema-panel {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 500px;
-      height: 100%;
-      background: rgba(30, 30, 35, 0.98);
-      color: #e0e0e0;
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid rgba(255, 255, 255, 0.1);
-      transition: transform 0.3s ease;
       z-index: 10;
-      overflow: hidden;
+      transition: transform 0.3s ease;
     }
+    
+    .panel.collapsed { transform: translateX(-400px); }
 
-    .schema-panel.collapsed {
-      transform: translateX(-460px);
-    }
-
-    .panel-header {
-      padding: 15px 20px;
-      background: rgba(0, 0, 0, 0.3);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    .header {
+      padding: 15px;
+      border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-
-    .panel-header h2 {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-    }
-
-    .panel-header .badge {
-      background: rgba(102, 126, 234, 0.3);
-      color: #6699ff;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600;
-    }
-
-    .panel-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .schema-tabs {
-      display: flex;
-      gap: 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);\n      background: rgba(0, 0, 0, 0.2);
-    }
-
+    
+    .tabs { display: flex; border-bottom: 1px solid var(--border); }
     .tab {
-      flex: 1;
-      padding: 12px;
-      background: transparent;
-      border: none;
-      color: #a0a0a0;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 600;
+      flex: 1; padding: 10px; background: none; border: none;
+      color: var(--text-dim); cursor: pointer; font-weight: 600;
       border-bottom: 2px solid transparent;
-      transition: all 0.2s;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .content { flex: 1; overflow-y: auto; padding: 15px; position: relative; }
+    
+    textarea {
+      width: 100%; height: 300px; background: #111; border: 1px solid var(--border);
+      color: #ccc; font-family: monospace; padding: 10px; resize: vertical;
     }
 
-    .tab.active {
-      color: #6699ff;
-      border-bottom-color: #6699ff;
-    }
+    /* Parameters */
+    .param-row { margin-bottom: 15px; }
+    .param-header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; color: var(--text-dim); }
+    input[type=range] { width: 100%; accent-color: var(--accent); }
 
-    .schema-editor {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 15px;
-      overflow: hidden;
+    /* Logs */
+    .log-entry {
+      font-family: monospace; font-size: 11px; padding: 6px;
+      border-bottom: 1px solid var(--border); display: flex; gap: 8px;
     }
+    .log-icon { color: var(--accent); }
+    .log-text { color: #ccc; }
 
-    .schema-editor label {
-      font-size: 11px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      display: block;
-      color: #808080;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    /* Footer Buttons */
+    .footer { padding: 15px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+    button {
+      flex: 1; padding: 10px; border-radius: 4px; border: none; cursor: pointer;
+      font-weight: 600; background: #333; color: white;
     }
+    button.primary { background: var(--accent); }
+    
+    .toggle {
+      position: absolute; left: 400px; top: 50%; width: 24px; height: 60px;
+      background: var(--panel-bg); border: 1px solid var(--border); border-left: none;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      border-radius: 0 8px 8px 0; z-index: 100; color: var(--text-dim);
+    }
+    .panel.collapsed + .toggle { left: 0; }
 
-    .schema-textarea {
-      flex: 1;
-      width: 100%;
-      padding: 12px;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
-      color: #e0e0e0;
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-      font-size: 11px;
-      line-height: 1.5;
-      resize: none;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .schema-textarea:focus {
-      border-color: rgba(100, 150, 255, 0.5);
-    }
-
-    .schema-textarea.error {
-      border-color: rgba(255, 100, 100, 0.7);
-    }
-
-    .parameters-panel {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 15px;
-      overflow-y: auto;
-    }
-
-    .parameter-group {
-      margin-bottom: 20px;
-    }
-
-    .parameter-label {
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 6px;
-      color: #a0a0a0;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .parameter-label .value {
-      color: #6699ff;
-      font-family: 'Consolas', monospace;
-    }
-
-    .parameter-slider {
-      width: 100%;
-      height: 6px;
-      border-radius: 3px;
-      background: rgba(255, 255, 255, 0.1);
-      outline: none;
-      -webkit-appearance: none;
-      appearance: none;
-    }
-
-    .parameter-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: #6699ff;
-      cursor: pointer;
-      box-shadow: 0 0 8px rgba(102, 126, 234, 0.6);
-    }
-
-    .parameter-slider::-moz-range-thumb {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: #6699ff;
-      cursor: pointer;
-      border: none;
-      box-shadow: 0 0 8px rgba(102, 126, 234, 0.6);
-    }
-
-    .button-group {
-      display: flex;
-      gap: 10px;
-      padding: 0 15px 15px 15px;
-    }
-
-    .btn {
-      flex: 1;
-      padding: 11px 16px;
-      border: none;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      outline: none;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-
-    .btn-primary:active {
-      transform: translateY(0);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.1);
-      color: #e0e0e0;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.15);
-    }
-
-    .toggle-button {
-      position: absolute;
-      left: 500px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 40px;
-      height: 80px;
-      background: rgba(30, 30, 35, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-left: none;
-      border-radius: 0 8px 8px 0;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #e0e0e0;
-      font-size: 18px;
-      transition: all 0.3s ease;
-      z-index: 9;
-    }
-
-    .schema-panel.collapsed + .toggle-button {
-      left: 40px;
-    }
-
-    .toggle-button:hover {
-      background: rgba(40, 40, 45, 0.95);
-    }
-
-    /* Status Bar */
-    .status-bar {
-      padding: 8px 15px;
-      background: rgba(0, 0, 0, 0.4);
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      font-size: 11px;
-      color: #808080;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .status-indicator {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #4caf50;
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    .status-dot.error {
-      background: #f44336;
-      animation: none;
-    }
-
-    .status-dot.warning {
-      background: #ff9800;
-      animation: none;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    /* Error Message */
-    .error-message {
-      margin: 0 15px 15px 15px;
-      padding: 12px;
-      background: rgba(255, 100, 100, 0.15);
-      border: 1px solid rgba(255, 100, 100, 0.3);
-      border-radius: 6px;
-      color: #ff8787;
-      font-size: 12px;
-      line-height: 1.5;
-      max-height: 100px;
-      overflow-y: auto;
-      font-family: 'Consolas', monospace;
-    }
-
-    .info-message {
-      margin: 0 15px 15px 15px;
-      padding: 12px;
-      background: rgba(100, 150, 255, 0.15);
-      border: 1px solid rgba(100, 150, 255, 0.3);
-      border-radius: 6px;
-      color: #6699ff;
-      font-size: 12px;
-      line-height: 1.5;
-    }
-
-    /* Presets Dropdown */
-    .presets-dropdown {
-      margin: 0 15px 15px 15px;
-      padding: 0;
-    }
-
-    .preset-select {
-      width: 100%;
-      padding: 8px 12px;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
-      color: #e0e0e0;
-      font-size: 12px;
-      cursor: pointer;
-      outline: none;
-    }
-
-    .preset-select:hover {
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .preset-select:focus {
-      border-color: rgba(100, 150, 255, 0.5);
-    }
-
-    /* Stats */
-    .stats {
-      padding: 0 15px 15px 15px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .stat-card {
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
-      padding: 10px;
-      text-align: center;
-    }
-
-    .stat-label {
-      font-size: 10px;
-      color: #808080;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-
-    .stat-value {
-      font-size: 16px;
-      font-weight: 600;
-      color: #6699ff;
-    }
   </style>
 </head>
-
 <body>
+
   <div class="container">
-    <div class="schema-panel">
-      <div class="panel-header">
-        <h2>Spellshape Procedural</h2>
-        <span class="badge">Option 3</span>
+    <div class="panel" id="sidebar">
+      <div class="header">
+        <h3>Spellshape Emergent</h3>
+        <small style="color: var(--text-dim)">v4.5</small>
       </div>
 
-      <div class="panel-content">
-        <!-- Tabs -->
-        <div class="schema-tabs">
-          <button class="tab active" data-tab="schema">Schema</button>
-          <button class="tab" data-tab="parameters">Parameters</button>
-          <button class="tab" data-tab="info">Info</button>
-        </div>
-
-        <!-- Schema Tab -->
-        <div class="schema-editor" id="schema-tab" style="display: flex;">
-          <div class="presets-dropdown">
-            <select class="preset-select" id="preset-select">
-              <option value="">-- Load Preset --</option>
-              <option value="twisted-tower">Twisted Tower</option>
-              <option value="simple-tower">Simple Tower</option>
-              <option value="custom-panels-tower">Custom Wall Panels Tower</option>
-              <option value="wave-facade-pattern">Wave Facade Pattern</option>
-              <option value="roman-viaduct">Roman Viaduct</option>
-              <option value="simple-grid">Simple Grid</option>
-              <option value="pavilion">Exhibition Pavilion</option>
-              <option value="spa">Spa Center</option>
-            </select>
-          </div>
-
-          <label>JSON Schema (Option 3 Procedural)</label>
-          <textarea class="schema-textarea" id="schema-input"></textarea>
-
-          <div class="error-message" id="error-message" style="display: none;"></div>
-        </div>
-
-        <!-- Parameters Tab -->
-        <div id="parameters-tab" style="display: none;" class="parameters-panel">
-          <label style="font-size: 12px; color: #a0a0a0; margin-bottom: 15px; text-transform: uppercase;">
-            Adjust parameters and the model updates in real-time
-          </label>
-          <div id="parameters-container"></div>
-        </div>
-
-        <!-- Info Tab -->
-        <div id="info-tab" style="display: none; padding: 15px; overflow-y: auto;">
-          <div class="info-message">
-            <strong>Option 3: Procedural Approach</strong><br><br>
-            This is a procedural schema system where JSON describes imperative steps (loops, conditionals, geometry creation) with full context awareness.<br><br>
-            <strong>Key Features:</strong><br>
-            • Loop variables in scope<br>
-            • Materials evaluated with index<br>
-            • All helpers3d integrated<br>
-            • AI-friendly pseudocode structure
-          </div>
-
-          <div class="stats">
-            <div class="stat-card">
-              <div class="stat-label">Geometry</div>
-              <div class="stat-value" id="stat-geometries">0</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Materials</div>
-              <div class="stat-value" id="stat-materials">0</div>
-            </div>
-          </div>
-        </div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('params')">Controls</button>
+        <button class="tab" onclick="switchTab('schema')">Schema</button>
+        <button class="tab" onclick="switchTab('logs')">Thought Process</button>
       </div>
 
-      <div class="button-group">
-        <button class="btn btn-primary" id="apply-btn">Apply Schema</button>
-        <button class="btn btn-secondary" id="clear-btn">Clear</button>
+      <div class="content" id="tab-params">
+        <!-- Sliders generated here -->
+        <div id="controls-container"></div>
+      </div>
+
+      <div class="content" id="tab-schema" style="display:none">
+        <textarea id="schema-input" spellcheck="false"></textarea>
+        <button onclick="applySchemaFromText()" style="margin-top:10px; width:100%">Update Schema</button>
+      </div>
+
+      <div class="content" id="tab-logs" style="display:none">
+        <div id="log-container"></div>
+      </div>
+
+      <div class="footer">
+        <button class="primary" onclick="runSchema()">Regenerate</button>
+        <button onclick="resetCamera()">Reset View</button>
       </div>
     </div>
-
-    <button class="toggle-button" id="toggle-btn">◀</button>
-  </div>
-
-  <div class="status-bar">
-    <div class="status-indicator">
-      <span class="status-dot" id="status-dot"></span>
-      <span id="status-text">Ready</span>
-    </div>
-    <div id="time-info">Render: 0ms</div>
+    
+    <div class="toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">◀</div>
+    
+    <canvas id="gl"></canvas>
   </div>
 
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { ProceduralExecutor } from './procedural-executor_FINAL_v2.js';
     
-    // Import our modules - ADJUST THESE PATHS TO YOUR PROJECT STRUCTURE
-    import { ProceduralExecutor } from './src//modules/interpreter/procedural-executor.js';
-    import { FixedExpressionEvaluator } from './src/modules/interpreter/evaluator.js';
-    import { FixedMaterialManager } from './src/modules/interpreter/materials.js';
-    import {
-      twistedTowerSchema,
-      simpleTowerSchema,
-      customWallPanelsTowerSchema,
-      waveFacadePatternSchema,
-      romanViaductSchema,
-      simpleGridSchema,
-      pavilionSchema,
-      spaSchema
-    } from './src/modules/schemas/example-schemas-option3.js';
-
-    // ============================================================================
-    // SETUP
-    // ============================================================================
-
-    const canvas = document.querySelector('canvas') || (() => {
-      const c = document.createElement('canvas');
-      document.querySelector('.container').insertBefore(c, document.querySelector('.schema-panel'));
-      return c;
-    })();
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x404040);
-    scene.fog = new THREE.Fog(0x0a0a0f, 200, 800);
-
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(50, 40, 50);
-
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowShadowMap;
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    // controls.autoRotate = true;
-    // controls.autoRotateSpeed = 2;
-
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(50, 100, 50);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.camera.far = 500;
-    directionalLight.shadow.camera.left = -200;
-    directionalLight.shadow.camera.right = 200;
-    directionalLight.shadow.camera.top = 200;
-    directionalLight.shadow.camera.bottom = -200;
-    scene.add(directionalLight);
-
-    // Grid helper
-    const gridHelper = new THREE.GridHelper(200, 40, 0x444444, 0x222222);
-    scene.add(gridHelper);
-
-    // ============================================================================
-    // STATE
-    // ============================================================================
-
-    let currentGeometry = null;
-    let executor = new ProceduralExecutor(new FixedExpressionEvaluator(), new FixedMaterialManager());
-    let currentSchema = null;
-    let currentParams = {};
-
-    const presets = {
-      'twisted-tower': twistedTowerSchema,
-      'simple-tower': simpleTowerSchema,
-      'custom-panels-tower': customWallPanelsTowerSchema,
-      'wave-facade-pattern': waveFacadePatternSchema,
-      'roman-viaduct': romanViaductSchema,
-      'simple-grid': simpleGridSchema,
-      'pavilion': pavilionSchema,
-      'spa': spaSchema
+    // --- DEFAULT SCHEMA (Twisted Tower v4.5) ---
+    const defaultSchema = {
+      "version": "4.5",
+      "type": "emergent_procedure",
+      "intent": "Complete Checkerboard Tower",
+      "materials": {
+        "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
+        "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
+        "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
+        "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
+        "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
+      },
+      "globalParameters": {
+        "floors": { "value": 15, "type": "integer", "min": 3, "max": 30 },
+        "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5 },
+        "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16 },
+        "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 12 },
+        "slabExpansion": { "value": 2, "type": "number", "min": 0, "max": 4 },
+        "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2 },
+        "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12 }
+      },
+      "context": {},
+      "actions": [
+        { "do": "createBox", "params": { "width": "ctx.coreWidth + ctx.slabExpansion", "height": 0.3, "depth": "ctx.coreDepth + ctx.slabExpansion" }, "transform": { "position": [0, -0.15, 0] }, "as": "slab_mesh" },
+        { "do": "createBox", "params": { "width": "ctx.coreWidth", "height": "ctx.floorHeight", "depth": "ctx.coreDepth" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "core_mesh" },
+        { "do": "createCylinder", "params": { "radiusTop": 0.4, "radiusBottom": 0.4, "height": "ctx.floorHeight" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "col_base" },
+        { "do": "distributeOnGrid3d", "params": { "geometry": "col_base", "rows": 2, "cols": 2, "spacing": ["ctx.coreWidth + 1", 0, "ctx.coreDepth + 1"], "centered": true, "autoMerge": true }, "as": "cols_mesh" },
+        { "do": "createBox", "params": { "width": "(ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide - 0.1", "height": "ctx.floorHeight", "depth": 0.2 }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "panel_horz" },
+        { "do": "createBox", "params": { "width": 0.2, "height": "ctx.floorHeight", "depth": "(ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide - 0.1" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "panel_vert" },
+        { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "(ctx.coreDepth + ctx.slabExpansion)/2 - 0.1"] }, "as": "front_even" },
+        { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "(ctx.coreDepth + ctx.slabExpansion)/2 - 0.1"] }, "as": "front_odd" },
+        { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "-(ctx.coreDepth + ctx.slabExpansion)/2 + 0.1"] }, "as": "back_even" },
+        { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "-(ctx.coreDepth + ctx.slabExpansion)/2 + 0.1"] }, "as": "back_odd" },
+        { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-(ctx.coreWidth + ctx.slabExpansion)/2 + 0.1", 0, "-((ctx.coreDepth + ctx.slabExpansion)/ctx.panelsPerSide)/2"] }, "as": "left_even" },
+        { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-(ctx.coreWidth + ctx.slabExpansion)/2 + 0.1", 0, "((ctx.coreDepth + ctx.slabExpansion)/ctx.panelsPerSide)/2"] }, "as": "left_odd" },
+        { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["(ctx.coreWidth + ctx.slabExpansion)/2 - 0.1", 0, "-((ctx.coreDepth + ctx.slabExpansion)/ctx.panelsPerSide)/2"] }, "as": "right_even" },
+        { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["(ctx.coreWidth + ctx.slabExpansion)/2 - 0.1", 0, "((ctx.coreDepth + ctx.slabExpansion)/ctx.panelsPerSide)/2"] }, "as": "right_odd" },
+        {
+          "do": "loop", "var": "i", "from": 0, "to": "ctx.floors",
+          "body": [
+            { "do": "clone", "params": { "id": "slab_mesh" }, "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "floor_slab" },
+            { "do": "clone", "params": { "id": "core_mesh" }, "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "core" },
+            { "do": "clone", "params": { "id": "cols_mesh" }, "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "column" },
+            { "do": "clone", "params": { "id": "front_even" }, "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+            { "do": "clone", "params": { "id": "front_odd" },  "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+            { "do": "clone", "params": { "id": "back_even" },  "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+            { "do": "clone", "params": { "id": "back_odd" },   "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+            { "do": "clone", "params": { "id": "left_even" },  "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+            { "do": "clone", "params": { "id": "left_odd" },   "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+            { "do": "clone", "params": { "id": "right_even" }, "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+            { "do": "clone", "params": { "id": "right_odd" },  "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'wall' : 'window'" }
+          ]
+        }
+      ]
     };
 
-    // ============================================================================
-    // UI FUNCTIONS
-    // ============================================================================
-
-    function updateStatus(message, isError = false) {
-      const dot = document.getElementById('status-dot');
-      const text = document.getElementById('status-text');
-      dot.className = isError ? 'status-dot error' : 'status-dot';
-      text.textContent = message;
-    }
-
-    function showError(message) {
-      const errorDiv = document.getElementById('error-message');
-      errorDiv.textContent = message;
-      errorDiv.style.display = 'block';
-      updateStatus('Error', true);
-    }
-
-    function hideError() {
-      const errorDiv = document.getElementById('error-message');
-      errorDiv.style.display = 'none';
-    }
-
-    function loadSchema(schema) {
-      console.log('📦 Loading schema:', schema.version);
-      currentSchema = JSON.parse(JSON.stringify(schema));
-      document.getElementById('schema-input').value = JSON.stringify(currentSchema, null, 2);
-      updateParametersPanel(currentSchema);
-      console.log('🎯 Calling applySchema...');
-      applySchema();
-    }
-
-    function updateParametersPanel(schema) {
-      const container = document.getElementById('parameters-container');
-      container.innerHTML = '';
-
-      if (!schema.globalParameters) {
-        container.innerHTML = '<p style="color: #808080; font-size: 12px;">No parameters defined</p>';
-        return;
-      }
-
-      for (const [key, param] of Object.entries(schema.globalParameters)) {
-        const group = document.createElement('div');
-        group.className = 'parameter-group';
-
-        const label = document.createElement('div');
-        label.className = 'parameter-label';
-        label.innerHTML = `
-          <span>${key}</span>
-          <span class="value" id="value-${key}">${param.value}</span>
-        `;
-
-        const slider = document.createElement('input');
-        slider.type = 'range';
-        slider.className = 'parameter-slider';
-        slider.min = param.min;
-        slider.max = param.max;
-        slider.value = param.value;
-        slider.step = param.step || (param.type === 'integer' ? 1 : 0.1);
-
-        slider.addEventListener('input', (e) => {
-          const newValue = param.type === 'integer' ? 
-            parseInt(e.target.value) : 
-            parseFloat(e.target.value);
-          
-          currentSchema.globalParameters[key].value = newValue;
-          document.getElementById(`value-${key}`).textContent = newValue;
-          
-          console.log(`🎚️  Parameter changed: ${key} = ${newValue}`);
-          applySchema();
-        });
-
-        group.appendChild(label);
-        group.appendChild(slider);
-        container.appendChild(group);
-      }
-    }
-
+    // --- SETUP ---
+    const canvas = document.querySelector('#gl');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
     
-    function applySchema() {
-      const startTime = performance.now();
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(60, 40, 60);
+    
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
 
+    // Lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(50, 100, 50);
+    scene.add(dirLight);
+    scene.add(new THREE.GridHelper(100, 20, 0x444444, 0x222222));
+
+    // State
+    let currentSchema = defaultSchema;
+    let currentGeometry = null;
+    const executor = new ProceduralExecutor();
+
+    // --- FUNCTIONS ---
+
+    window.switchTab = (tabName) => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.content').forEach(c => c.style.display = 'none');
+      document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+      document.getElementById(`tab-${tabName}`).style.display = 'block';
+    }
+
+    window.resetCamera = () => {
+      camera.position.set(60, 40, 60);
+      controls.target.set(0, 0, 0);
+    }
+
+    window.runSchema = () => {
+      // Clear Logs
+      const logContainer = document.getElementById('log-container');
+      logContainer.innerHTML = '';
+      
+      // Hijack console.log to feed the log panel
+      const oldLog = console.log;
+      console.log = (...args) => {
+        oldLog(...args);
+        if (args[0] === '💭' || args[0].includes('Action')) {
+          const entry = document.createElement('div');
+          entry.className = 'log-entry';
+          entry.innerHTML = `<span class="log-icon">⚡</span><span class="log-text">${args.slice(1).join(' ')}</span>`;
+          logContainer.appendChild(entry);
+        }
+      }
+
+      if (currentGeometry) scene.remove(currentGeometry);
+
+      // Extract Parameters from Sliders
+      const params = {};
+      if (currentSchema.globalParameters) {
+        for (const [key, val] of Object.entries(currentSchema.globalParameters)) {
+          params[key] = val.value;
+        }
+      }
+
+      // Execute
+      currentGeometry = executor.execute(currentSchema, params);
+      scene.add(currentGeometry);
+
+      // Restore console
+      console.log = oldLog;
+    }
+
+    window.applySchemaFromText = () => {
       try {
-        hideError();
-
-        // ✅ Get schema from current selection
-        let schema = currentSchema;
-        if (!schema) {
-          const input = document.getElementById('schema-input').value.trim();
-          schema = JSON.parse(input);
-          currentSchema = schema;
-        }
-
-        console.log('🔧 Applying schema:', schema.version);
-
-        // ✅ Create parameters object from schema
-        const params = {};
-        if (schema.globalParameters) {
-          for (const [key, param] of Object.entries(schema.globalParameters)) {
-            params[key] = param.value;
-          }
-        }
-
-        console.log('📊 Parameters:', params);
-
-        // ✅ Execute with ProceduralExecutor
-        console.log('⚙️  Executing with procedural executor...');
-        executor = new ProceduralExecutor();
-        const geometry = executor.execute(schema, params);
-
-        console.log('✅ Execution complete, geometry:', geometry);
-        console.log('   Type:', geometry?.constructor?.name);
-        console.log('   Children:', geometry?.children?.length);
-
-        // ✅ Remove old geometry
-        if (currentGeometry) {
-          console.log('🗑️  Removing old geometry');
-          scene.remove(currentGeometry);
-          currentGeometry.traverse(child => {
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) child.material.dispose();
-          });
-        }
-
-        // ✅ Add new geometry
-        if (geometry) {
-          console.log('➕ Adding geometry to scene');
-          currentGeometry = geometry;
-          scene.add(geometry);
-
-          // Fit camera to geometry
-          // const box = new THREE.Box3().setFromObject(geometry);
-          // const center = box.getCenter(new THREE.Vector3());
-          // const size = box.getSize(new THREE.Vector3());
-          // const maxDim = Math.max(size.x, size.y, size.z);
-          // const fov = camera.fov * (Math.PI / 180);
-          // let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
-          // cameraZ *= 1.5; // zoom out a little
-
-          // camera.position.set(center.x, center.y, center.z + cameraZ);
-          // camera.lookAt(center);
-          // camera.updateProjectionMatrix();
-          // controls.target.copy(center);
-
-          // Update stats
-          let meshCount = 0;
-          let matCount = new Set();
-          geometry.traverse(obj => {
-            if (obj instanceof THREE.Mesh) {
-              meshCount++;
-              if (obj.material && obj.material.name) {
-                matCount.add(obj.material.name);
-              }
-            }
-          });
-
-          console.log('📊 Scene stats:', { meshes: meshCount, materials: matCount.size });
-          document.getElementById('stat-geometries').textContent = meshCount;
-          document.getElementById('stat-materials').textContent = matCount.size;
-        } else {
-          console.warn('⚠️  No geometry returned from executor');
-        }
-
-        const elapsed = (performance.now() - startTime).toFixed(2);
-        document.getElementById('time-info').textContent = `Render: ${elapsed}ms`;
-        updateStatus(`✅ Schema applied: ${elapsed}ms`);
-
+        const text = document.getElementById('schema-input').value;
+        currentSchema = JSON.parse(text);
+        generateControls();
+        runSchema();
       } catch (e) {
-        console.error('❌ Error:', e);
-        console.error('Stack:', e.stack);
-        showError(e.message);
+        alert("Invalid JSON: " + e.message);
       }
     }
 
-    
-    // ============================================================================
-    // EVENT LISTENERS
-    // ============================================================================
+    function generateControls() {
+      const container = document.getElementById('controls-container');
+      container.innerHTML = '';
+      
+      if (!currentSchema.globalParameters) return;
 
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('[id$="-tab"]').forEach(t => t.style.display = 'none');
+      for (const [key, param] of Object.entries(currentSchema.globalParameters)) {
+        const row = document.createElement('div');
+        row.className = 'param-row';
+        
+        const header = document.createElement('div');
+        header.className = 'param-header';
+        header.innerHTML = `<span>${key}</span><span id="val-${key}">${param.value}</span>`;
+        
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.min = param.min;
+        input.max = param.max;
+        input.step = param.step || (param.type === 'integer' ? 1 : 0.1);
+        input.value = param.value;
+        
+        input.oninput = (e) => {
+          param.value = parseFloat(e.target.value);
+          document.getElementById(`val-${key}`).innerText = param.value;
+          runSchema();
+        };
 
-        e.target.classList.add('active');
-        document.getElementById(e.target.dataset.tab + '-tab').style.display = 'flex';
-        if (e.target.dataset.tab === 'parameters') {
-          document.getElementById('parameters-tab').style.display = 'block';
-        } else if (e.target.dataset.tab === 'info') {
-          document.getElementById('info-tab').style.display = 'block';
-        }
-      });
-    });
-
-    // Presets
-    document.getElementById('preset-select').addEventListener('change', (e) => {
-      if (e.target.value && presets[e.target.value]) {
-        loadSchema(presets[e.target.value]);
+        row.appendChild(header);
+        row.appendChild(input);
+        container.appendChild(row);
       }
-    });
+    }
 
-    // Apply button
-    document.getElementById('apply-btn').addEventListener('click', applySchema);
-
-    // Clear button
-    document.getElementById('clear-btn').addEventListener('click', () => {
-      document.getElementById('schema-input').value = '';
-      currentSchema = null;
-      if (currentGeometry) {
-        scene.remove(currentGeometry);
-        currentGeometry = null;
-      }
-      hideError();
-      updateStatus('Cleared');
-    });
-
-    // Toggle panel
-    document.getElementById('toggle-btn').addEventListener('click', () => {
-      document.querySelector('.schema-panel').classList.toggle('collapsed');
-    });
-
-    // Window resize
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    // ============================================================================
-    // ANIMATION LOOP
-    // ============================================================================
+    // Initialize
+    document.getElementById('schema-input').value = JSON.stringify(defaultSchema, null, 2);
+    generateControls();
+    runSchema();
 
     function animate() {
       requestAnimationFrame(animate);
       controls.update();
       renderer.render(scene, camera);
     }
-
-    // ============================================================================
-    // INITIALIZATION
-    // ============================================================================
-
-    console.log('🚀 Spellshape Procedural Schema Tester Ready (Option 3)');
-    console.log('Load a preset or paste a procedural schema JSON');
-
-    // Load default schema
-    loadSchema(twistedTowerSchema);
-    applySchema();
-
     animate();
+
+    window.onresize = () => {
+      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
   </script>
 </body>
-
 </html>
