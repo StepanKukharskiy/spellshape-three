@@ -1,9 +1,9 @@
 export const twistedTowerSchema = {
-  "version": "4.4",
+  "version": "4.5",
   "type": "emergent_procedure",
-  "intent": "True Checkerboard Tower",
+  "intent": "Complete Checkerboard Tower",
   "materials": {
-    "wall": { "color": "#0000ff", "roughness": 0.7, "metalness": 0.1 },
+    "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
     "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
     "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
     "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
@@ -14,89 +14,41 @@ export const twistedTowerSchema = {
     "floorHeight": 3.5,
     "coreWidth": 8,
     "coreDepth": 8,
-    "slabExpansion": 5,
+    "slabExpansion": 2,
     "rotationPerFloor": 0.08,
-    "panelsPerSide": 6 // Must be even for perfect tiling
+    "panelsPerSide": 6
   },
   "actions": [
     // --- BASE STRUCTURE ---
-    {
-      "thought": "1. Slab (Base y=0)",
-      "do": "createBox",
-      "params": { "width": "ctx.coreWidth + ctx.slabExpansion", "height": 0.3, "depth": "ctx.coreDepth + ctx.slabExpansion" },
-      "transform": { "position": [0, -0.15, 0] },
-      "as": "slab_mesh"
-    },
-    {
-      "thought": "2. Core",
-      "do": "createBox",
-      "params": { "width": "ctx.coreWidth", "height": "ctx.floorHeight", "depth": "ctx.coreDepth" },
-      "transform": { "position": [0, "ctx.floorHeight/2", 0] },
-      "as": "core_mesh"
-    },
-    {
-      "thought": "3. Columns",
-      "do": "createCylinder",
-      "params": { "radiusTop": 0.4, "radiusBottom": 0.4, "height": "ctx.floorHeight" },
-      "transform": { "position": [0, "ctx.floorHeight/2", 0] },
-      "as": "col_base"
-    },
-    {
-      "do": "distributeOnGrid3d",
-      "params": { "geometry": "col_base", "rows": 2, "cols": 2, "spacing": ["ctx.coreWidth + 3", 0, "ctx.coreDepth + 3"], "centered": true, "autoMerge": true },
-      "as": "cols_mesh"
-    },
+    { "do": "createBox", "params": { "width": "ctx.coreWidth + ctx.slabExpansion", "height": 0.3, "depth": "ctx.coreDepth + ctx.slabExpansion" }, "transform": { "position": [0, -0.15, 0] }, "as": "slab_mesh" },
+    { "do": "createBox", "params": { "width": "ctx.coreWidth", "height": "ctx.floorHeight", "depth": "ctx.coreDepth" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "core_mesh" },
+    { "do": "createCylinder", "params": { "radiusTop": 0.4, "radiusBottom": 0.4, "height": "ctx.floorHeight" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "col_base" },
+    { "do": "distributeOnGrid3d", "params": { "geometry": "col_base", "rows": 2, "cols": 2, "spacing": ["ctx.coreWidth + 1", 0, "ctx.coreDepth + 1"], "centered": true, "autoMerge": true }, "as": "cols_mesh" },
 
-    // --- CHECKERBOARD FACADE LOGIC ---
-    {
-      "thought": "4. Create Single Panel Geometry",
-      "do": "createBox",
-      "params": {
-        "width": "(ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide - 0.2", 
-        "height": "ctx.floorHeight",
-        "depth": 0.2
-      },
-      // Shift it to be centered at y=height/2
-      "transform": { "position": [0, "ctx.floorHeight/2", 0] },
-      "as": "panel_single"
-    },
+    // --- FACADE GEOMETRY ---
+    // 1. Horizontal Panel (for Front/Back)
+    { "do": "createBox", "params": { "width": "(ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide - 0.1", "height": "ctx.floorHeight", "depth": 0.2 }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "panel_horz" },
     
-    // FRONT FACADE - SPLIT INTO EVEN/ODD
-    {
-      "thought": "Front: Even Panels (0, 2, 4...)",
-      "do": "repeatLinear3d",
-      "params": {
-        "geometry": "panel_single",
-        "count": "ctx.panelsPerSide / 2",
-        "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", // Double spacing
-        "axis": "x",
-        "centered": true
-      },
-      "transform": { 
-        "position": ["-((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) / 2", 0, "(ctx.coreDepth + ctx.slabExpansion)/2 - 0.1"] 
-      },
-      "as": "front_even"
-    },
-    {
-      "thought": "Front: Odd Panels (1, 3, 5...)",
-      "do": "repeatLinear3d",
-      "params": {
-        "geometry": "panel_single",
-        "count": "ctx.panelsPerSide / 2",
-        "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2",
-        "axis": "x",
-        "centered": true
-      },
-      "transform": { 
-        "position": ["((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) / 2", 0, "(ctx.coreDepth + ctx.slabExpansion)/2 - 0.1"] 
-      },
-      "as": "front_odd"
-    },
+    // 2. Vertical Panel (for Left/Right) - Rotated geometry
+    { "do": "createBox", "params": { "width": 0.2, "height": "ctx.floorHeight", "depth": "(ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide - 0.1" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "panel_vert" },
 
-    // REPEAT FOR OTHER SIDES (Simplified here to just Front/Back for brevity, but logic applies to all)
-    // To verify the pattern, let's just do Front and Back correctly first.
-    
-    // --- STACKING LOOP ---
+    // --- FRONT FACADE ---
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "(ctx.coreDepth + ctx.slabExpansion)/2 - 0.1"] }, "as": "front_even" },
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "(ctx.coreDepth + ctx.slabExpansion)/2 - 0.1"] }, "as": "front_odd" },
+
+    // --- BACK FACADE ---
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "-(ctx.coreDepth + ctx.slabExpansion)/2 + 0.1"] }, "as": "back_even" },
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreWidth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["((ctx.coreWidth + ctx.slabExpansion)/ctx.panelsPerSide)/2", 0, "-(ctx.coreDepth + ctx.slabExpansion)/2 + 0.1"] }, "as": "back_odd" },
+
+    // --- LEFT FACADE ---
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-(ctx.coreWidth + ctx.slabExpansion)/2 + 0.1", 0, "-((ctx.coreDepth + ctx.slabExpansion)/ctx.panelsPerSide)/2"] }, "as": "left_even" },
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-(ctx.coreWidth + ctx.slabExpansion)/2 + 0.1", 0, "((ctx.coreDepth + ctx.slabExpansion)/ctx.panelsPerSide)/2"] }, "as": "left_odd" },
+
+    // --- RIGHT FACADE ---
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["(ctx.coreWidth + ctx.slabExpansion)/2 - 0.1", 0, "-((ctx.coreDepth + ctx.slabExpansion)/ctx.panelsPerSide)/2"] }, "as": "right_even" },
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "((ctx.coreDepth + ctx.slabExpansion) / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["(ctx.coreWidth + ctx.slabExpansion)/2 - 0.1", 0, "((ctx.coreDepth + ctx.slabExpansion)/ctx.panelsPerSide)/2"] }, "as": "right_odd" },
+
+    // --- STACKING ---
     {
       "do": "loop", "var": "i", "from": 0, "to": "ctx.floors",
       "body": [
@@ -104,31 +56,17 @@ export const twistedTowerSchema = {
         { "do": "clone", "params": { "id": "core_mesh" }, "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "core" },
         { "do": "clone", "params": { "id": "cols_mesh" }, "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "column" },
         
-        // FRONT FACADE CHECKERBOARD
-        // Even floors: Even=Wall, Odd=Window
-        // Odd floors: Even=Window, Odd=Wall
-        {
-          "do": "clone", "params": { "id": "front_even" },
-          "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] },
-          "material": "(i % 2 === 0) ? 'wall' : 'window'"
-        },
-        {
-          "do": "clone", "params": { "id": "front_odd" },
-          "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] },
-          "material": "(i % 2 === 0) ? 'window' : 'wall'"
-        },
+        // FRONT & BACK (Pairs: Even/Odd)
+        { "do": "clone", "params": { "id": "front_even" }, "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+        { "do": "clone", "params": { "id": "front_odd" },  "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+        { "do": "clone", "params": { "id": "back_even" },  "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+        { "do": "clone", "params": { "id": "back_odd" },   "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
 
-        // BACK FACADE (Mirrored Logic)
-        {
-          "do": "clone", "params": { "id": "front_even" }, // Reusing front geometry but rotating 180
-          "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor + Math.PI", 0] },
-          "material": "(i % 2 === 0) ? 'wall' : 'window'"
-        },
-        {
-          "do": "clone", "params": { "id": "front_odd" },
-          "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor + Math.PI", 0] },
-          "material": "(i % 2 === 0) ? 'window' : 'wall'"
-        }
+        // LEFT & RIGHT (Pairs: Even/Odd)
+        { "do": "clone", "params": { "id": "left_even" },  "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+        { "do": "clone", "params": { "id": "left_odd" },   "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+        { "do": "clone", "params": { "id": "right_even" }, "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+        { "do": "clone", "params": { "id": "right_odd" },  "transform": { "position": [0, "i*ctx.floorHeight", 0], "rotation": [0, "i*ctx.rotationPerFloor", 0] }, "material": "(i % 2 === 0) ? 'wall' : 'window'" }
       ]
     }
   ]
