@@ -446,20 +446,22 @@
     "stone": { "color": "#e0e0e0", "roughness": 0.8, "metalness": 0.1 }
   },
   "globalParameters": {
+    // DIMENSIONS
     "width": { "value": 6, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
     "height": { "value": 12, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
     "depth": { "value": 6, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
     
-    // Resolution determines vertex count
-    "resolution": { "value": 20, "type": "integer", "min": 5, "max": 50, "group": "Quality" },
+    // QUALITY
+    "resolution": { "value": 30, "type": "integer", "min": 10, "max": 100, "group": "Quality" },
     
-    // Noise/Wave parameters
-    "waveFreq": { "value": 0.5, "type": "number", "min": 0.1, "max": 2.0, "group": "Deformation" },
-    "waveAmp": { "value": 0.8, "type": "number", "min": 0.0, "max": 2.0, "group": "Deformation" },
-    "twist": { "value": 0.5, "type": "number", "min": 0.0, "max": 2.0, "group": "Deformation" }
+    // DEFORMATION
+    "waveFreq": { "value": 0.8, "type": "number", "min": 0.1, "max": 2.0, "group": "Deformation" },
+    "waveAmp": { "value": 1.5, "type": "number", "min": 0.0, "max": 3.0, "group": "Deformation" },
+    "taper": { "value": 0.3, "type": "number", "min": -0.5, "max": 1.0, "group": "Deformation" }
   },
   "context": {},
   "actions": [
+    // 1. Create Geometry
     {
       "thought": "1. Create High-Res Box",
       "do": "createBox",
@@ -474,22 +476,32 @@
       "as": "base_mesh",
       "controls": ["width", "height", "resolution"]
     },
+    
+    // 2. Deform It (Using ctx variables)
     {
-  "thought": "2. Deform Surface (debug)",
-  "do": "modifyGeometry",
-  "params": {
-    "geometry": "base_mesh",
-    "operations": [
-      {
-        "type": "displace",
-        "expression": "v.x += Math.sin(v.y * 0.8) * 1.5; v.z += Math.cos(v.y * 0.8) * 1.5;"
-      }
-    ]
-  },
-  "material": "stone"
-}
+      "thought": "2. Apply Ripple & Taper",
+      "do": "modifyGeometry",
+      "params": {
+        "geometry": "base_mesh",
+        "operations": [
+          {
+            "type": "displace",
+            // Sine Wave Ripple
+            "expression": "v.x += Math.sin(v.y * ctx.waveFreq) * ctx.waveAmp; v.z += Math.cos(v.y * ctx.waveFreq) * ctx.waveAmp;"
+          },
+          {
+            "type": "scale",
+            // Vertical Taper
+            "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;"
+          }
+        ]
+      },
+      "material": "stone",
+      "controls": ["waveFreq", "waveAmp", "taper"]
+    }
   ]
 };
+
 
 
 
