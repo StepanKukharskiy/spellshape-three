@@ -22,6 +22,7 @@ export const twistedTowerSchema ={
     "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5 },
     "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16 },
     "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 12 },
+    "slabExpansion": { "value": 2, "type": "number", "min": 0, "max": 4 },
     "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2 }
   },
   "context": {
@@ -29,85 +30,83 @@ export const twistedTowerSchema ={
     "floorHeight": 3.5,
     "coreWidth": 8,
     "coreDepth": 8,
+    "slabExpansion": 2,
     "rotationPerFloor": 0.08
   },
   "actions": [
     {
-      "thought": "1. Create Center Core (Single Floor)",
+      "thought": "1. Create Floor Slab (Base at y=0)",
+      "do": "createBox",
+      "params": {
+        "width": "ctx.coreWidth + ctx.slabExpansion",
+        "height": 0.3,
+        "depth": "ctx.coreDepth + ctx.slabExpansion",
+        "position": [0, 0, 0] // Base
+      },
+      "as": "slab_piece"
+    },
+    {
+      "thought": "2. Create Center Core (Sitting ON TOP of slab)",
       "do": "createBox",
       "params": {
         "width": "ctx.coreWidth",
         "height": "ctx.floorHeight",
         "depth": "ctx.coreDepth",
-        "position": [0, "ctx.floorHeight", 0] // Center vertically
+        "position": [0, "ctx.floorHeight/2", 0] // Center is up half-height
       },
-      "material": "core",
       "as": "core_piece"
     },
     {
-      "thought": "2. Create Floor Slab",
-      "do": "createBox",
-      "params": {
-        "width": "ctx.coreWidth + 4",
-        "height": 0.3,
-        "depth": "ctx.coreDepth + 4",
-        "position": [0, "-ctx.floorHeight/2", 0] // At floor level
-      },
-      "material": "floor_slab",
-      "as": "slab_piece"
-    },
-    {
-      "thought": "3. Create 4 Columns",
+      "thought": "3. Create Columns (Sitting ON TOP of slab)",
       "do": "createCylinder",
       "params": {
         "radiusTop": 0.4, "radiusBottom": 0.4, "height": "ctx.floorHeight",
-        "position": [0, "ctx.floorHeight/2", 0]
+        "position": [0, "ctx.floorHeight/2", 0] // Center is up half-height
       },
       "as": "col_single"
     },
     {
-      "thought": "Distribute Columns",
+      "thought": "Distribute Columns to Corners",
       "do": "distributeOnGrid3d",
       "params": {
         "geometry": "col_single",
         "rows": 2, "cols": 2,
-        "spacing": ["ctx.coreWidth + 2", 0, "ctx.coreDepth + 2"],
+        "spacing": ["ctx.coreWidth - 1", 0, "ctx.coreDepth - 1"],
         "centered": true
       },
-      "material": "column",
       "as": "cols_group"
     },
     {
-      "thought": "4. Create Facade: Front/Back Walls",
+      "thought": "4. Create Walls (Sitting ON TOP, at EDGE of slab)",
       "do": "createBox",
       "params": {
-        "width": "ctx.coreWidth + 4",
+        "width": "ctx.coreWidth + ctx.slabExpansion", // Full width of slab
         "height": "ctx.floorHeight",
-        "depth": 0.2,
-        "position": [0, "ctx.floorHeight/2", "(ctx.coreDepth + 4)/2"]
+        "depth": 0.2, // Thin panel
+        // Position: Up half-height, pushed to Z edge
+        "position": [0, "ctx.floorHeight/2", "(ctx.coreDepth + ctx.slabExpansion)/2"] 
       },
-      "material": "wall", // Will be overridden in loop
       "as": "wall_front"
     },
     {
       "thought": "Create Back Wall",
       "do": "createBox",
       "params": {
-        "width": "ctx.coreWidth + 4",
+        "width": "ctx.coreWidth + ctx.slabExpansion",
         "height": "ctx.floorHeight",
         "depth": 0.2,
-        "position": [0, "ctx.floorHeight/2", "-(ctx.coreDepth + 4)/2"]
+        "position": [0, "ctx.floorHeight/2", "-(ctx.coreDepth + ctx.slabExpansion)/2"]
       },
       "as": "wall_back"
     },
     {
-      "thought": "Create Side Walls",
+      "thought": "Create Right Wall",
       "do": "createBox",
       "params": {
         "width": 0.2,
         "height": "ctx.floorHeight",
-        "depth": "ctx.coreDepth + 4",
-        "position": ["(ctx.coreWidth + 4)/2", "ctx.floorHeight/2", 0]
+        "depth": "ctx.coreDepth + ctx.slabExpansion",
+        "position": ["(ctx.coreWidth + ctx.slabExpansion)/2", "ctx.floorHeight/2", 0]
       },
       "as": "wall_right"
     },
@@ -117,80 +116,65 @@ export const twistedTowerSchema ={
       "params": {
         "width": 0.2,
         "height": "ctx.floorHeight",
-        "depth": "ctx.coreDepth + 4",
-        "position": ["-(ctx.coreWidth + 4)/2", "ctx.floorHeight/2", 0]
+        "depth": "ctx.coreDepth + ctx.slabExpansion",
+        "position": ["-(ctx.coreWidth + ctx.slabExpansion)/2", "ctx.floorHeight/2", 0]
       },
       "as": "wall_left"
     },
     {
-      "thought": "5. Assemble ONE Floor Unit",
-      "do": "mergeGeometries",
-      "params": {
-        "geometries": ["core_piece", "slab_piece", "cols_group"] // Walls added separately for material control
-      },
-      "as": "floor_structure"
-    },
-    {
-      "thought": "6. Stack and Rotate Floors",
+      "thought": "5. Stack Floors (Clone parts separately to keep materials)",
       "do": "loop",
       "var": "i",
       "from": 0,
       "to": "ctx.floors",
       "body": [
         {
-          "thought": "Place Structure",
           "do": "clone",
-          "params": { "id": "floor_structure" },
-          "transform": {
-            "position": [0, "i * ctx.floorHeight", 0],
-            "rotation": [0, "i * ctx.rotationPerFloor", 0]
-          },
-          "material": "core" // Base material
+          "params": { "id": "slab_piece" },
+          "transform": { "position": [0, "i * ctx.floorHeight", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
+          "material": "floor_slab"
         },
         {
-          "thought": "Place Walls (Checkerboard Logic: i % 2)",
+          "do": "clone",
+          "params": { "id": "core_piece" },
+          "transform": { "position": [0, "i * ctx.floorHeight", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
+          "material": "core"
+        },
+        {
+          "do": "clone",
+          "params": { "id": "cols_group" },
+          "transform": { "position": [0, "i * ctx.floorHeight", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
+          "material": "column"
+        },
+        {
           "do": "clone",
           "params": { "id": "wall_front" },
-          "transform": {
-            "position": [0, "i * ctx.floorHeight", 0],
-            "rotation": [0, "i * ctx.rotationPerFloor", 0]
-          },
+          "transform": { "position": [0, "i * ctx.floorHeight", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
           "material": "(i % 2 === 0) ? 'wall' : 'window'"
         },
         {
-          "thought": "Place Back Wall (Alternating)",
           "do": "clone",
           "params": { "id": "wall_back" },
-          "transform": {
-            "position": [0, "i * ctx.floorHeight", 0],
-            "rotation": [0, "i * ctx.rotationPerFloor", 0]
-          },
+          "transform": { "position": [0, "i * ctx.floorHeight", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
           "material": "(i % 2 === 1) ? 'wall' : 'window'"
         },
         {
-          "thought": "Place Right Wall",
           "do": "clone",
           "params": { "id": "wall_right" },
-          "transform": {
-            "position": [0, "i * ctx.floorHeight", 0],
-            "rotation": [0, "i * ctx.rotationPerFloor", 0]
-          },
+          "transform": { "position": [0, "i * ctx.floorHeight", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
           "material": "(i % 2 === 0) ? 'window' : 'wall'"
         },
         {
-          "thought": "Place Left Wall",
           "do": "clone",
           "params": { "id": "wall_left" },
-          "transform": {
-            "position": [0, "i * ctx.floorHeight", 0],
-            "rotation": [0, "i * ctx.rotationPerFloor", 0]
-          },
+          "transform": { "position": [0, "i * ctx.floorHeight", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
           "material": "(i % 2 === 1) ? 'window' : 'wall'"
         }
       ]
     }
   ]
 }
+
 
 ;
 
