@@ -9,7 +9,7 @@
 export const twistedTowerSchema ={
   "version": "4.1",
   "type": "emergent_procedure",
-  "intent": "Corrected Twisted Tower",
+  "intent": "Aligned Twisted Tower",
   "materials": {
     "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
     "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.2, "transparent": true, "opacity": 0.3 },
@@ -18,131 +18,176 @@ export const twistedTowerSchema ={
     "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
   },
   "globalParameters": {
-    "floors": { "value": 12, "type": "integer", "min": 3, "max": 30 },
-    "floorHeight": { "value": 3, "type": "number", "min": 2, "max": 5 },
+    "floors": { "value": 15, "type": "integer", "min": 3, "max": 30 },
+    "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5 },
     "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16 },
-    "coreDepth": { "value": 6, "type": "number", "min": 4, "max": 12 },
-    "slabExpansion": { "value": 1.1, "type": "number", "min": 1, "max": 2 },
-    "columnRad": { "value": 0.3, "type": "number", "min": 0.1, "max": 1 },
-    "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12 },
-    "twistTotal": { "value": 0.5, "type": "number", "min": 0, "max": 2 }
+    "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 12 },
+    "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2 }
   },
   "context": {
-    "floors": 12,
-    "floorHeight": 3,
+    "floors": 15,
+    "floorHeight": 3.5,
     "coreWidth": 8,
-    "coreDepth": 6,
-    "slabExpansion": 1.1,
-    "columnRad": 0.3,
-    "panelsPerSide": 6,
-    "twistTotal": 0.5
+    "coreDepth": 8,
+    "rotationPerFloor": 0.08
   },
   "actions": [
     {
-      "thought": "1. Create Core (No Material yet - prevents double rendering)",
+      "thought": "1. Create Center Core (Single Floor)",
       "do": "createBox",
       "params": {
         "width": "ctx.coreWidth",
-        "height": "ctx.floorHeight * ctx.floors",
+        "height": "ctx.floorHeight",
         "depth": "ctx.coreDepth",
-        "heightSegments": "ctx.floors"
-      },
-      "as": "core_raw"
-    },
-    {
-      "thought": "2. Twist Core (Apply Material here)",
-      "do": "twistGeometry",
-      "params": {
-        "geometry": "core_raw",
-        "angle": "ctx.twistTotal",
-        "axis": [0, 1, 0],
-        "height": "ctx.floorHeight * ctx.floors"
+        "position": [0, "ctx.floorHeight/2", 0] // Center vertically
       },
       "material": "core",
-      "as": "core_final"
+      "as": "core_piece"
     },
     {
-      "thought": "3. Create Single Floor Slab",
+      "thought": "2. Create Floor Slab",
       "do": "createBox",
       "params": {
-        "width": "ctx.coreWidth * 2 * ctx.slabExpansion",
-        "height": 0.25,
-        "depth": "ctx.coreDepth * 2 * ctx.slabExpansion"
-      },
-      "as": "slab_unit"
-    },
-    {
-      "thought": "4. Stack Slabs Vertically",
-      "do": "repeatLinear3d",
-      "params": {
-        "geometry": "slab_unit",
-        "count": "ctx.floors",
-        "spacing": "ctx.floorHeight",
-        "axis": "y"
+        "width": "ctx.coreWidth + 4",
+        "height": 0.3,
+        "depth": "ctx.coreDepth + 4",
+        "position": [0, 0, 0] // At floor level
       },
       "material": "floor_slab",
-      "as": "slabs_all"
+      "as": "slab_piece"
     },
     {
-      "thought": "5. Create Columns",
+      "thought": "3. Create 4 Columns",
       "do": "createCylinder",
       "params": {
-        "radiusTop": "ctx.columnRad",
-        "radiusBottom": "ctx.columnRad",
-        "height": "ctx.floorHeight * ctx.floors"
+        "radiusTop": 0.4, "radiusBottom": 0.4, "height": "ctx.floorHeight",
+        "position": [0, "ctx.floorHeight/2", 0]
       },
-      "as": "col_unit"
+      "as": "col_single"
     },
     {
-      "thought": "6. Place Columns",
+      "thought": "Distribute Columns",
       "do": "distributeOnGrid3d",
       "params": {
-        "geometry": "col_unit",
-        "rows": 2,
-        "cols": 2,
-        "spacing": ["ctx.coreWidth * 1.8", 0, "ctx.coreDepth * 1.8"],
+        "geometry": "col_single",
+        "rows": 2, "cols": 2,
+        "spacing": ["ctx.coreWidth + 2", 0, "ctx.coreDepth + 2"],
         "centered": true
       },
       "material": "column",
-      "as": "columns_all"
+      "as": "cols_group"
     },
     {
-      "thought": "7. Create Facade Panel (Single)",
+      "thought": "4. Create Facade: Front/Back Walls",
       "do": "createBox",
       "params": {
-        "width": "ctx.coreWidth * 2 * ctx.slabExpansion / ctx.panelsPerSide",
-        "height": "ctx.floorHeight - 0.2",
-        "depth": 0.2
+        "width": "ctx.coreWidth + 4",
+        "height": "ctx.floorHeight",
+        "depth": 0.2,
+        "position": [0, "ctx.floorHeight/2", "(ctx.coreDepth + 4)/2"]
       },
-      "as": "panel_unit"
+      "material": "wall", // Will be overridden in loop
+      "as": "wall_front"
     },
     {
-      "thought": "8. Create Facade Row (Horizontal)",
-      "do": "repeatLinear3d",
+      "thought": "Create Back Wall",
+      "do": "createBox",
       "params": {
-        "geometry": "panel_unit",
-        "count": "ctx.panelsPerSide",
-        "spacing": "ctx.coreWidth * 2 * ctx.slabExpansion / ctx.panelsPerSide",
-        "axis": "x",
-        "centered": true
+        "width": "ctx.coreWidth + 4",
+        "height": "ctx.floorHeight",
+        "depth": 0.2,
+        "position": [0, "ctx.floorHeight/2", "-(ctx.coreDepth + 4)/2"]
       },
-      "as": "panel_row"
+      "as": "wall_back"
     },
     {
-      "thought": "9. Stack Facade Rows Vertically (The Missing Step!)",
-      "do": "repeatLinear3d",
+      "thought": "Create Side Walls",
+      "do": "createBox",
       "params": {
-        "geometry": "panel_row",
-        "count": "ctx.floors",
-        "spacing": "ctx.floorHeight",
-        "axis": "y",
-        "centered": false
+        "width": 0.2,
+        "height": "ctx.floorHeight",
+        "depth": "ctx.coreDepth + 4",
+        "position": ["(ctx.coreWidth + 4)/2", "ctx.floorHeight/2", 0]
       },
-      "transform": {
-        "position": [0, 0, "ctx.coreDepth * ctx.slabExpansion"]
+      "as": "wall_right"
+    },
+    {
+      "thought": "Create Left Wall",
+      "do": "createBox",
+      "params": {
+        "width": 0.2,
+        "height": "ctx.floorHeight",
+        "depth": "ctx.coreDepth + 4",
+        "position": ["-(ctx.coreWidth + 4)/2", "ctx.floorHeight/2", 0]
       },
-      "material": "wall",
-      "as": "facade_front_full"
+      "as": "wall_left"
+    },
+    {
+      "thought": "5. Assemble ONE Floor Unit",
+      "do": "mergeGeometries",
+      "params": {
+        "geometries": ["core_piece", "slab_piece", "cols_group"] // Walls added separately for material control
+      },
+      "as": "floor_structure"
+    },
+    {
+      "thought": "6. Stack and Rotate Floors",
+      "do": "loop",
+      "var": "i",
+      "from": 0,
+      "to": "ctx.floors",
+      "body": [
+        {
+          "thought": "Place Structure",
+          "do": "clone",
+          "params": { "id": "floor_structure" },
+          "transform": {
+            "position": [0, "i * ctx.floorHeight", 0],
+            "rotation": [0, "i * ctx.rotationPerFloor", 0]
+          },
+          "material": "core" // Base material
+        },
+        {
+          "thought": "Place Walls (Checkerboard Logic: i % 2)",
+          "do": "clone",
+          "params": { "id": "wall_front" },
+          "transform": {
+            "position": [0, "i * ctx.floorHeight", 0],
+            "rotation": [0, "i * ctx.rotationPerFloor", 0]
+          },
+          "material": "(i % 2 === 0) ? 'wall' : 'window'"
+        },
+        {
+          "thought": "Place Back Wall (Alternating)",
+          "do": "clone",
+          "params": { "id": "wall_back" },
+          "transform": {
+            "position": [0, "i * ctx.floorHeight", 0],
+            "rotation": [0, "i * ctx.rotationPerFloor", 0]
+          },
+          "material": "(i % 2 === 1) ? 'wall' : 'window'"
+        },
+        {
+          "thought": "Place Right Wall",
+          "do": "clone",
+          "params": { "id": "wall_right" },
+          "transform": {
+            "position": [0, "i * ctx.floorHeight", 0],
+            "rotation": [0, "i * ctx.rotationPerFloor", 0]
+          },
+          "material": "(i % 2 === 0) ? 'window' : 'wall'"
+        },
+        {
+          "thought": "Place Left Wall",
+          "do": "clone",
+          "params": { "id": "wall_left" },
+          "transform": {
+            "position": [0, "i * ctx.floorHeight", 0],
+            "rotation": [0, "i * ctx.rotationPerFloor", 0]
+          },
+          "material": "(i % 2 === 1) ? 'window' : 'wall'"
+        }
+      ]
     }
   ]
 }
