@@ -7,23 +7,15 @@
 // ===========================================================================
 
 export const twistedTowerSchema = {
-  "version": "4.2",
+  "version": "4.3",
   "type": "emergent_procedure",
-  "intent": "Correctly Aligned Twisted Tower",
+  "intent": "Robust Aligned Tower",
   "materials": {
     "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
     "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.2, "transparent": true, "opacity": 0.3 },
     "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
     "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
     "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
-  },
-  "globalParameters": {
-    "floors": { "value": 15, "type": "integer", "min": 3, "max": 30 },
-    "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5 },
-    "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16 },
-    "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 12 },
-    "slabExpansion": { "value": 2, "type": "number", "min": 0, "max": 4 },
-    "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2 }
   },
   "context": {
     "floors": 15,
@@ -35,59 +27,59 @@ export const twistedTowerSchema = {
   },
   "actions": [
     {
-      "thought": "1. Create Slab - Centered vertically at y=0, thickness 0.3",
+      "thought": "1. Create Slab (Geometry only, centered)",
       "do": "createBox",
       "params": {
         "width": "ctx.coreWidth + ctx.slabExpansion",
         "height": 0.3,
-        "depth": "ctx.coreDepth + ctx.slabExpansion",
-        // Pivot is center, so shift down by half height to make top surface at y=0
-        "position": [0, "-0.15", 0] 
+        "depth": "ctx.coreDepth + ctx.slabExpansion"
       },
-      "as": "slab_geometry"
+      "transform": { "position": [0, -0.15, 0] }, // Shift geometry DOWN relative to group origin
+      "as": "slab_mesh"
     },
     {
-      "thought": "2. Create Core - Sitting on top of slab (y=0 to y=floorHeight)",
+      "thought": "2. Create Core (Shifted UP relative to group origin)",
       "do": "createBox",
       "params": {
         "width": "ctx.coreWidth",
         "height": "ctx.floorHeight", 
-        "depth": "ctx.coreDepth",
-        // Shift up by half-height so bottom is at y=0
-        "position": [0, "ctx.floorHeight/2", 0]
+        "depth": "ctx.coreDepth"
       },
-      "as": "core_geometry"
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] },
+      "as": "core_mesh"
     },
     {
-      "thought": "3. Create Columns - Sitting on top of slab",
+      "thought": "3. Create Columns (Shifted UP)",
       "do": "createCylinder",
       "params": {
-        "radiusTop": 0.4, "radiusBottom": 0.4, "height": "ctx.floorHeight",
-        "position": [0, "ctx.floorHeight/2", 0]
+        "radiusTop": 0.4, "radiusBottom": 0.4, "height": "ctx.floorHeight"
       },
-      "as": "col_geometry"
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] },
+      "as": "col_base"
     },
     {
       "thought": "Distribute Columns",
       "do": "distributeOnGrid3d",
       "params": {
-        "geometry": "col_geometry",
+        "geometry": "col_base",
         "rows": 2, "cols": 2,
         "spacing": ["ctx.coreWidth + 1", 0, "ctx.coreDepth + 1"],
-        "centered": true
+        "centered": true,
+        "autoMerge": true
       },
-      "as": "cols_group"
+      // No extra transform here because col_base already has the Y-shift
+      "as": "cols_mesh"
     },
     {
-      "thought": "4. Create Facade Panels - Correctly aligned to Slab Edge",
+      "thought": "4. Create Facade Panels (Walls)",
       "do": "createBox",
       "params": {
-        "width": "ctx.coreWidth + ctx.slabExpansion", // Matches slab width
+        "width": "ctx.coreWidth + ctx.slabExpansion",
         "height": "ctx.floorHeight",
-        "depth": 0.2,
-        // Position: Up half-height, Z-offset matches SLAB EDGE
-        "position": [0, "ctx.floorHeight/2", "(ctx.coreDepth + ctx.slabExpansion)/2 - 0.1"] 
+        "depth": 0.2
       },
+      // Shift UP (for height) and BACK (for radius)
+      "transform": { "position": [0, "ctx.floorHeight/2", "(ctx.coreDepth + ctx.slabExpansion)/2 - 0.1"] },
       "as": "wall_front"
     },
     {
@@ -96,9 +88,9 @@ export const twistedTowerSchema = {
       "params": {
         "width": "ctx.coreWidth + ctx.slabExpansion",
         "height": "ctx.floorHeight",
-        "depth": 0.2,
-        "position": [0, "ctx.floorHeight/2", "-(ctx.coreDepth + ctx.slabExpansion)/2 + 0.1"]
+        "depth": 0.2
       },
+      "transform": { "position": [0, "ctx.floorHeight/2", "-(ctx.coreDepth + ctx.slabExpansion)/2 + 0.1"] },
       "as": "wall_back"
     },
     {
@@ -107,9 +99,9 @@ export const twistedTowerSchema = {
       "params": {
         "width": 0.2,
         "height": "ctx.floorHeight",
-        "depth": "ctx.coreDepth + ctx.slabExpansion", // Matches slab depth
-        "position": ["(ctx.coreWidth + ctx.slabExpansion)/2 - 0.1", "ctx.floorHeight/2", 0]
+        "depth": "ctx.coreDepth + ctx.slabExpansion - 0.4"
       },
+      "transform": { "position": ["(ctx.coreWidth + ctx.slabExpansion)/2 - 0.1", "ctx.floorHeight/2", 0] },
       "as": "wall_right"
     },
     {
@@ -118,34 +110,36 @@ export const twistedTowerSchema = {
       "params": {
         "width": 0.2,
         "height": "ctx.floorHeight",
-        "depth": "ctx.coreDepth + ctx.slabExpansion",
-        "position": ["-(ctx.coreWidth + ctx.slabExpansion)/2 + 0.1", "ctx.floorHeight/2", 0]
+        "depth": "ctx.coreDepth + ctx.slabExpansion - 0.4"
       },
+      "transform": { "position": ["-(ctx.coreWidth + ctx.slabExpansion)/2 + 0.1", "ctx.floorHeight/2", 0] },
       "as": "wall_left"
     },
     {
-      "thought": "5. Stack Floors",
+      "thought": "5. STACKING LOOP - Cloning the *transformed* meshes",
       "do": "loop",
       "var": "i",
       "from": 0,
       "to": "ctx.floors",
       "body": [
+        // The TRICK: When cloning, we use the executor's transform to move the *Clone*
+        // The *original* transform (internal offset) is preserved inside the geometry/mesh
         {
           "do": "clone",
-          "params": { "id": "slab_geometry" },
-          // Position: Shift entire floor unit UP by i * floorHeight
-          "transform": { "position": [0, "i * ctx.floorHeight - ctx.floorHeight / 2", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
+          "params": { "id": "slab_mesh" },
+          // This applies to the GROUP/MESH container, moving it up
+          "transform": { "position": [0, "i * ctx.floorHeight", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
           "material": "floor_slab"
         },
         {
           "do": "clone",
-          "params": { "id": "core_geometry" },
+          "params": { "id": "core_mesh" },
           "transform": { "position": [0, "i * ctx.floorHeight", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
           "material": "core"
         },
         {
           "do": "clone",
-          "params": { "id": "cols_group" },
+          "params": { "id": "cols_mesh" },
           "transform": { "position": [0, "i * ctx.floorHeight", 0], "rotation": [0, "i * ctx.rotationPerFloor", 0] },
           "material": "column"
         },
@@ -177,6 +171,7 @@ export const twistedTowerSchema = {
     }
   ]
 }
+
 
 
 
