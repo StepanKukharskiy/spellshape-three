@@ -293,9 +293,14 @@ export class ProceduralExecutor {
         const evaluated = {};
         for (const [key, value] of Object.entries(params)) {
             if (key === 'expression') {
-                evaluated[key] = value;
-                continue;
-            }
+    // Interpolate variables, but keep the code structure
+    let expr = value;
+    expr = expr.replace(/ctx\.(\w+)/g, (match, varName) => {
+        return this.context[varName] ?? 0;
+    });
+    evaluated[key] = expr;
+    continue;
+}
 
             if (Array.isArray(value)) {
                 evaluated[key] = value.map(item => {
