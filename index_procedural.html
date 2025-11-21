@@ -169,7 +169,7 @@
     const schema = {
   "version": "4.9",
   "type": "emergent_procedure",
-  "intent": "Decoupled Tower",
+  "intent": "Decoupled Logic Tower",
   "materials": {
     "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
     "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
@@ -177,26 +177,26 @@
     "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
     "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
   },
+  
+  // 1. INDEPENDENT PARAMETERS
   "globalParameters": {
-    // MASSING
     "floors": { "value": 15, "type": "integer", "min": 3, "max": 30, "group": "Massing" },
     "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5, "group": "Massing" },
     
-    // SLAB (Independent!)
+    // SLAB IS NOW INDEPENDENT
     "slabWidth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
     "slabDepth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
     "slabThickness": { "value": 0.3, "type": "number", "min": 0.1, "max": 1.0, "group": "Slab" },
 
-    // CORE
+    // CORE IS INDEPENDENT
     "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
     "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
     
-    // COLUMNS
+    // COLUMNS USE INSET FROM SLAB EDGE
     "colRadius": { "value": 0.4, "type": "number", "min": 0.2, "max": 0.8, "group": "Columns" },
     "colInsetX": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
     "colInsetZ": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
     
-    // FACADE
     "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12, "group": "Facade" },
     "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2, "group": "Animation" }
   },
@@ -304,7 +304,6 @@
       "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, 
       "as": "front_even" 
     },
-    // ... (Hidden repetitive Facade logic using slabWidth/Depth instead of core+expansion) ...
     { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, "as": "front_odd" },
     
     { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_even" },
@@ -339,6 +338,7 @@
     }
   ]
 };
+
 
 
     // --- UI LOGIC ---
