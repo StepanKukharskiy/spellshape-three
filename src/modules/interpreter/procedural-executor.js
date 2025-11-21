@@ -1,5 +1,5 @@
 // ============================================================================
-// procedural-executor.js - FIXED EMERGENENT ARCHITECTURE
+// procedural-executor.js - FIXED MATERIAL EVALUATION
 // ============================================================================
 
 import * as THREE from 'three';
@@ -52,7 +52,6 @@ export class ProceduralExecutor {
         }
 
         // 2. Merge Internal Context (Schema Variables)
-        // This overrides globals if names collide, ensuring schema logic integrity
         if (schema.context) {
             for (const [key, value] of Object.entries(schema.context)) {
                 if (this.context[key] === undefined) {
@@ -78,7 +77,7 @@ export class ProceduralExecutor {
     }
 
     _executeAction(action, group) {
-        const { thought, do: helperName, params, transform, material, as: storeName, body } = action;
+        const { thought, do: helperName, params, transform, material, as: storeName } = action;
 
         if (thought) console.log('💭', thought);
 
@@ -87,7 +86,6 @@ export class ProceduralExecutor {
         if (helperName === 'clone') return this._executeClone(action, group);
 
         // Get helper function
-        // Support both direct export and default export styles
         const helperFn = helpers[helperName] || (helpers.default && helpers.default[helperName]);
 
         if (!helperFn) {
@@ -116,28 +114,27 @@ export class ProceduralExecutor {
             console.log(`💾 Stored geometry: ${storeName}`);
         }
 
-        // Apply transform if provided
+        // Apply transform if provided (Initial baking)
         if (transform) {
             this._applyTransform(geometry, transform);
         }
 
         // Create mesh and add to group
         // Only add to scene if material is specified OR if it's a final output
-        // We prevent intermediate steps (like core_raw) from rendering if they have no material
         if (geometry.isBufferGeometry || geometry.isGroup) {
             if (material) {
-                const mat = this._getMaterial(material);
+                // FIX: Evaluate material string if it contains logic
+                let materialName = material;
+                if (typeof material === 'string' && (material.includes('?') || material.includes('ctx') || material.includes('i') || material.includes('mod'))) {
+                    materialName = this._evaluateExpression(material);
+                }
+
+                const mat = this._getMaterial(materialName);
                 const mesh = geometry.isGroup ? geometry : new THREE.Mesh(geometry, mat);
                 if (!geometry.isGroup) mesh.material = mat;
 
-                // Apply context-based transforms (final placement)
-                if (transform) {
-                    // Transform is already applied to geometry, but for Groups we might need to set position
-                    // If it's a mesh, geometry.translate modified the vertices directly
-                }
-
                 group.add(mesh);
-                console.log(`➕ Added mesh to group (material: ${material})`);
+                console.log(`➕ Added mesh to group (material: ${materialName})`);
             }
         }
     }
@@ -182,15 +179,19 @@ export class ProceduralExecutor {
         }
 
         if (material) {
-            const mat = this._getMaterial(material);
+            // FIX: Evaluate material string logic here too
+            let materialName = material;
+            if (typeof material === 'string' && (material.includes('?') || material.includes('ctx') || material.includes('i') || material.includes('mod'))) {
+                materialName = this._evaluateExpression(material);
+            }
+
+            const mat = this._getMaterial(materialName);
             const mesh = new THREE.Mesh(clonedGeometry, mat);
             group.add(mesh);
         }
     }
 
     _applyTransform(geometry, transform) {
-        // Handle Arrays [x, y, z] and Objects {x, y, z}
-
         if (transform.position) {
             const pos = this._evaluateArray(transform.position);
             geometry.translate(pos[0], pos[1], pos[2]);
@@ -250,7 +251,14 @@ export class ProceduralExecutor {
         if (transform) this._applyTransform(geometry, transform);
 
         if ((geometry.isBufferGeometry || geometry.isGroup) && material) {
-            const mat = this._getMaterial(material);
+            // V3.2 also needs evaluation for material logic
+            let materialName = material;
+            if (typeof material === 'string' && (material.includes('mod') || material.includes('index'))) {
+                 // Mock index for V3 legacy 'repeat' logic is handled differently usually,
+                 // but we'll try basic evaluation
+                 materialName = this._evaluateExpression(material);
+            }
+            const mat = this._getMaterial(materialName);
             const mesh = geometry.isGroup ? geometry : new THREE.Mesh(geometry, mat);
             if (!geometry.isGroup) mesh.material = mat;
             group.add(mesh);
@@ -285,13 +293,11 @@ export class ProceduralExecutor {
         const evaluated = {};
         for (const [key, value] of Object.entries(params)) {
             if (key === 'expression') {
-                // Special case: Keep emergent logic as raw string
                 evaluated[key] = value;
                 continue;
             }
 
             if (Array.isArray(value)) {
-                // Handle array of values or references
                 evaluated[key] = value.map(item => {
                     if (typeof item === 'string' && this.geometries.has(item)) {
                         return this.geometries.get(item);
@@ -299,7 +305,6 @@ export class ProceduralExecutor {
                     return (typeof item === 'string') ? this._evaluateExpression(item) : item;
                 });
             } else if (typeof value === 'string') {
-                // Check if it is a geometry reference
                 if (this.geometries.has(value)) {
                     evaluated[key] = this.geometries.get(value);
                 } else {
@@ -325,29 +330,24 @@ export class ProceduralExecutor {
 
     _evaluateExpression(expr) {
         if (typeof expr !== 'string') return expr;
-
-        // Handle direct variable access (e.g. "y" in repeatLinear3d axis)
         if (expr === 'x' || expr === 'y' || expr === 'z') return expr;
 
         let processed = expr;
 
-        // V4.0 syntax: ctx.variable
         processed = processed.replace(/ctx\.(\w+)/g, (match, varName) => {
             return this.context[varName] ?? 0;
         });
 
-        // V3.2 syntax: $variable
         processed = processed.replace(/\$(\w+)/g, (match, varName) => {
             return this.context[varName] ?? 0;
         });
 
         try {
             const ctx = this.context;
-            // Safe evaluation with access to Math functions
             const evalFunc = new Function('ctx', 'Math', `with(ctx) { return ${processed}; }`);
             return evalFunc(ctx, Math);
         } catch (error) {
-            // If evaluation fails, it might be a string literal (like a texture name)
+            // If it's a simple string like "wall", return it
             return expr;
         }
     }
