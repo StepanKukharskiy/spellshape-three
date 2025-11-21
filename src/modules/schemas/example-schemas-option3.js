@@ -14,7 +14,7 @@ export const twistedTowerSchema = {
     "floorHeight": 3.5,
     "coreWidth": 8,
     "coreDepth": 8,
-    "slabExpansion": 2,
+    "slabExpansion": 5,
     "rotationPerFloor": 0.08,
     "panelsPerSide": 6 // Must be even for perfect tiling
   },
