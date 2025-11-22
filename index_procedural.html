@@ -438,7 +438,7 @@
   ]
 };
 
-    const schema = {
+    const schema3 = {
   "version": "4.9",
   "type": "emergent_procedure",
   "intent": "Deformed Surface Monolith",
@@ -501,6 +501,95 @@
     }
   ]
 };
+
+    const schema = {
+  "version": "4.9",
+  "type": "emergent_procedure",
+  "intent": "Voxel-Eroded Monolith",
+  "materials": {
+    "stone": { "color": "#e0e0e0", "roughness": 0.9, "metalness": 0.1 },
+    "inner_core": { "color": "#2a2a2a", "roughness": 0.4, "metalness": 0.5 }
+  },
+  "globalParameters": {
+    // DIMENSIONS
+    "width": { "value": 6, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
+    "height": { "value": 12, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
+    "depth": { "value": 6, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
+    
+    // QUALITY
+    "resolution": { "value": 50, "type": "integer", "min": 10, "max": 100, "group": "Quality" },
+    
+    // EROSION CONTROLS
+    "voxelSize": { "value": 0.5, "type": "number", "min": 0.1, "max": 2.0, "group": "Voxel Erosion" },
+    "erosionThreshold": { "value": 0.6, "type": "number", "min": 0.0, "max": 1.0, "group": "Voxel Erosion" },
+    "erosionDepth": { "value": 1.5, "type": "number", "min": 0.0, "max": 5.0, "group": "Voxel Erosion" },
+    
+    // BASE DEFORMATION
+    "taper": { "value": 0.2, "type": "number", "min": -0.5, "max": 1.0, "group": "Base Shape" }
+  },
+  "context": {},
+  "actions": [
+    // 1. Create High-Res Box
+    {
+      "thought": "1. Create High-Res Box for Erosion",
+      "do": "createBox",
+      "params": {
+        "width": "ctx.width",
+        "height": "ctx.height",
+        "depth": "ctx.depth",
+        "widthSegments": "ctx.resolution",
+        "heightSegments": "ctx.resolution",
+        "depthSegments": "ctx.resolution"
+      },
+      "as": "base_mesh",
+      "controls": ["width", "height", "depth", "resolution"]
+    },
+    
+    // 2. Apply Voxel Erosion
+    {
+      "thought": "2. Apply Voxel Erosion Logic",
+      "do": "modifyGeometry",
+      "params": {
+        "geometry": "base_mesh",
+        "operations": [
+          // 1. Base Taper (Shape)
+          {
+            "type": "scale",
+            "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;"
+          },
+          // 2. Voxel Erosion (Quantized Noise)
+          {
+            "type": "displace",
+            "expression": `
+              // 1. Quantize coordinates to create 'voxel' cells
+              var step = ctx.voxelSize;
+              var qx = Math.floor(v.x / step);
+              var qy = Math.floor(v.y / step);
+              var qz = Math.floor(v.z / step);
+
+              // 2. Generate Pseudo-Random Hash for this cell
+              // (Standard GLSL-style hash ported to JS)
+              var dot = qx * 12.9898 + qy * 78.233 + qz * 37.719;
+              var hash = Math.sin(dot) * 43758.5453;
+              var noise = hash - Math.floor(hash);
+
+              // 3. Erode if noise exceeds threshold
+              if (noise > ctx.erosionThreshold) {
+                  // Push vertex inward along normal to simulate missing chunk
+                  v.x -= n.x * ctx.erosionDepth;
+                  v.y -= n.y * ctx.erosionDepth;
+                  v.z -= n.z * ctx.erosionDepth;
+              }
+            `
+          }
+        ]
+      },
+      "material": "stone",
+      "controls": ["voxelSize", "erosionThreshold", "erosionDepth"]
+    }
+  ]
+};
+
 
 
 
