@@ -505,12 +505,12 @@
     const schema = {
   "version": "4.9",
   "type": "emergent_procedure",
-  "intent": "Additive Voxel Monolith",
+  "intent": "Watertight Voxel Monolith",
   "materials": {
     "stone": { "color": "#e0e0e0", "roughness": 0.9, "metalness": 0.1 }
   },
   "globalParameters": {
-    // DIMENSIONS (Base core size)
+    // DIMENSIONS
     "width": { "value": 5, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
     "height": { "value": 12, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
     "depth": { "value": 5, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
@@ -528,7 +528,7 @@
   },
   "context": {},
   "actions": [
-    // 1. Create Base Mesh (The Inner Core)
+    // 1. Create Base Core
     {
       "thought": "1. Create Base Core",
       "do": "createBox",
@@ -544,9 +544,9 @@
       "controls": ["width", "height", "depth", "resolution"]
     },
     
-    // 2. Additive Voxel Displacement
+    // 2. Radial Voxel Displacement (Fixes Holes)
     {
-      "thought": "2. Extrude Solid Voxel Chunks",
+      "thought": "2. Extrude Voxels Radially",
       "do": "modifyGeometry",
       "params": {
         "geometry": "base_mesh",
@@ -556,11 +556,11 @@
             "type": "scale",
             "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;"
           },
-          // 2. Outward Voxel Extrusion
+          // 2. Radial Displacement
           {
             "type": "displace",
             "expression": `
-              // 1. Quantize position for voxel look
+              // 1. Voxel Quantization
               var step = ctx.voxelSize;
               var qx = Math.floor(v.x / step);
               var qy = Math.floor(v.y / step);
@@ -571,12 +571,20 @@
               var hash = Math.sin(dot) * 43758.5453;
               var noise = hash - Math.floor(hash);
 
-              // 3. EXTRUDE if Noise > Threshold (Additive)
-              // A higher threshold means fewer blocks pass (more eroded look)
-              if (noise > ctx.erosionThreshold) {
-                  v.x += n.x * ctx.layerDepth;
-                  v.y += n.y * ctx.layerDepth;
-                  v.z += n.z * ctx.layerDepth;
+              // 3. EXTRUDE RADIALLY (Fixes Corners)
+              // Calculate direction from center (0,0,0) instead of Face Normal
+              var len = Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
+              
+              if (noise > ctx.erosionThreshold && len > 0.001) {
+                  // Normalize the position vector manually
+                  var dx = v.x / len;
+                  var dy = v.y / len;
+                  var dz = v.z / len;
+                  
+                  // Push outward along this shared direction
+                  v.x += dx * ctx.layerDepth;
+                  v.y += dy * ctx.layerDepth;
+                  v.z += dz * ctx.layerDepth;
               }
             `
           }
@@ -587,6 +595,7 @@
     }
   ]
 };
+
 
 
 
