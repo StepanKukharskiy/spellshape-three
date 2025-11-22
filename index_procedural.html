@@ -505,33 +505,32 @@
     const schema = {
   "version": "4.9",
   "type": "emergent_procedure",
-  "intent": "Voxel-Eroded Monolith",
+  "intent": "Additive Voxel Monolith",
   "materials": {
-    "stone": { "color": "#e0e0e0", "roughness": 0.9, "metalness": 0.1 },
-    "inner_core": { "color": "#2a2a2a", "roughness": 0.4, "metalness": 0.5 }
+    "stone": { "color": "#e0e0e0", "roughness": 0.9, "metalness": 0.1 }
   },
   "globalParameters": {
-    // DIMENSIONS
-    "width": { "value": 6, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
+    // DIMENSIONS (Base core size)
+    "width": { "value": 5, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
     "height": { "value": 12, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
-    "depth": { "value": 6, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
+    "depth": { "value": 5, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
     
     // QUALITY
-    "resolution": { "value": 50, "type": "integer", "min": 10, "max": 100, "group": "Quality" },
+    "resolution": { "value": 60, "type": "integer", "min": 20, "max": 120, "group": "Quality" },
     
-    // EROSION CONTROLS
-    "voxelSize": { "value": 0.5, "type": "number", "min": 0.1, "max": 2.0, "group": "Voxel Erosion" },
-    "erosionThreshold": { "value": 0.6, "type": "number", "min": 0.0, "max": 1.0, "group": "Voxel Erosion" },
-    "erosionDepth": { "value": 1.5, "type": "number", "min": 0.0, "max": 5.0, "group": "Voxel Erosion" },
+    // VOXEL LAYER
+    "voxelSize": { "value": 0.5, "type": "number", "min": 0.1, "max": 2.0, "group": "Voxel Layer" },
+    "erosionThreshold": { "value": 0.4, "type": "number", "min": 0.0, "max": 0.9, "group": "Voxel Layer" },
+    "layerDepth": { "value": 2.0, "type": "number", "min": 0.5, "max": 5.0, "group": "Voxel Layer" },
     
-    // BASE DEFORMATION
+    // BASE SHAPE
     "taper": { "value": 0.2, "type": "number", "min": -0.5, "max": 1.0, "group": "Base Shape" }
   },
   "context": {},
   "actions": [
-    // 1. Create High-Res Box
+    // 1. Create Base Mesh (The Inner Core)
     {
-      "thought": "1. Create High-Res Box for Erosion",
+      "thought": "1. Create Base Core",
       "do": "createBox",
       "params": {
         "width": "ctx.width",
@@ -545,50 +544,50 @@
       "controls": ["width", "height", "depth", "resolution"]
     },
     
-    // 2. Apply Voxel Erosion
+    // 2. Additive Voxel Displacement
     {
-      "thought": "2. Apply Voxel Erosion Logic",
+      "thought": "2. Extrude Solid Voxel Chunks",
       "do": "modifyGeometry",
       "params": {
         "geometry": "base_mesh",
         "operations": [
-          // 1. Base Taper (Shape)
+          // 1. Base Taper
           {
             "type": "scale",
             "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;"
           },
-          // 2. Voxel Erosion (Quantized Noise)
+          // 2. Outward Voxel Extrusion
           {
             "type": "displace",
             "expression": `
-              // 1. Quantize coordinates to create 'voxel' cells
+              // 1. Quantize position for voxel look
               var step = ctx.voxelSize;
               var qx = Math.floor(v.x / step);
               var qy = Math.floor(v.y / step);
               var qz = Math.floor(v.z / step);
 
-              // 2. Generate Pseudo-Random Hash for this cell
-              // (Standard GLSL-style hash ported to JS)
+              // 2. Generate Hash
               var dot = qx * 12.9898 + qy * 78.233 + qz * 37.719;
               var hash = Math.sin(dot) * 43758.5453;
               var noise = hash - Math.floor(hash);
 
-              // 3. Erode if noise exceeds threshold
+              // 3. EXTRUDE if Noise > Threshold (Additive)
+              // A higher threshold means fewer blocks pass (more eroded look)
               if (noise > ctx.erosionThreshold) {
-                  // Push vertex inward along normal to simulate missing chunk
-                  v.x -= n.x * ctx.erosionDepth;
-                  v.y -= n.y * ctx.erosionDepth;
-                  v.z -= n.z * ctx.erosionDepth;
+                  v.x += n.x * ctx.layerDepth;
+                  v.y += n.y * ctx.layerDepth;
+                  v.z += n.z * ctx.layerDepth;
               }
             `
           }
         ]
       },
       "material": "stone",
-      "controls": ["voxelSize", "erosionThreshold", "erosionDepth"]
+      "controls": ["voxelSize", "erosionThreshold", "layerDepth"]
     }
   ]
 };
+
 
 
 
