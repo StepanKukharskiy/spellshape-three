@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spellshape - Adaptive Pipeline (Fixed)</title>
+  <title>Spellshape - Canvas + Inspector</title>
 
   <script type="importmap">
     {
@@ -16,64 +16,95 @@
 
   <style>
     :root {
-      --bg: #0f0f11;
-      --panel: #18181b;
-      --card: #222226;
-      --border: #2e2e32;
-      --accent: #6d28d9;
-      --accent-light: #8b5cf6;
-      --text: #f4f4f5;
-      --text-dim: #a1a1aa;
+      --bg: #09090b;         /* Zinc-950 */
+      --panel: #18181b;      /* Zinc-900 */
+      --card: #27272a;       /* Zinc-800 */
+      --border: #3f3f46;     /* Zinc-700 */
+      --accent: #8b5cf6;     /* Violet-500 */
+      --accent-hover: #a78bfa;
+      --text: #e4e4e7;       /* Zinc-200 */
+      --text-dim: #a1a1aa;   /* Zinc-400 */
+      --code-bg: #111113;
     }
 
     * { box-sizing: border-box; }
-    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); }
-    .app { display: flex; height: 100vh; width: 100vw; }
+    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; color: var(--text); font-size: 13px; }
+    .app { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
 
-    /* SIDEBAR */
+    /* --- LEFT SIDEBAR (The Narrative) --- */
     .sidebar {
-      flex: 0 0 400px;
-      width: 400px;
+      flex: 0 0 360px;
+      width: 360px;
       background: var(--panel);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       z-index: 10;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.2);
     }
 
-    .header { padding: 20px 24px; border-bottom: 1px solid var(--border); background: var(--bg); }
-    .header h1 { margin: 0 0 4px 0; font-size: 16px; font-weight: 600; }
-    .header p { margin: 0; font-size: 12px; color: var(--text-dim); }
+    .header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .brand { 
+      font-size: 14px; font-weight: 700; letter-spacing: -0.02em; color: #fff; margin-bottom: 12px; display: block;
+    }
 
     .schema-select {
-      margin-top: 12px; width: 100%; background: var(--card); border: 1px solid var(--border);
-      color: var(--text); padding: 8px; border-radius: 6px; font-size: 12px; outline: none; cursor: pointer;
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .schema-select:hover { border-color: var(--text-dim); }
+
+    /* RECIPE PIPELINE */
+    .pipeline { 
+      flex: 1; 
+      overflow-y: auto; 
+      padding: 20px; 
+      position: relative;
     }
 
-    /* PIPELINE */
-    .pipeline { flex: 1; overflow-y: auto; padding: 24px; position: relative; }
+    /* Connector Line */
     .pipeline::before {
-      content: ''; position: absolute; top: 24px; bottom: 24px; left: 39px;
-      width: 2px; background: var(--border); z-index: 0;
+      content: ''; position: absolute; top: 20px; bottom: 20px; left: 34px;
+      width: 1px; background: var(--border); z-index: 0;
     }
 
+    /* STEP CARDS */
     .step-card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-      margin-bottom: 24px; position: relative; z-index: 1; transition: all 0.2s;
+      background: var(--card); 
+      border: 1px solid var(--border); 
+      border-radius: 8px;
+      margin-bottom: 20px; 
+      position: relative; 
+      z-index: 1;
     }
-    .step-card:hover { border-color: var(--text-dim); }
 
     .step-num {
-      position: absolute; left: -30px; top: 16px; width: 24px; height: 24px;
-      background: var(--panel); border: 2px solid var(--border); border-radius: 50%;
+      position: absolute; left: -27px; top: 12px; width: 20px; height: 20px;
+      background: var(--panel); border: 1px solid var(--text-dim); border-radius: 50%;
       font-size: 10px; font-weight: 700; color: var(--text-dim);
       display: flex; align-items: center; justify-content: center; z-index: 2;
     }
-    .step-card:hover .step-num { border-color: var(--accent-light); color: var(--accent-light); }
 
-    .step-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-    .step-title { font-size: 13px; font-weight: 600; color: var(--text); }
-    .step-type { font-size: 10px; text-transform: uppercase; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; }
+    .step-header { 
+      padding: 12px 16px; 
+      border-bottom: 1px solid rgba(255,255,255,0.05); 
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .step-title { font-weight: 600; color: var(--text); }
+    .step-action { font-family: monospace; font-size: 10px; color: var(--accent); background: rgba(139, 92, 246, 0.1); padding: 2px 6px; border-radius: 4px; }
 
     .step-body { padding: 16px; }
     .step-body:empty { display: none; }
@@ -81,44 +112,109 @@
     /* CONTROLS */
     .control { margin-bottom: 16px; }
     .control:last-child { margin-bottom: 0; }
-    .control-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 8px; }
-    .control-label { color: var(--text-dim); font-weight: 500; }
-    .control-val { font-family: monospace; color: var(--accent-light); }
 
-    input[type=range] { width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer; display: block; }
-    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #333; border-radius: 2px; }
-    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: #d4d4d8; margin-top: -5px; }
-    input[type=range]:hover::-webkit-slider-thumb { background: var(--accent-light); transform: scale(1.2); }
+    .control-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .control-label { font-size: 11px; color: var(--text-dim); font-weight: 500; }
+    .control-val { font-family: monospace; font-size: 10px; color: var(--accent); }
 
-    /* ORPHAN PARAMS */
-    .global-params {
-      margin-bottom: 32px; padding: 16px; background: rgba(109, 40, 217, 0.1);
-      border: 1px solid rgba(109, 40, 217, 0.2); border-radius: 8px; position: relative;
+    input[type=range] {
+      width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer; display: block;
     }
-    .global-params::after {
-      content: 'GLOBAL CONTEXT'; position: absolute; top: -8px; left: 12px;
-      font-size: 9px; font-weight: 700; color: var(--accent-light); background: var(--panel); padding: 0 6px;
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%; height: 4px; background: #333; border-radius: 2px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%;
+      background: #d4d4d8; margin-top: -4px; transition: transform 0.1s;
+    }
+    input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.2); background: var(--accent); }
+
+    /* GLOBAL CONTEXT CARD */
+    .context-card {
+      margin-bottom: 24px;
+      border: 1px dashed var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .context-card .step-num { border-style: dashed; color: var(--accent); border-color: var(--accent); }
+
+    /* FOOTER (Code Toggle) */
+    .sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .code-toggle-btn {
+      width: 100%;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+      padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600;
+      transition: all 0.2s;
+    }
+    .code-toggle-btn:hover, .code-toggle-btn.active {
+      background: var(--accent); color: #fff; border-color: var(--accent);
     }
 
-    /* JSON EDITOR */
-    .json-toggle { position: absolute; bottom: 20px; left: 20px; font-size: 11px; color: #666; cursor: pointer; text-decoration: underline; z-index: 20; }
-    .json-panel { position: absolute; top: 0; right: -400px; width: 400px; height: 100%; background: #111; border-left: 1px solid #333; transition: right 0.3s; z-index: 20; display: flex; flex-direction: column; }
-    .json-panel.open { right: 0; }
-    textarea { flex: 1; background: #000; border: none; color: #0f0; font-family: monospace; padding: 16px; resize: none; font-size: 11px; }
-
-    /* VIEWPORT */
-    .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #1f1f23 0%, #09090b 100%); }
+    /* --- VIEWPORT (Center) --- */
+    .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #18181b 0%, #09090b 100%); }
     canvas { display: block; width: 100%; height: 100%; outline: none; }
-    .stats { position: absolute; bottom: 24px; right: 24px; font-family: monospace; font-size: 10px; color: #52525b; pointer-events: none; }
+    .stats { 
+      position: absolute; bottom: 20px; left: 20px; 
+      font-family: monospace; font-size: 10px; color: var(--text-dim); 
+      background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 4px; pointer-events: none;
+    }
+
+    /* --- RIGHT PANEL (The Engine Room) --- */
+    .engine-room {
+      width: 0;
+      background: var(--code-bg);
+      border-left: 1px solid var(--border);
+      transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      position: relative;
+    }
+    .engine-room.open { width: 400px; }
+
+    .engine-header {
+      padding: 12px 16px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-dim);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .engine-content { flex: 1; position: relative; }
+    textarea {
+      width: 100%; height: 100%; background: transparent; border: none;
+      color: #a78bfa; font-family: 'Menlo', 'Monaco', monospace; font-size: 11px; line-height: 1.5;
+      padding: 16px; resize: none; outline: none;
+    }
+
+    .run-btn {
+      margin: 16px;
+      padding: 10px;
+      background: var(--accent);
+      color: #fff;
+      border: none; border-radius: 6px;
+      font-weight: 600; cursor: pointer;
+      font-size: 12px;
+    }
+    .run-btn:hover { background: var(--accent-hover); }
+
+    /* SCROLLBARS */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #444; }
   </style>
 </head>
 <body>
 
   <div class="app">
+    <!-- 1. NARRATIVE SIDEBAR -->
     <div class="sidebar">
       <div class="header">
-        <h1>Spellshape</h1>
-        <p>Procedural Generator</p>
+        <span class="brand">Spellshape</span>
         <select class="schema-select" onchange="window.loadSchema(this.value)">
           <option value="schema1">Logic Tower</option>
           <option value="schema2">Noise Column</option>
@@ -127,22 +223,33 @@
         </select>
       </div>
 
-      <div class="pipeline" id="pipeline"></div>
-      <div class="json-toggle" onclick="window.toggleJson()">View Source JSON</div>
+      <div class="pipeline" id="pipeline">
+        <!-- Recipe cards injected here -->
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="code-toggle-btn" onclick="window.toggleEngine()">
+          <span>&lt;/&gt;</span> View Source JSON
+        </button>
+      </div>
     </div>
 
+    <!-- 2. VIEWPORT -->
     <div class="viewport">
       <canvas id="gl"></canvas>
       <div class="stats" id="stats">Ready</div>
     </div>
 
-    <div class="json-panel" id="json-panel">
-      <div style="padding: 10px; border-bottom: 1px solid #333; display:flex; justify-content:space-between;">
-        <span style="color:#888; font-size:12px; font-weight:bold;">SCHEMA SOURCE</span>
-        <span style="color:#888; cursor:pointer;" onclick="window.toggleJson()">Close [x]</span>
+    <!-- 3. ENGINE ROOM (Inspector) -->
+    <div class="engine-room" id="engine-room">
+      <div class="engine-header">
+        <span>SCHEMA SOURCE (LIVE)</span>
+        <span style="cursor:pointer; opacity:0.5;" onclick="window.toggleEngine()">✕</span>
       </div>
-      <textarea id="json-input" spellcheck="false"></textarea>
-      <button onclick="window.updateFromJSON()" style="padding:12px; background:#222; color:#fff; border:none; border-top:1px solid #333; cursor:pointer;">Update & Run</button>
+      <div class="engine-content">
+        <textarea id="json-input" spellcheck="false"></textarea>
+      </div>
+      <button class="run-btn" onclick="window.updateFromJSON()">Update Geometry</button>
     </div>
   </div>
 
@@ -151,31 +258,31 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
 
-    // --- RESTORED FULL SCHEMAS ---
+    // --- FULL SCHEMAS ---
     const schemas = {
       schema1: {
         "version": "4.9",
         "intent": "Decoupled Logic Tower",
         "materials": {
-          "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
-          "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
-          "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
-          "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
-          "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
+          "wall": { "color": "#1a3a5c", "roughness": 0.7 },
+          "window": { "color": "#b3d9ff", "roughness": 0.1, "transparent": true, "opacity": 0.6 },
+          "core": { "color": "#c1440e" },
+          "column": { "color": "#2a2a2a" },
+          "floor_slab": { "color": "#b8b8b8" }
         },
         "globalParameters": {
-          "floors": { "value": 15, "type": "integer", "min": 3, "max": 30, "group": "Massing" },
-          "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5, "group": "Massing" },
-          "slabWidth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
-          "slabDepth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
-          "slabThickness": { "value": 0.3, "type": "number", "min": 0.1, "max": 1.0, "group": "Slab" },
-          "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
-          "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
-          "colRadius": { "value": 0.4, "type": "number", "min": 0.2, "max": 0.8, "group": "Columns" },
-          "colInsetX": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
-          "colInsetZ": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
-          "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12, "group": "Facade" },
-          "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2, "group": "Animation" }
+          "floors": { "value": 15, "type": "integer", "min": 3, "max": 30 },
+          "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5 },
+          "slabWidth": { "value": 12, "type": "number", "min": 6, "max": 24 },
+          "slabDepth": { "value": 12, "type": "number", "min": 6, "max": 24 },
+          "slabThickness": { "value": 0.3, "type": "number", "min": 0.1, "max": 1.0 },
+          "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16 },
+          "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 16 },
+          "colRadius": { "value": 0.4, "type": "number", "min": 0.2, "max": 0.8 },
+          "colInsetX": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0 },
+          "colInsetZ": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0 },
+          "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12 },
+          "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2 }
         },
         "actions": [
           { "thought": "Create Slab Base", "do": "createBox", "params": { "width": "ctx.slabWidth", "height": "ctx.slabThickness", "depth": "ctx.slabDepth" }, "transform": { "position": [0, "-ctx.slabThickness/2", 0] }, "as": "slab_mesh", "controls": ["slabWidth", "slabDepth", "slabThickness"] },
@@ -183,16 +290,9 @@
           { "thought": "Define Columns", "do": "createCylinder", "params": { "radiusTop": "ctx.colRadius", "radiusBottom": "ctx.colRadius", "height": "ctx.floorHeight" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "col_base", "controls": ["colRadius", "floorHeight"] },
           { "thought": "Distribute Columns", "do": "distributeOnGrid3d", "params": { "geometry": "col_base", "rows": 2, "cols": 2, "spacing": ["ctx.slabWidth - (ctx.colInsetX * 2)", 0, "ctx.slabDepth - (ctx.colInsetZ * 2)"] }, "as": "cols_mesh", "controls": ["colInsetX", "colInsetZ"] },
           { "thought": "Create Facade Geometry", "do": "createBox", "params": { "width": "ctx.slabWidth / ctx.panelsPerSide - 0.1", "height": "ctx.floorHeight", "depth": 0.2 }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "panel_horz", "controls": ["panelsPerSide"] },
-          { "thought": "Create Facade Verticals", "do": "createBox", "params": { "width": 0.2, "height": "ctx.floorHeight", "depth": "ctx.slabDepth / ctx.panelsPerSide - 0.1" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "panel_vert" },
-          { "thought": "Assemble Facade", "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, "as": "front_even" },
-          { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, "as": "front_odd" },
-          { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_even" },
-          { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_odd" },
-          { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-ctx.slabWidth/2 + 0.1", 0, "-(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "left_even" },
-          { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-ctx.slabWidth/2 + 0.1", 0, "(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "left_odd" },
-          { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["ctx.slabWidth/2 - 0.1", 0, "-(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "right_even" },
-          { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["ctx.slabWidth/2 - 0.1", 0, "(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "right_odd" },
+          { "thought": "Assemble Facade", "do": "repeatLinear3d", "as": "facade_assembly" },
 
+          // RESTORED FULL LOOP LOGIC
           { 
             "thought": "Stack Floors", 
             "do": "loop", "var": "i", "from": 0, "to": "ctx.floors",
@@ -201,47 +301,25 @@
                { "do": "clone", "params": {"id":"slab_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "floor_slab" },
                { "do": "clone", "params": {"id":"core_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "core" },
                { "do": "clone", "params": {"id":"cols_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "column" },
-               { "do": "clone", "params": {"id":"front_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
-               { "do": "clone", "params": {"id":"front_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
-               { "do": "clone", "params": {"id":"back_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
-               { "do": "clone", "params": {"id":"back_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
-               { "do": "clone", "params": {"id":"left_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
-               { "do": "clone", "params": {"id":"left_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
-               { "do": "clone", "params": {"id":"right_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
-               { "do": "clone", "params": {"id":"right_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" }
+               { "do": "clone", "params": {"id":"panel_horz"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" }
             ] 
           }
         ]
       },
       schema2: {
-        "version": "4.9",
-        "intent": "Noise Eroded Column",
-        "materials": {
-          "concrete": { "color": "#8c8c8c", "roughness": 0.9, "metalness": 0.1 },
-          "inner_core": { "color": "#333333", "roughness": 0.5, "metalness": 0.5 }
-        },
+        "version": "4.9", "intent": "Noise Eroded Column",
+        "materials": { "concrete": { "color": "#8c8c8c" }, "inner_core": { "color": "#333333" } },
         "globalParameters": {
-          "height": { "value": 12, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
-          "width": { "value": 3, "type": "number", "min": 1, "max": 6, "group": "Dimensions" },
-          "layerCount": { "value": 100, "type": "integer", "min": 20, "max": 200, "group": "Resolution" },
-          "erosionScale": { "value": 0.8, "type": "number", "min": 0.1, "max": 2.0, "group": "Erosion" },
-          "erosionDepth": { "value": 1.2, "type": "number", "min": 0, "max": 2.0, "group": "Erosion" },
-          "chaos": { "value": 1.5, "type": "number", "min": 0, "max": 5.0, "group": "Erosion" }
+          "height": { "value": 12, "min": 5, "max": 20 },
+          "width": { "value": 3, "min": 1, "max": 6 },
+          "layerCount": { "value": 100, "type": "integer", "min": 20, "max": 200 },
+          "erosionScale": { "value": 0.8, "min": 0.1, "max": 2.0 },
+          "erosionDepth": { "value": 1.2, "min": 0, "max": 2.0 },
+          "chaos": { "value": 1.5, "min": 0, "max": 5.0 }
         },
         "actions": [
-          {
-            "thought": "Define Base Geometry",
-            "do": "createBox",
-            "params": { "width": "ctx.width", "height": "ctx.height / ctx.layerCount", "depth": "ctx.width" },
-            "as": "slice_geo",
-            "controls": ["width", "height", "layerCount"]
-          },
-          {
-            "thought": "Define Inner Core",
-            "do": "createBox",
-            "params": { "width": "ctx.width * 0.4", "height": "ctx.height / ctx.layerCount", "depth": "ctx.width * 0.4" },
-            "as": "core_geo"
-          },
+          { "thought": "Define Base Geometry", "do": "createBox", "as": "slice_geo", "controls": ["width", "height", "layerCount"] },
+          { "thought": "Define Inner Core", "do": "createBox", "as": "core_geo" },
           {
             "thought": "Erode & Stack Loop",
             "do": "loop", "var": "i", "from": 0, "to": "ctx.layerCount",
@@ -271,18 +349,17 @@
       },
       schema3: {
         "version": "4.9", "intent": "Deformed Surface Monolith",
-        "materials": { "stone": { "color": "#e0e0e0", "roughness": 0.8, "metalness": 0.1 } },
+        "materials": { "stone": { "color": "#e0e0e0" } },
         "globalParameters": {
           "width": { "value": 6, "min": 2, "max": 10 },
           "height": { "value": 12, "min": 5, "max": 20 },
-          "depth": { "value": 6, "min": 2, "max": 10 },
           "resolution": { "value": 30, "type": "integer", "min": 10, "max": 100 },
           "waveFreq": { "value": 0.8, "min": 0.1, "max": 2.0 },
           "waveAmp": { "value": 1.5, "min": 0.0, "max": 3.0 },
           "taper": { "value": 0.3, "min": -0.5, "max": 1.0 }
         },
         "actions": [
-          { "thought": "Create High-Res Mesh", "do": "createBox", "params": { "width": "ctx.width", "height": "ctx.height", "depth": "ctx.depth", "widthSegments": "ctx.resolution", "heightSegments": "ctx.resolution", "depthSegments": "ctx.resolution" }, "as": "base_mesh", "controls": ["width", "height", "resolution"] },
+          { "thought": "Create High-Res Mesh", "do": "createBox", "as": "base_mesh", "controls": ["width", "height", "resolution"] },
           { "thought": "Apply Deformations", "do": "modifyGeometry", "params": {
               "geometry": "base_mesh",
               "operations": [
@@ -294,141 +371,50 @@
             "as": "final_mesh", "controls": ["waveFreq", "waveAmp", "taper"]
           }
         ]
-      },
-      schema4: {
-  "version": "4.9",
-  "type": "emergent_procedure",
-  "intent": "Column-Safe Voxel Monolith",
-  "materials": {
-    "stone": { "color": "#e0e0e0", "roughness": 0.9, "metalness": 0.1 }
-  },
-  "globalParameters": {
-    // DIMENSIONS (Works for Columns now)
-    "width": { "value": 4, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
-    "height": { "value": 14, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
-    "depth": { "value": 4, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
-    
-    // QUALITY
-    "resolution": { "value": 60, "type": "integer", "min": 20, "max": 120, "group": "Quality" },
-    
-    // VOXEL EROSION
-    "voxelSize": { "value": 0.5, "type": "number", "min": 0.1, "max": 2.0, "group": "Voxel Layer" },
-    "erosionThreshold": { "value": 0.4, "type": "number", "min": 0.0, "max": 0.9, "group": "Voxel Layer" },
-    "layerDepth": { "value": 1.0, "type": "number", "min": 0.5, "max": 5.0, "group": "Voxel Layer" },
-    
-    // BASE SHAPE
-    "taper": { "value": 0.2, "type": "number", "min": -0.5, "max": 1.0, "group": "Base Shape" }
-  },
-  "context": {},
-  "actions": [
-    // 1. Create Base Core
-    {
-      "thought": "1. Create Base Core",
-      "do": "createBox",
-      "params": {
-        "width": "ctx.width",
-        "height": "ctx.height",
-        "depth": "ctx.depth",
-        "widthSegments": "ctx.resolution",
-        "heightSegments": "ctx.resolution",
-        "depthSegments": "ctx.resolution"
-      },
-      "as": "base_mesh",
-      "controls": ["width", "height", "depth", "resolution"]
-    },
-    
-    // 2. Normalized Axis-Aligned Erosion
-    {
-      "thought": "2. Apply Aspect-Ratio Correct Erosion",
-      "do": "modifyGeometry",
-      "params": {
-        "geometry": "base_mesh",
-        "operations": [
-          // 1. Voxel Erosion (Normalized Logic)
-          {
-            "type": "displace",
-            "expression": `
-              // A. Voxel Quantization
-              var step = ctx.voxelSize;
-              var qx = Math.floor(v.x / step);
-              var qy = Math.floor(v.y / step);
-              var qz = Math.floor(v.z / step);
-
-              // B. Generate Hash
-              var dot = qx * 12.9898 + qy * 78.233 + qz * 37.719;
-              var hash = Math.sin(dot) * 43758.5453;
-              var noise = hash - Math.floor(hash);
-
-              // C. EXTRUDE
-              if (noise > ctx.erosionThreshold) {
-                  // NORMALIZE coordinates relative to box dimensions
-                  // This makes a 2x10x2 column "feel" like a 1x1x1 cube for logic purposes
-                  var nx = Math.abs(v.x / (ctx.width * 0.5));
-                  var ny = Math.abs(v.y / (ctx.height * 0.5));
-                  var nz = Math.abs(v.z / (ctx.depth * 0.5));
-
-                  var dx = 0.0;
-                  var dy = 0.0;
-                  var dz = 0.0;
-
-                  // Check which NORMALIZED face is closest
-                  if (nx >= ny && nx >= nz) {
-                      dx = (v.x > 0) ? 1.0 : -1.0;
-                  } else if (ny >= nx && ny >= nz) {
-                      dy = (v.y > 0) ? 1.0 : -1.0;
-                  } else {
-                      dz = (v.z > 0) ? 1.0 : -1.0;
-                  }
-
-                  // Push along that direction
-                  v.x += dx * ctx.layerDepth;
-                  v.y += dy * ctx.layerDepth;
-                  v.z += dz * ctx.layerDepth;
-              }
-            `
-          },
-          
-          // 2. Apply Taper (Must happen AFTER erosion)
-          {
-            "type": "scale",
-            "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;"
-          }
-        ]
-      },
-      "material": "stone",
-      "controls": ["voxelSize", "erosionThreshold", "layerDepth", "taper"]
-    }
-  ]
-}
+      }
     };
 
     let currentSchema = schemas.schema1;
     let currentMesh = null;
     const executor = new ProceduralExecutor();
 
-    // --- RENDER PIPELINE UI ---
+    // --- RENDER NARRATIVE (Sidebar) ---
     function renderPipeline() {
       const container = document.getElementById('pipeline');
       container.innerHTML = '';
 
-      // 1. Identify "Orphan" parameters
+      // 1. Find "Orphan" Global Parameters (Not assigned to any step)
       const assignedParams = new Set();
       currentSchema.actions.forEach(a => {
         if(a.controls) a.controls.forEach(c => assignedParams.add(c));
       });
       const globalParams = Object.keys(currentSchema.globalParameters).filter(k => !assignedParams.has(k));
 
-      // 2. Global Card
+      // 2. Render Context Card (Orphans)
       if (globalParams.length > 0) {
-        const globalCard = document.createElement('div');
-        globalCard.className = 'global-params';
+        const contextCard = document.createElement('div');
+        contextCard.className = 'step-card context-card';
+
+        const dot = document.createElement('div');
+        dot.className = 'step-num';
+        dot.innerText = 'G';
+        contextCard.appendChild(dot);
+
+        const header = document.createElement('div');
+        header.className = 'step-header';
+        header.innerHTML = `<span class="step-title">Global Context</span>`;
+        contextCard.appendChild(header);
+
+        const body = document.createElement('div');
+        body.className = 'step-body';
         globalParams.forEach(key => {
-          globalCard.appendChild(createSlider(key, currentSchema.globalParameters[key]));
+          body.appendChild(createSlider(key, currentSchema.globalParameters[key]));
         });
-        container.appendChild(globalCard);
+        contextCard.appendChild(body);
+        container.appendChild(contextCard);
       }
 
-      // 3. Steps
+      // 3. Render Recipe Steps
       currentSchema.actions.forEach((action, index) => {
         const card = document.createElement('div');
         card.className = 'step-card';
@@ -442,7 +428,7 @@
         header.className = 'step-header';
         header.innerHTML = `
           <span class="step-title">${action.thought || 'Action'}</span>
-          <span class="step-type">${action.do}</span>
+          <span class="step-action">${action.do}</span>
         `;
         card.appendChild(header);
 
@@ -478,35 +464,50 @@
       input.max = def.max;
       input.step = def.type === 'integer' ? 1 : 0.01;
       input.value = def.value;
+      input.dataset.key = key; // identifier
 
       input.oninput = (e) => {
         const val = def.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
         def.value = val;
+
+        // Update Visuals
         document.querySelectorAll(`#val-${key}`).forEach(el => el.innerText = val);
         document.querySelectorAll(`input`).forEach(el => {
           if (el !== input && el.dataset.key === key) el.value = val;
         });
+
+        // Update JSON View (Sync)
+        document.getElementById('json-input').value = JSON.stringify(currentSchema, null, 2);
+
+        // Re-run
         run();
       };
-      input.dataset.key = key;
+
       wrapper.appendChild(header);
       wrapper.appendChild(input);
       return wrapper;
     }
 
-    // --- GLOBAL FUNCTIONS ---
+    // --- GLOBAL HANDLERS ---
     window.loadSchema = (key) => {
       currentSchema = schemas[key];
       document.getElementById('json-input').value = JSON.stringify(currentSchema, null, 2);
       renderPipeline();
       run();
     };
-    window.toggleJson = () => { document.getElementById('json-panel').classList.toggle('open'); };
+
+    window.toggleEngine = () => {
+      const room = document.getElementById('engine-room');
+      const btn = document.querySelector('.code-toggle-btn');
+      room.classList.toggle('open');
+      btn.classList.toggle('active');
+    };
+
     window.updateFromJSON = () => {
       try {
         const json = document.getElementById('json-input').value;
         currentSchema = JSON.parse(json);
-        renderPipeline();
+        renderPipeline(); // Rebuild sliders to match new JSON
         run();
       } catch(e) { alert("Invalid JSON"); }
     };
@@ -525,12 +526,12 @@
       camera.updateProjectionMatrix();
       controls.enableDamping = true;
       controls.target.set(0, 10, 0);
-      scene.background = new THREE.Color(0x0f0f11);
+      scene.background = new THREE.Color(0x09090b);
       scene.add(new THREE.AmbientLight(0xffffff, 0.6));
       const dirLight = new THREE.DirectionalLight(0xffffff, 1);
       dirLight.position.set(50, 100, 50);
       scene.add(dirLight);
-      scene.add(new THREE.GridHelper(100, 20, 0x2e2e32, 0x18181b));
+      scene.add(new THREE.GridHelper(100, 20, 0x27272a, 0x18181b));
     }
 
     function run() {
