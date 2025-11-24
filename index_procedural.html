@@ -505,7 +505,7 @@
     const schema = {
   "version": "4.9",
   "type": "emergent_procedure",
-  "intent": "Watertight Voxel Monolith",
+  "intent": "Box-Preserving Voxel Monolith",
   "materials": {
     "stone": { "color": "#e0e0e0", "roughness": 0.9, "metalness": 0.1 }
   },
@@ -521,7 +521,7 @@
     // VOXEL LAYER
     "voxelSize": { "value": 0.5, "type": "number", "min": 0.1, "max": 2.0, "group": "Voxel Layer" },
     "erosionThreshold": { "value": 0.4, "type": "number", "min": 0.0, "max": 0.9, "group": "Voxel Layer" },
-    "layerDepth": { "value": 2.0, "type": "number", "min": 0.5, "max": 5.0, "group": "Voxel Layer" },
+    "layerDepth": { "value": 1.5, "type": "number", "min": 0.5, "max": 5.0, "group": "Voxel Layer" },
     
     // BASE SHAPE
     "taper": { "value": 0.2, "type": "number", "min": -0.5, "max": 1.0, "group": "Base Shape" }
@@ -544,9 +544,9 @@
       "controls": ["width", "height", "depth", "resolution"]
     },
     
-    // 2. Radial Voxel Displacement (Fixes Holes)
+    // 2. Box-Preserving Expansion
     {
-      "thought": "2. Extrude Voxels Radially",
+      "thought": "2. Extrude Voxels via Scaling",
       "do": "modifyGeometry",
       "params": {
         "geometry": "base_mesh",
@@ -556,35 +556,36 @@
             "type": "scale",
             "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;"
           },
-          // 2. Radial Displacement
+          // 2. Voxel Expansion (Non-spherical)
           {
             "type": "displace",
             "expression": `
-              // 1. Voxel Quantization
+              // A. Voxel Quantization
               var step = ctx.voxelSize;
               var qx = Math.floor(v.x / step);
               var qy = Math.floor(v.y / step);
               var qz = Math.floor(v.z / step);
 
-              // 2. Generate Hash
+              // B. Generate Hash
               var dot = qx * 12.9898 + qy * 78.233 + qz * 37.719;
               var hash = Math.sin(dot) * 43758.5453;
               var noise = hash - Math.floor(hash);
 
-              // 3. EXTRUDE RADIALLY (Fixes Corners)
-              // Calculate direction from center (0,0,0) instead of Face Normal
-              var len = Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
+              // C. EXPAND PRESERVING BOX SHAPE
+              // Instead of pushing by a vector, we scale the position.
+              // We calculate 'k' per axis so the offset (thickness) is constant.
               
-              if (noise > ctx.erosionThreshold && len > 0.001) {
-                  // Normalize the position vector manually
-                  var dx = v.x / len;
-                  var dy = v.y / len;
-                  var dz = v.z / len;
-                  
-                  // Push outward along this shared direction
-                  v.x += dx * ctx.layerDepth;
-                  v.y += dy * ctx.layerDepth;
-                  v.z += dz * ctx.layerDepth;
+              if (noise > ctx.erosionThreshold) {
+                  // k = DesiredOffset / CurrentHalfSize
+                  // We use 2.0 * layerDepth because width is full width.
+                  var kx = (2.0 * ctx.layerDepth) / ctx.width;
+                  var ky = (2.0 * ctx.layerDepth) / ctx.height;
+                  var kz = (2.0 * ctx.layerDepth) / ctx.depth;
+
+                  // Apply expansion
+                  v.x += v.x * kx;
+                  v.y += v.y * ky;
+                  v.z += v.z * kz;
               }
             `
           }
@@ -595,6 +596,7 @@
     }
   ]
 };
+
 
 
 
