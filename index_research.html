@@ -261,51 +261,177 @@
     // --- FULL SCHEMAS ---
     const schemas = {
       schema1: {
-        "version": "4.9",
-        "intent": "Decoupled Logic Tower",
-        "materials": {
-          "wall": { "color": "#1a3a5c", "roughness": 0.7 },
-          "window": { "color": "#b3d9ff", "roughness": 0.1, "transparent": true, "opacity": 0.6 },
-          "core": { "color": "#c1440e" },
-          "column": { "color": "#2a2a2a" },
-          "floor_slab": { "color": "#b8b8b8" }
-        },
-        "globalParameters": {
-          "floors": { "value": 15, "type": "integer", "min": 3, "max": 30 },
-          "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5 },
-          "slabWidth": { "value": 12, "type": "number", "min": 6, "max": 24 },
-          "slabDepth": { "value": 12, "type": "number", "min": 6, "max": 24 },
-          "slabThickness": { "value": 0.3, "type": "number", "min": 0.1, "max": 1.0 },
-          "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16 },
-          "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 16 },
-          "colRadius": { "value": 0.4, "type": "number", "min": 0.2, "max": 0.8 },
-          "colInsetX": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0 },
-          "colInsetZ": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0 },
-          "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12 },
-          "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2 }
-        },
-        "actions": [
-          { "thought": "Create Slab Base", "do": "createBox", "params": { "width": "ctx.slabWidth", "height": "ctx.slabThickness", "depth": "ctx.slabDepth" }, "transform": { "position": [0, "-ctx.slabThickness/2", 0] }, "as": "slab_mesh", "controls": ["slabWidth", "slabDepth", "slabThickness"] },
-          { "thought": "Create Core", "do": "createBox", "params": { "width": "ctx.coreWidth", "height": "ctx.floorHeight", "depth": "ctx.coreDepth" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "core_mesh", "controls": ["coreWidth", "coreDepth"] },
-          { "thought": "Define Columns", "do": "createCylinder", "params": { "radiusTop": "ctx.colRadius", "radiusBottom": "ctx.colRadius", "height": "ctx.floorHeight" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "col_base", "controls": ["colRadius", "floorHeight"] },
-          { "thought": "Distribute Columns", "do": "distributeOnGrid3d", "params": { "geometry": "col_base", "rows": 2, "cols": 2, "spacing": ["ctx.slabWidth - (ctx.colInsetX * 2)", 0, "ctx.slabDepth - (ctx.colInsetZ * 2)"] }, "as": "cols_mesh", "controls": ["colInsetX", "colInsetZ"] },
-          { "thought": "Create Facade Geometry", "do": "createBox", "params": { "width": "ctx.slabWidth / ctx.panelsPerSide - 0.1", "height": "ctx.floorHeight", "depth": 0.2 }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "panel_horz", "controls": ["panelsPerSide"] },
-          { "thought": "Assemble Facade", "do": "repeatLinear3d", "as": "facade_assembly" },
+  "version": "4.9",
+  "type": "emergent_procedure",
+  "intent": "Decoupled Logic Tower",
+  "materials": {
+    "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
+    "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
+    "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
+    "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
+    "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
+  },
+  
+  // 1. INDEPENDENT PARAMETERS
+  "globalParameters": {
+    "floors": { "value": 15, "type": "integer", "min": 3, "max": 30, "group": "Massing" },
+    "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5, "group": "Massing" },
+    
+    // SLAB IS NOW INDEPENDENT
+    "slabWidth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
+    "slabDepth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
+    "slabThickness": { "value": 0.3, "type": "number", "min": 0.1, "max": 1.0, "group": "Slab" },
 
-          // RESTORED FULL LOOP LOGIC
-          { 
-            "thought": "Stack Floors", 
-            "do": "loop", "var": "i", "from": 0, "to": "ctx.floors",
-            "controls": ["floors", "rotationPerFloor"],
-            "body": [
-               { "do": "clone", "params": {"id":"slab_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "floor_slab" },
-               { "do": "clone", "params": {"id":"core_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "core" },
-               { "do": "clone", "params": {"id":"cols_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "column" },
-               { "do": "clone", "params": {"id":"panel_horz"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" }
-            ] 
-          }
-        ]
-      },
+    // CORE IS INDEPENDENT
+    "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
+    "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
+    
+    // COLUMNS USE INSET FROM SLAB EDGE
+    "colRadius": { "value": 0.4, "type": "number", "min": 0.2, "max": 0.8, "group": "Columns" },
+    "colInsetX": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
+    "colInsetZ": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
+    
+    "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12, "group": "Facade" },
+    "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2, "group": "Animation" }
+  },
+  
+  "context": {}, 
+
+  "actions": [
+    // ----------------------------------------------------------------
+    // 1. SLAB (Uses slabWidth/Depth directly)
+    // ----------------------------------------------------------------
+    { 
+      "thought": "1. Create Slab Base", 
+      "do": "createBox", 
+      "params": { 
+        "width": "ctx.slabWidth", 
+        "height": "ctx.slabThickness", 
+        "depth": "ctx.slabDepth" 
+      }, 
+      "transform": { "position": [0, "-ctx.slabThickness/2", 0] }, 
+      "as": "slab_mesh",
+      "controls": ["slabWidth", "slabDepth", "slabThickness"] 
+    },
+
+    // ----------------------------------------------------------------
+    // 2. CORE
+    // ----------------------------------------------------------------
+    { 
+      "thought": "2. Create Core", 
+      "do": "createBox", 
+      "params": { 
+        "width": "ctx.coreWidth", 
+        "height": "ctx.floorHeight", 
+        "depth": "ctx.coreDepth" 
+      }, 
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+      "as": "core_mesh",
+      "controls": ["coreWidth", "coreDepth"]
+    },
+
+    // ----------------------------------------------------------------
+    // 3. COLUMNS (Position based on Slab Width minus Inset)
+    // ----------------------------------------------------------------
+    { 
+      "thought": "3. Define Columns", 
+      "do": "createCylinder", 
+      "params": { 
+        "radiusTop": "ctx.colRadius", 
+        "radiusBottom": "ctx.colRadius", 
+        "height": "ctx.floorHeight" 
+      }, 
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+      "as": "col_base",
+      "controls": ["colRadius", "floorHeight"]
+    },
+    { 
+      "thought": "4. Distribute Columns", 
+      "do": "distributeOnGrid3d", 
+      "params": { 
+        "geometry": "col_base", 
+        "rows": 2, "cols": 2, 
+        "spacing": [
+          "ctx.slabWidth - (ctx.colInsetX * 2)", 
+          0, 
+          "ctx.slabDepth - (ctx.colInsetZ * 2)"
+        ], 
+        "centered": true, "autoMerge": true 
+      }, 
+      "as": "cols_mesh",
+      "controls": ["colInsetX", "colInsetZ"]
+    },
+
+    // ----------------------------------------------------------------
+    // 4. FACADE PANELS (Follows Slab Size)
+    // ----------------------------------------------------------------
+    { 
+      "thought": "5. Create Facade Geometry", 
+      "do": "createBox", 
+      "params": { 
+        "width": "ctx.slabWidth / ctx.panelsPerSide - 0.1", 
+        "height": "ctx.floorHeight", 
+        "depth": 0.2 
+      }, 
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+      "as": "panel_horz",
+      "controls": ["panelsPerSide"]
+    },
+    { 
+      "do": "createBox", 
+      "params": { 
+        "width": 0.2, 
+        "height": "ctx.floorHeight", 
+        "depth": "ctx.slabDepth / ctx.panelsPerSide - 0.1" 
+      }, 
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+      "as": "panel_vert" 
+    },
+
+    // ----------------------------------------------------------------
+    // 5. FACADE ASSEMBLY
+    // ----------------------------------------------------------------
+    { 
+      "thought": "6. Assemble Facade", 
+      "do": "repeatLinear3d", 
+      "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, 
+      "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, 
+      "as": "front_even" 
+    },
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, "as": "front_odd" },
+    
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_even" },
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_odd" },
+
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-ctx.slabWidth/2 + 0.1", 0, "-(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "left_even" },
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-ctx.slabWidth/2 + 0.1", 0, "(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "left_odd" },
+
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["ctx.slabWidth/2 - 0.1", 0, "-(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "right_even" },
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["ctx.slabWidth/2 - 0.1", 0, "(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "right_odd" },
+
+    // ----------------------------------------------------------------
+    // 6. STACKING
+    // ----------------------------------------------------------------
+    { 
+      "thought": "7. Stack Floors", 
+      "do": "loop", "var": "i", "from": 0, "to": "ctx.floors",
+      "controls": ["floors", "rotationPerFloor"],
+      "body": [
+         { "do": "clone", "params": {"id":"slab_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "floor_slab" },
+         { "do": "clone", "params": {"id":"core_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "core" },
+         { "do": "clone", "params": {"id":"cols_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "column" },
+         { "do": "clone", "params": {"id":"front_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+         { "do": "clone", "params": {"id":"front_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+         { "do": "clone", "params": {"id":"back_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+         { "do": "clone", "params": {"id":"back_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+         { "do": "clone", "params": {"id":"left_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+         { "do": "clone", "params": {"id":"left_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+         { "do": "clone", "params": {"id":"right_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+         { "do": "clone", "params": {"id":"right_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" }
+      ] 
+    }
+  ]
+},
       schema2: {
         "version": "4.9", "intent": "Noise Eroded Column",
         "materials": { "concrete": { "color": "#8c8c8c" }, "inner_core": { "color": "#333333" } },
