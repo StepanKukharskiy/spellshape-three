@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spellshape - Research-Backed UI</title>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --bg: #121214;
+      --panel: #1c1c21;
+      --card: #25252b;
+      --border: #333;
+      --accent: #646cff;
+      --accent-light: #7c7cff;
+      --text: #ececec;
+      --text-dim: #888;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      --edge-color: #555;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); }
+    .app { display: flex; height: 100vh; width: 100vw; }
+
+    /* =============== SIDEBAR =============== */
+    .sidebar {
+      flex: 0 0 420px;
+      width: 420px;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .header h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.5px; }
+
+    /* MODE TOGGLE (NEW) */
+    .mode-toggle {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mode-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .mode-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #000;
+    }
+
+    /* TABS */
+    .tabs { display: flex; padding: 0 20px; border-bottom: 1px solid var(--border); }
+    .tab {
+      padding: 12px 0; margin-right: 20px;
+      font-size: 12px; font-weight: 600; color: var(--text-dim);
+      cursor: pointer; border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab:hover { color: #fff; }
+
+    /* Badge for new features */
+    .tab-badge {
+      position: absolute;
+      top: -4px;
+      right: -8px;
+      width: 6px;
+      height: 6px;
+      background: var(--warning);
+      border-radius: 50%;
+    }
+
+    /* CONTENT AREA */
+    .content { 
+      flex: 1; 
+      overflow-y: auto; 
+      padding: 20px; 
+      display: none; 
+    }
+    .content.active { display: block; }
+
+    /* =============== CONTROL STYLES =============== */
+    .control { margin-bottom: 16px; transition: all 0.2s; }
+    .control.hidden { display: none; }
+    .control.highlighted {
+      background: rgba(100, 108, 255, 0.1);
+      padding: 12px;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent);
+    }
+
+    .control-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+      font-size: 11px; 
+      margin-bottom: 6px; 
+    }
+
+    .control-val { 
+      font-family: monospace; 
+      color: var(--accent); 
+      font-weight: 600;
+    }
+
+    .control-unit {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-left: 4px;
+    }
+
+    .control-label { 
+      color: #ccc; 
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .control-info-btn {
+      width: 16px;
+      height: 16px;
+      border: 1px solid var(--text-dim);
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: bold;
+      color: var(--text-dim);
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .control-info-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    input[type=range] {
+      width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%; height: 4px; background: #333; border-radius: 2px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%;
+      background: #fff; margin-top: -5px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      transition: background 0.2s, transform 0.2s;
+    }
+    input[type=range]:hover::-webkit-slider-thumb { 
+      background: var(--accent); 
+      transform: scale(1.1); 
+      box-shadow: 0 0 12px rgba(100, 108, 255, 0.5);
+    }
+
+    /* GROUP TITLES */
+    .group-title {
+      font-size: 10px; 
+      font-weight: 700; 
+      text-transform: uppercase; 
+      color: var(--text-dim);
+      margin: 24px 0 12px 0; 
+      letter-spacing: 1px; 
+      border-bottom: 1px solid #333; 
+      padding-bottom: 4px;
+      position: relative;
+    }
+    .group-title:first-child { margin-top: 0; }
+
+    /* Collapse toggle for groups */
+    .group-collapse {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 16px;
+      height: 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .group-collapse:hover { color: var(--accent); }
+
+    /* =============== RECIPE CARDS =============== */
+    .step-card {
+      background: var(--card); 
+      border: 1px solid var(--border); 
+      border-radius: 6px;
+      padding: 14px; 
+      margin-bottom: 12px; 
+      position: relative;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .step-card:hover {
+      border-color: var(--accent);
+      background: rgba(100, 108, 255, 0.05);
+    }
+
+    .step-card.highlighted {
+      border-color: var(--accent);
+      background: rgba(100, 108, 255, 0.15);
+      box-shadow: 0 0 12px rgba(100, 108, 255, 0.2);
+    }
+
+    .step-header { 
+      display: flex; 
+      align-items: center; 
+      gap: 10px; 
+      margin-bottom: 8px;
+    }
+
+    .step-num { 
+      width: 24px; 
+      height: 24px; 
+      background: rgba(100, 108, 255, 0.1); 
+      border: 1px solid var(--accent);
+      border-radius: 50%; 
+      font-size: 11px; 
+      font-weight: bold; 
+      color: var(--accent); 
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-title { 
+      font-size: 13px; 
+      font-weight: 600; 
+      color: #fff;
+      flex: 1;
+    }
+
+    .step-action-btn {
+      width: 20px;
+      height: 20px;
+      background: transparent;
+      border: 1px solid var(--text-dim);
+      border-radius: 3px;
+      color: var(--text-dim);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .step-action-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(100, 108, 255, 0.1);
+    }
+
+    .step-controls { 
+      margin-top: 10px; 
+      padding-top: 10px; 
+      border-top: 1px solid rgba(255,255,255,0.05);
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s;
+    }
+
+    .step-controls.visible {
+      max-height: 500px;
+    }
+
+    .step-description {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.4;
+      margin-bottom: 10px;
+      font-style: italic;
+    }
+
+    /* =============== BUTTONS & ACTIONS =============== */
+    .action-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      background: transparent;
+      border: 1px solid var(--text-dim);
+      color: var(--text-dim);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(100, 108, 255, 0.1);
+    }
+
+    /* =============== JSON EDITOR =============== */
+    textarea {
+      width: 100%; 
+      height: 100%; 
+      background: #111; 
+      border: none;
+      color: #ccc; 
+      font-family: 'Courier New', monospace; 
+      font-size: 11px; 
+      padding: 10px; 
+      resize: none;
+    }
+
+    /* =============== VIEWPORT =============== */
+    .viewport { 
+      flex: 1; 
+      position: relative; 
+      background: radial-gradient(circle at center, #222 0%, #111 100%); 
+    }
+
+    canvas { 
+      display: block; 
+      width: 100%; 
+      height: 100%; 
+      outline: none; 
+    }
+
+    .stats {
+      position: absolute; 
+      bottom: 20px; 
+      right: 20px;
+      font-family: monospace; 
+      font-size: 10px; 
+      color: #666;
+      background: rgba(0,0,0,0.5); 
+      padding: 8px 12px; 
+      border-radius: 4px;
+      pointer-events: none;
+    }
+
+    /* =============== POPOVERS & MODALS =============== */
+    .popover {
+      position: absolute;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 11px;
+      line-height: 1.5;
+      max-width: 250px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      z-index: 100;
+      display: none;
+    }
+
+    .popover.visible {
+      display: block;
+    }
+
+    .popover-title {
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .popover-content {
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .popover-action {
+      display: flex;
+      gap: 4px;
+    }
+
+    .popover-btn {
+      flex: 1;
+      padding: 4px 8px;
+      font-size: 10px;
+      background: rgba(100, 108, 255, 0.1);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .popover-btn:hover {
+      background: var(--accent);
+      color: #000;
+    }
+
+    /* =============== SCROLLBAR =============== */
+    .content::-webkit-scrollbar {
+      width: 8px;
+    }
+    .content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .content::-webkit-scrollbar-thumb {
+      background: #444;
+      border-radius: 4px;
+    }
+    .content::-webkit-scrollbar-thumb:hover {
+      background: #666;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app">
+    <div class="sidebar">
+      <div class="header">
+        <h1>Spellshape</h1>
+        <div class="mode-toggle">
+          <button class="mode-btn active" onclick="setMode('simple')">Simple</button>
+          <button class="mode-btn" onclick="setMode('advanced')">Advanced</button>
+          <button class="mode-btn" onclick="setMode('expert')">Expert</button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="setTab('controls')">
+          Controls
+        </div>
+        <div class="tab" onclick="setTab('recipe')">
+          Recipe
+          <span class="tab-badge"></span>
+        </div>
+        <div class="tab" onclick="setTab('json')">JSON</div>
+      </div>
+
+      <!-- TAB 1: CONTROLS -->
+      <div id="tab-controls" class="content active">
+        <!-- Generated by JS -->
+      </div>
+
+      <!-- TAB 2: RECIPE -->
+      <div id="tab-recipe" class="content">
+        <!-- Generated by JS -->
+      </div>
+
+      <!-- TAB 3: JSON -->
+      <div id="tab-json" class="content" style="padding:0; display: flex; flex-direction: column;">
+        <textarea id="json-input" spellcheck="false"></textarea>
+        <div style="padding: 10px; background: var(--panel); border-top: 1px solid var(--border); display: flex; gap: 8px;">
+          <button onclick="updateFromJSON()" style="flex: 1; padding:8px; background:var(--accent); border:none; border-radius:4px; color:white; cursor:pointer; font-weight:600; font-size: 12px;">Update</button>
+          <button onclick="copyJSON()" style="flex: 1; padding:8px; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text); cursor:pointer; font-weight:600; font-size: 12px;">Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="viewport">
+      <canvas id="gl"></canvas>
+      <div class="stats" id="stats">Ready</div>
+    </div>
+  </div>
+
+  <!-- INFO POPOVERS -->
+  <div class="popover" id="popover">
+    <div class="popover-title" id="popover-title"></div>
+    <div class="popover-content" id="popover-content"></div>
+    <div class="popover-action">
+      <button class="popover-btn" onclick="highlightStep()">Show in Recipe</button>
+      <button class="popover-btn" style="background: transparent; border-color: var(--text-dim); color: var(--text-dim);" onclick="closePopover()">Close</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
+
+    // --- PARAMETER DEFINITIONS WITH METADATA ---
+    const parameterMetadata = {
+      "floors": { 
+        description: "Number of stacked floors in the tower",
+        affectsSteps: [7],
+        category: "Visual Impact"
+      },
+      "floorHeight": { 
+        description: "Height of each floor in meters",
+        affectsSteps: [2, 3, 5],
+        category: "Scale"
+      },
+      "slabWidth": {
+        description: "Width of the floor slab (X axis)",
+        affectsSteps: [1, 4],
+        category: "Footprint"
+      },
+      "slabDepth": {
+        description: "Depth of the floor slab (Z axis)",
+        affectsSteps: [1, 4],
+        category: "Footprint"
+      },
+      "rotationPerFloor": {
+        description: "Rotation angle applied each floor (in radians)",
+        affectsSteps: [7],
+        category: "Animation"
+      },
+      "coreWidth": {
+        description: "Width of the central core shaft",
+        affectsSteps: [2],
+        category: "Structure"
+      },
+      "panelsPerSide": {
+        description: "Number of facade panels per side",
+        affectsSteps: [5, 6],
+        category: "Facade Detail"
+      }
+    };
+
+    // --- SCHEMA (Same as before) ---
+    let schema = {
+  "version": "4.9",
+  "type": "emergent_procedure",
+  "intent": "Decoupled Logic Tower",
+  "materials": {
+    "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
+    "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
+    "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
+    "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
+    "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
+  },
+  "globalParameters": {
+    "floors": { "value": 15, "type": "integer", "min": 3, "max": 30, "group": "Massing", "mode": "simple" },
+    "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5, "group": "Massing", "mode": "simple" },
+    "slabWidth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab", "mode": "simple" },
+    "slabDepth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab", "mode": "simple" },
+    "slabThickness": { "value": 0.3, "type": "number", "min": 0.1, "max": 1.0, "group": "Slab", "mode": "advanced" },
+    "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core", "mode": "advanced" },
+    "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core", "mode": "advanced" },
+    "colRadius": { "value": 0.4, "type": "number", "min": 0.2, "max": 0.8, "group": "Columns", "mode": "advanced" },
+    "colInsetX": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns", "mode": "expert" },
+    "colInsetZ": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns", "mode": "expert" },
+    "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12, "group": "Facade", "mode": "simple" },
+    "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2, "group": "Animation", "mode": "simple" }
+  },
+  "context": {},
+  "actions": [
+    { 
+      "thought": "1. Create Slab Base", 
+      "description": "Generate the floor plate geometry",
+      "do": "createBox", 
+      "params": { 
+        "width": "ctx.slabWidth", 
+        "height": "ctx.slabThickness", 
+        "depth": "ctx.slabDepth" 
+      }, 
+      "transform": { "position": [0, "-ctx.slabThickness/2", 0] }, 
+      "as": "slab_mesh",
+      "controls": ["slabWidth", "slabDepth", "slabThickness"] 
+    },
+    { 
+      "thought": "2. Create Core", 
+      "description": "Build the central vertical shaft",
+      "do": "createBox", 
+      "params": { 
+        "width": "ctx.coreWidth", 
+        "height": "ctx.floorHeight", 
+        "depth": "ctx.coreDepth" 
+      }, 
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+      "as": "core_mesh",
+      "controls": ["coreWidth", "coreDepth"]
+    },
+    { 
+      "thought": "3. Define Columns", 
+      "description": "Create cylindrical support elements",
+      "do": "createCylinder", 
+      "params": { 
+        "radiusTop": "ctx.colRadius", 
+        "radiusBottom": "ctx.colRadius", 
+        "height": "ctx.floorHeight" 
+      }, 
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+      "as": "col_base",
+      "controls": ["colRadius", "floorHeight"]
+    },
+    { 
+      "thought": "4. Distribute Columns", 
+      "description": "Position columns at slab corners using inset values",
+      "do": "distributeOnGrid3d", 
+      "params": { 
+        "geometry": "col_base", 
+        "rows": 2, "cols": 2, 
+        "spacing": [
+          "ctx.slabWidth - (ctx.colInsetX * 2)", 
+          0, 
+          "ctx.slabDepth - (ctx.colInsetZ * 2)"
+        ], 
+        "centered": true, "autoMerge": true 
+      }, 
+      "as": "cols_mesh",
+      "controls": ["colInsetX", "colInsetZ"]
+    },
+    { 
+      "thought": "5. Create Facade Geometry", 
+      "description": "Generate horizontal and vertical facade panels",
+      "do": "createBox", 
+      "params": { 
+        "width": "ctx.slabWidth / ctx.panelsPerSide - 0.1", 
+        "height": "ctx.floorHeight", 
+        "depth": 0.2 
+      }, 
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+      "as": "panel_horz",
+      "controls": ["panelsPerSide"]
+    },
+    { 
+      "thought": "6. Assemble Facade", 
+      "description": "Arrange panels across all four sides with alternating materials",
+      "do": "repeatLinear3d", 
+      "as": "facade_assembly",
+      "controls": ["panelsPerSide", "slabWidth", "slabDepth"]
+    },
+    { 
+      "thought": "7. Stack Floors", 
+      "description": "Clone and rotate all geometry per floor, creating the tower",
+      "do": "loop", 
+      "var": "i",
+      "controls": ["floors", "rotationPerFloor"]
+    }
+  ]
+};
+
+    // --- STATE ---
+    let currentMode = 'simple';
+    let highlightedStep = null;
+    let currentPopover = null;
+
+    // --- UI HELPERS ---
+    window.setMode = (mode) => {
+      currentMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      renderUI();
+      run();
+    };
+
+    window.setTab = (name) => {
+      document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+
+      document.querySelector(\`.tab[onclick="setTab('\${name}')"]\`).classList.add('active');
+      document.getElementById(\`tab-\${name}\`).classList.add('active');
+
+      if (name === 'json') {
+        document.getElementById('json-input').value = JSON.stringify(schema, null, 2);
+      }
+    };
+
+    // --- CREATE SLIDER WITH INFO BUTTON ---
+    function createSlider(key, def, uniqueId, paramMeta = null) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'control';
+      if (def.mode && def.mode !== currentMode) {
+        wrapper.classList.add('hidden');
+      }
+
+      const header = document.createElement('div');
+      header.className = 'control-header';
+
+      const labelDiv = document.createElement('div');
+      labelDiv.className = 'control-label';
+
+      const labelText = document.createTextNode(key);
+      labelDiv.appendChild(labelText);
+
+      // Info button
+      if (paramMeta) {
+        const infoBtn = document.createElement('button');
+        infoBtn.className = 'control-info-btn';
+        infoBtn.innerText = '?';
+        infoBtn.onclick = (e) => showParamInfo(key, paramMeta, e);
+        labelDiv.appendChild(infoBtn);
+      }
+
+      const valDiv = document.createElement('div');
+      const val = document.createElement('span');
+      val.className = 'control-val';
+      val.id = \`val-\${uniqueId}\`;
+      val.innerText = def.value;
+
+      const unit = document.createElement('span');
+      unit.className = 'control-unit';
+      unit.innerText = def.unit || '';
+
+      valDiv.appendChild(val);
+      valDiv.appendChild(unit);
+
+      header.appendChild(labelDiv);
+      header.appendChild(valDiv);
+
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = def.min;
+      input.max = def.max;
+      input.step = def.step || (def.type === 'integer' ? 0.1 : 0.01);
+      input.value = def.value;
+      input.setAttribute('data-key', key);
+
+      input.oninput = (e) => {
+        const val = def.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
+        def.value = val;
+
+        document.querySelectorAll(\`input[data-key="\${key}"]\`).forEach(el => el.value = val);
+        document.querySelectorAll(\`[id^="val-"]\`).forEach(el => {
+          if (el.id.includes(key)) {
+            el.innerText = val;
+          }
+        });
+
+        highlightAffectedSteps(key);
+        run();
+      };
+
+      wrapper.appendChild(header);
+      wrapper.appendChild(input);
+      return wrapper;
+    }
+
+    // --- SHOW PARAMETER INFO ---
+    window.showParamInfo = (key, meta, event) => {
+      event.stopPropagation();
+      const popover = document.getElementById('popover');
+      document.getElementById('popover-title').innerText = key;
+      document.getElementById('popover-content').innerText = meta.description;
+      currentPopover = { step: meta.affectsSteps[0], key };
+
+      const rect = event.target.getBoundingClientRect();
+      popover.style.left = (rect.right + 8) + 'px';
+      popover.style.top = rect.top + 'px';
+      popover.classList.add('visible');
+    };
+
+    window.closePopover = () => {
+      document.getElementById('popover').classList.remove('visible');
+    };
+
+    window.highlightStep = () => {
+      if (currentPopover) {
+        setTab('recipe');
+        const cards = document.querySelectorAll('.step-card');
+        cards.forEach(c => c.classList.remove('highlighted'));
+        if (cards[currentPopover.step - 1]) {
+          cards[currentPopover.step - 1].classList.add('highlighted');
+          cards[currentPopover.step - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+      closePopover();
+    };
+
+    // --- HIGHLIGHT AFFECTED STEPS ---
+    function highlightAffectedSteps(paramKey) {
+      const meta = parameterMetadata[paramKey];
+      if (!meta) return;
+
+      // Highlight controls
+      document.querySelectorAll('.control').forEach(c => c.classList.remove('highlighted'));
+      document.querySelectorAll(\`input[data-key="\${paramKey}"]\`).forEach(input => {
+        input.closest('.control').classList.add('highlighted');
+      });
+
+      // Highlight recipe steps
+      document.querySelectorAll('.step-card').forEach((card, i) => {
+        card.classList.remove('highlighted');
+        if (meta.affectsSteps.includes(i + 1)) {
+          card.classList.add('highlighted');
+        }
+      });
+    }
+
+    // --- RENDER UI ---
+    function renderUI() {
+      const tabs = { 
+        controls: document.getElementById('tab-controls'), 
+        recipe: document.getElementById('tab-recipe'),
+        json: document.getElementById('tab-json') 
+      };
+
+      // 1. CONTROLS TAB
+      tabs.controls.innerHTML = '';
+      const groups = {};
+      for (const [key, def] of Object.entries(schema.globalParameters)) {
+        const g = def.group || 'General';
+        if (!groups[g]) groups[g] = [];
+        groups[g].push({ key, def });
+      }
+
+      for (const [gName, items] of Object.entries(groups)) {
+        const title = document.createElement('div');
+        title.className = 'group-title';
+        title.innerText = gName;
+        tabs.controls.appendChild(title);
+        items.forEach(({ key, def }) => {
+          tabs.controls.appendChild(createSlider(key, def, \`ctrl-\${key}\`, parameterMetadata[key]));
+        });
+      }
+
+      // 2. RECIPE TAB
+      tabs.recipe.innerHTML = '';
+      schema.actions.forEach((action, i) => {
+        if (!action.thought) return;
+
+        const card = document.createElement('div');
+        card.className = 'step-card';
+        card.id = \`step-\${i}\`;
+
+        const header = document.createElement('div');
+        header.className = 'step-header';
+        header.innerHTML = \`
+          <div class="step-num">\${i+1}</div>
+          <div class="step-title">\${action.thought}</div>
+        \`;
+        card.appendChild(header);
+
+        if (action.description) {
+          const desc = document.createElement('div');
+          desc.className = 'step-description';
+          desc.innerText = action.description;
+          card.appendChild(desc);
+        }
+
+        if (action.controls && action.controls.length > 0) {
+          const controlsArea = document.createElement('div');
+          controlsArea.className = 'step-controls visible';
+          action.controls.forEach(key => {
+            if (schema.globalParameters[key]) {
+              controlsArea.appendChild(createSlider(key, schema.globalParameters[key], \`recipe-\${key}\`, parameterMetadata[key]));
+            }
+          });
+          card.appendChild(controlsArea);
+        }
+
+        const actionRow = document.createElement('div');
+        actionRow.className = 'action-row';
+        actionRow.innerHTML = \`
+          <button class="action-btn" onclick="editStep(\${i})">Edit Logic</button>
+          <button class="action-btn" onclick="playStep(\${i})">Play Step</button>
+        \`;
+        card.appendChild(actionRow);
+
+        tabs.recipe.appendChild(card);
+      });
+    }
+
+    window.editStep = (stepIdx) => {
+      alert(\`Step \${stepIdx + 1}: Edit Logic (Feature coming soon)\n\nThis would allow you to modify the generation logic for this specific step.\`);
+    };
+
+    window.playStep = (stepIdx) => {
+      alert(\`Step \${stepIdx + 1}: Play Animation (Feature coming soon)\n\nThis would animate the generation of geometry for this step.\`);
+    };
+
+    window.updateFromJSON = () => {
+      try {
+        schema = JSON.parse(document.getElementById('json-input').value);
+        renderUI();
+        run();
+        setTab('controls');
+      } catch(e) { 
+        alert('Invalid JSON: ' + e.message); 
+      }
+    };
+
+    window.copyJSON = () => {
+      const text = document.getElementById('json-input').value;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Schema copied to clipboard!');
+      });
+    };
+
+    // --- 3D ENGINE ---
+    const canvas = document.querySelector('#gl');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    const controls = new OrbitControls(camera, canvas);
+    let currentMesh = null;
+    const executor = new ProceduralExecutor();
+
+    function setupScene() {
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+      camera.aspect = canvas.clientWidth / canvas.clientHeight;
+      camera.position.set(60, 50, 60);
+      camera.updateProjectionMatrix();
+      controls.enableDamping = true;
+      controls.target.set(0, 20, 0);
+      scene.background = new THREE.Color(0x111114);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+      dirLight.position.set(50, 100, 50);
+      scene.add(dirLight);
+      scene.add(new THREE.GridHelper(100, 20, 0x333333, 0x111111));
+    }
+
+    function run() {
+      if (currentMesh) {
+        scene.remove(currentMesh);
+        currentMesh.traverse(c => {
+          if (c.geometry) c.geometry.dispose();
+          if (c.material && !Array.isArray(c.material)) c.material.dispose();
+        });
+      }
+
+      const params = {};
+      for (const [k, v] of Object.entries(schema.globalParameters)) params[k] = v.value;
+
+      try {
+        currentMesh = executor.execute(schema, params);
+        scene.add(currentMesh);
+        let count = 0;
+        currentMesh.traverse(c => { if (c.isMesh) count++; });
+        document.getElementById('stats').innerText = \`Meshes: \${count}\`;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // INIT
+    setupScene();
+    renderUI();
+    run();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.onresize = () => {
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+      camera.aspect = canvas.clientWidth / canvas.clientHeight;
+      camera.updateProjectionMatrix();
+    };
+
+    // Close popover on click outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.control-info-btn') && !e.target.closest('.popover')) {
+        closePopover();
+      }
+    });
+  </script>
+</body>
+</html>
