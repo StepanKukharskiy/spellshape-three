@@ -204,21 +204,6 @@
     }
     .group-title:first-child { margin-top: 0; }
 
-    /* Collapse toggle for groups */
-    .group-collapse {
-      position: absolute;
-      right: 0;
-      top: 0;
-      width: 16px;
-      height: 16px;
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      cursor: pointer;
-      font-size: 12px;
-    }
-    .group-collapse:hover { color: var(--accent); }
-
     /* =============== RECIPE CARDS =============== */
     .step-card {
       background: var(--card); 
@@ -271,43 +256,18 @@
       flex: 1;
     }
 
-    .step-action-btn {
-      width: 20px;
-      height: 20px;
-      background: transparent;
-      border: 1px solid var(--text-dim);
-      border-radius: 3px;
-      color: var(--text-dim);
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .step-action-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: rgba(100, 108, 255, 0.1);
-    }
-
-    .step-controls { 
-      margin-top: 10px; 
-      padding-top: 10px; 
-      border-top: 1px solid rgba(255,255,255,0.05);
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.3s;
-    }
-
-    .step-controls.visible {
-      max-height: 500px;
-    }
-
     .step-description {
       font-size: 11px;
       color: var(--text-dim);
       line-height: 1.4;
       margin-bottom: 10px;
       font-style: italic;
+    }
+
+    .step-controls { 
+      margin-top: 10px; 
+      padding-top: 10px; 
+      border-top: 1px solid rgba(255,255,255,0.05);
     }
 
     /* =============== BUTTONS & ACTIONS =============== */
@@ -453,21 +413,21 @@
       <div class="header">
         <h1>Spellshape</h1>
         <div class="mode-toggle">
-          <button class="mode-btn active" onclick="setMode('simple')">Simple</button>
-          <button class="mode-btn" onclick="setMode('advanced')">Advanced</button>
-          <button class="mode-btn" onclick="setMode('expert')">Expert</button>
+          <button class="mode-btn active" onclick="window.setMode('simple')">Simple</button>
+          <button class="mode-btn" onclick="window.setMode('advanced')">Advanced</button>
+          <button class="mode-btn" onclick="window.setMode('expert')">Expert</button>
         </div>
       </div>
 
       <div class="tabs">
-        <div class="tab active" onclick="setTab('controls')">
+        <div class="tab active" onclick="window.setTab('controls')">
           Controls
         </div>
-        <div class="tab" onclick="setTab('recipe')">
+        <div class="tab" onclick="window.setTab('recipe')">
           Recipe
           <span class="tab-badge"></span>
         </div>
-        <div class="tab" onclick="setTab('json')">JSON</div>
+        <div class="tab" onclick="window.setTab('json')">JSON</div>
       </div>
 
       <!-- TAB 1: CONTROLS -->
@@ -484,8 +444,8 @@
       <div id="tab-json" class="content" style="padding:0; display: flex; flex-direction: column;">
         <textarea id="json-input" spellcheck="false"></textarea>
         <div style="padding: 10px; background: var(--panel); border-top: 1px solid var(--border); display: flex; gap: 8px;">
-          <button onclick="updateFromJSON()" style="flex: 1; padding:8px; background:var(--accent); border:none; border-radius:4px; color:white; cursor:pointer; font-weight:600; font-size: 12px;">Update</button>
-          <button onclick="copyJSON()" style="flex: 1; padding:8px; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text); cursor:pointer; font-weight:600; font-size: 12px;">Copy</button>
+          <button onclick="window.updateFromJSON()" style="flex: 1; padding:8px; background:var(--accent); border:none; border-radius:4px; color:white; cursor:pointer; font-weight:600; font-size: 12px;">Update</button>
+          <button onclick="window.copyJSON()" style="flex: 1; padding:8px; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text); cursor:pointer; font-weight:600; font-size: 12px;">Copy</button>
         </div>
       </div>
     </div>
@@ -501,8 +461,8 @@
     <div class="popover-title" id="popover-title"></div>
     <div class="popover-content" id="popover-content"></div>
     <div class="popover-action">
-      <button class="popover-btn" onclick="highlightStep()">Show in Recipe</button>
-      <button class="popover-btn" style="background: transparent; border-color: var(--text-dim); color: var(--text-dim);" onclick="closePopover()">Close</button>
+      <button class="popover-btn" onclick="window.highlightStep()">Show in Recipe</button>
+      <button class="popover-btn" style="background: transparent; border-color: var(--text-dim); color: var(--text-dim);" onclick="window.closePopover()">Close</button>
     </div>
   </div>
 
@@ -550,7 +510,7 @@
       }
     };
 
-    // --- SCHEMA (Same as before) ---
+    // --- SCHEMA ---
     let schema = {
   "version": "4.9",
   "type": "emergent_procedure",
@@ -669,7 +629,10 @@
     let highlightedStep = null;
     let currentPopover = null;
 
-    // --- UI HELPERS ---
+    // ===============================================
+    // GLOBAL FUNCTIONS (attached to window object)
+    // ===============================================
+
     window.setMode = (mode) => {
       currentMode = mode;
       document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -682,85 +645,14 @@
       document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
 
-      document.querySelector(\`.tab[onclick="setTab('\${name}')"]\`).classList.add('active');
-      document.getElementById(\`tab-\${name}\`).classList.add('active');
+      document.querySelector(`.tab[onclick*="${name}"]`).classList.add('active');
+      document.getElementById(`tab-${name}`).classList.add('active');
 
       if (name === 'json') {
         document.getElementById('json-input').value = JSON.stringify(schema, null, 2);
       }
     };
 
-    // --- CREATE SLIDER WITH INFO BUTTON ---
-    function createSlider(key, def, uniqueId, paramMeta = null) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'control';
-      if (def.mode && def.mode !== currentMode) {
-        wrapper.classList.add('hidden');
-      }
-
-      const header = document.createElement('div');
-      header.className = 'control-header';
-
-      const labelDiv = document.createElement('div');
-      labelDiv.className = 'control-label';
-
-      const labelText = document.createTextNode(key);
-      labelDiv.appendChild(labelText);
-
-      // Info button
-      if (paramMeta) {
-        const infoBtn = document.createElement('button');
-        infoBtn.className = 'control-info-btn';
-        infoBtn.innerText = '?';
-        infoBtn.onclick = (e) => showParamInfo(key, paramMeta, e);
-        labelDiv.appendChild(infoBtn);
-      }
-
-      const valDiv = document.createElement('div');
-      const val = document.createElement('span');
-      val.className = 'control-val';
-      val.id = \`val-\${uniqueId}\`;
-      val.innerText = def.value;
-
-      const unit = document.createElement('span');
-      unit.className = 'control-unit';
-      unit.innerText = def.unit || '';
-
-      valDiv.appendChild(val);
-      valDiv.appendChild(unit);
-
-      header.appendChild(labelDiv);
-      header.appendChild(valDiv);
-
-      const input = document.createElement('input');
-      input.type = 'range';
-      input.min = def.min;
-      input.max = def.max;
-      input.step = def.step || (def.type === 'integer' ? 0.1 : 0.01);
-      input.value = def.value;
-      input.setAttribute('data-key', key);
-
-      input.oninput = (e) => {
-        const val = def.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
-        def.value = val;
-
-        document.querySelectorAll(\`input[data-key="\${key}"]\`).forEach(el => el.value = val);
-        document.querySelectorAll(\`[id^="val-"]\`).forEach(el => {
-          if (el.id.includes(key)) {
-            el.innerText = val;
-          }
-        });
-
-        highlightAffectedSteps(key);
-        run();
-      };
-
-      wrapper.appendChild(header);
-      wrapper.appendChild(input);
-      return wrapper;
-    }
-
-    // --- SHOW PARAMETER INFO ---
     window.showParamInfo = (key, meta, event) => {
       event.stopPropagation();
       const popover = document.getElementById('popover');
@@ -780,7 +672,7 @@
 
     window.highlightStep = () => {
       if (currentPopover) {
-        setTab('recipe');
+        window.setTab('recipe');
         const cards = document.querySelectorAll('.step-card');
         cards.forEach(c => c.classList.remove('highlighted'));
         if (cards[currentPopover.step - 1]) {
@@ -788,7 +680,33 @@
           cards[currentPopover.step - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }
-      closePopover();
+      window.closePopover();
+    };
+
+    window.editStep = (stepIdx) => {
+      alert(`Step ${stepIdx + 1}: Edit Logic (Feature coming soon)\n\nThis would allow you to modify the generation logic for this specific step.`);
+    };
+
+    window.playStep = (stepIdx) => {
+      alert(`Step ${stepIdx + 1}: Play Animation (Feature coming soon)\n\nThis would animate the generation of geometry for this step.`);
+    };
+
+    window.updateFromJSON = () => {
+      try {
+        schema = JSON.parse(document.getElementById('json-input').value);
+        renderUI();
+        run();
+        window.setTab('controls');
+      } catch(e) { 
+        alert('Invalid JSON: ' + e.message); 
+      }
+    };
+
+    window.copyJSON = () => {
+      const text = document.getElementById('json-input').value;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Schema copied to clipboard!');
+      });
     };
 
     // --- HIGHLIGHT AFFECTED STEPS ---
@@ -798,7 +716,7 @@
 
       // Highlight controls
       document.querySelectorAll('.control').forEach(c => c.classList.remove('highlighted'));
-      document.querySelectorAll(\`input[data-key="\${paramKey}"]\`).forEach(input => {
+      document.querySelectorAll(`input[data-key="${paramKey}"]`).forEach(input => {
         input.closest('.control').classList.add('highlighted');
       });
 
@@ -809,6 +727,78 @@
           card.classList.add('highlighted');
         }
       });
+    }
+
+    // --- CREATE SLIDER WITH INFO BUTTON ---
+    function createSlider(key, def, uniqueId, paramMeta = null) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'control';
+      if (def.mode && def.mode !== currentMode && currentMode !== 'expert') {
+        if (def.mode === 'expert' || (def.mode === 'advanced' && currentMode === 'simple')) {
+          wrapper.classList.add('hidden');
+        }
+      }
+
+      const header = document.createElement('div');
+      header.className = 'control-header';
+
+      const labelDiv = document.createElement('div');
+      labelDiv.className = 'control-label';
+
+      const labelText = document.createTextNode(key);
+      labelDiv.appendChild(labelText);
+
+      // Info button
+      if (paramMeta) {
+        const infoBtn = document.createElement('button');
+        infoBtn.className = 'control-info-btn';
+        infoBtn.innerText = '?';
+        infoBtn.onclick = (e) => window.showParamInfo(key, paramMeta, e);
+        labelDiv.appendChild(infoBtn);
+      }
+
+      const valDiv = document.createElement('div');
+      const val = document.createElement('span');
+      val.className = 'control-val';
+      val.id = `val-${uniqueId}`;
+      val.innerText = def.value;
+
+      const unit = document.createElement('span');
+      unit.className = 'control-unit';
+      unit.innerText = def.unit || '';
+
+      valDiv.appendChild(val);
+      valDiv.appendChild(unit);
+
+      header.appendChild(labelDiv);
+      header.appendChild(valDiv);
+
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = def.min;
+      input.max = def.max;
+      input.step = def.step || (def.type === 'integer' ? 1 : 0.01);
+      input.value = def.value;
+      input.setAttribute('data-key', key);
+
+      input.oninput = (e) => {
+        const val = def.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
+        def.value = val;
+
+        document.querySelectorAll(`input[data-key="${key}"]`).forEach(el => el.value = val);
+        document.querySelectorAll(`[id*="${key}"]`).forEach(el => {
+          if (el.id.startsWith('val-')) {
+            el.innerText = val;
+          }
+        });
+
+        highlightAffectedSteps(key);
+        run();
+      };
+
+      wrapper.appendChild(header);
+      wrapper.appendChild(input);
+      return wrapper;
     }
 
     // --- RENDER UI ---
@@ -834,7 +824,7 @@
         title.innerText = gName;
         tabs.controls.appendChild(title);
         items.forEach(({ key, def }) => {
-          tabs.controls.appendChild(createSlider(key, def, \`ctrl-\${key}\`, parameterMetadata[key]));
+          tabs.controls.appendChild(createSlider(key, def, `ctrl-${key}`, parameterMetadata[key]));
         });
       }
 
@@ -845,14 +835,14 @@
 
         const card = document.createElement('div');
         card.className = 'step-card';
-        card.id = \`step-\${i}\`;
+        card.id = `step-${i}`;
 
         const header = document.createElement('div');
         header.className = 'step-header';
-        header.innerHTML = \`
-          <div class="step-num">\${i+1}</div>
-          <div class="step-title">\${action.thought}</div>
-        \`;
+        header.innerHTML = `
+          <div class="step-num">${i+1}</div>
+          <div class="step-title">${action.thought}</div>
+        `;
         card.appendChild(header);
 
         if (action.description) {
@@ -864,10 +854,10 @@
 
         if (action.controls && action.controls.length > 0) {
           const controlsArea = document.createElement('div');
-          controlsArea.className = 'step-controls visible';
+          controlsArea.className = 'step-controls';
           action.controls.forEach(key => {
             if (schema.globalParameters[key]) {
-              controlsArea.appendChild(createSlider(key, schema.globalParameters[key], \`recipe-\${key}\`, parameterMetadata[key]));
+              controlsArea.appendChild(createSlider(key, schema.globalParameters[key], `recipe-${key}`, parameterMetadata[key]));
             }
           });
           card.appendChild(controlsArea);
@@ -875,41 +865,15 @@
 
         const actionRow = document.createElement('div');
         actionRow.className = 'action-row';
-        actionRow.innerHTML = \`
-          <button class="action-btn" onclick="editStep(\${i})">Edit Logic</button>
-          <button class="action-btn" onclick="playStep(\${i})">Play Step</button>
-        \`;
+        actionRow.innerHTML = `
+          <button class="action-btn" onclick="window.editStep(${i})">Edit Logic</button>
+          <button class="action-btn" onclick="window.playStep(${i})">Play Step</button>
+        `;
         card.appendChild(actionRow);
 
         tabs.recipe.appendChild(card);
       });
     }
-
-    window.editStep = (stepIdx) => {
-      alert(\`Step \${stepIdx + 1}: Edit Logic (Feature coming soon)\n\nThis would allow you to modify the generation logic for this specific step.\`);
-    };
-
-    window.playStep = (stepIdx) => {
-      alert(\`Step \${stepIdx + 1}: Play Animation (Feature coming soon)\n\nThis would animate the generation of geometry for this step.\`);
-    };
-
-    window.updateFromJSON = () => {
-      try {
-        schema = JSON.parse(document.getElementById('json-input').value);
-        renderUI();
-        run();
-        setTab('controls');
-      } catch(e) { 
-        alert('Invalid JSON: ' + e.message); 
-      }
-    };
-
-    window.copyJSON = () => {
-      const text = document.getElementById('json-input').value;
-      navigator.clipboard.writeText(text).then(() => {
-        alert('Schema copied to clipboard!');
-      });
-    };
 
     // --- 3D ENGINE ---
     const canvas = document.querySelector('#gl');
@@ -952,7 +916,7 @@
         scene.add(currentMesh);
         let count = 0;
         currentMesh.traverse(c => { if (c.isMesh) count++; });
-        document.getElementById('stats').innerText = \`Meshes: \${count}\`;
+        document.getElementById('stats').innerText = `Meshes: ${count}`;
       } catch (e) {
         console.error(e);
       }
@@ -979,7 +943,7 @@
     // Close popover on click outside
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.control-info-btn') && !e.target.closest('.popover')) {
-        closePopover();
+        window.closePopover();
       }
     });
   </script>
