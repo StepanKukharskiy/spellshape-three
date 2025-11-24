@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spellshape - Adaptive Pipeline</title>
+  <title>Spellshape - Adaptive Pipeline (Fixed)</title>
 
   <script type="importmap">
     {
@@ -20,18 +20,17 @@
       --panel: #18181b;
       --card: #222226;
       --border: #2e2e32;
-      --accent: #6d28d9; /* Deep purple */
+      --accent: #6d28d9;
       --accent-light: #8b5cf6;
       --text: #f4f4f5;
       --text-dim: #a1a1aa;
-      --highlight: #2e2e32;
     }
 
     * { box-sizing: border-box; }
-    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, -apple-system, sans-serif; color: var(--text); }
+    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); }
     .app { display: flex; height: 100vh; width: 100vw; }
 
-    /* SIDEBAR - PIPELINE STYLE */
+    /* SIDEBAR */
     .sidebar {
       flex: 0 0 380px;
       width: 380px;
@@ -42,214 +41,75 @@
       z-index: 10;
     }
 
-    .header {
-      padding: 20px 24px;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg);
-    }
-
-    .header h1 { margin: 0 0 4px 0; font-size: 16px; font-weight: 600; letter-spacing: -0.02em; }
+    .header { padding: 20px 24px; border-bottom: 1px solid var(--border); background: var(--bg); }
+    .header h1 { margin: 0 0 4px 0; font-size: 16px; font-weight: 600; }
     .header p { margin: 0; font-size: 12px; color: var(--text-dim); }
 
-    /* SCHEMA SELECTOR (NEW) */
     .schema-select {
-      margin-top: 12px;
-      width: 100%;
-      background: var(--card);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 8px;
-      border-radius: 6px;
-      font-size: 12px;
-      outline: none;
-      cursor: pointer;
+      margin-top: 12px; width: 100%; background: var(--card); border: 1px solid var(--border);
+      color: var(--text); padding: 8px; border-radius: 6px; font-size: 12px; outline: none; cursor: pointer;
     }
 
-    /* PIPELINE CONTENT */
-    .pipeline { 
-      flex: 1; 
-      overflow-y: auto; 
-      padding: 24px; 
-      position: relative;
-    }
-
-    /* Vertical connector line */
+    /* PIPELINE */
+    .pipeline { flex: 1; overflow-y: auto; padding: 24px; position: relative; }
     .pipeline::before {
-      content: '';
-      position: absolute;
-      top: 24px;
-      bottom: 24px;
-      left: 39px; /* Align with step number center */
-      width: 2px;
-      background: var(--border);
-      z-index: 0;
+      content: ''; position: absolute; top: 24px; bottom: 24px; left: 39px;
+      width: 2px; background: var(--border); z-index: 0;
     }
 
-    /* STEP CARD - REIMAGINED */
     .step-card {
-      background: var(--card); 
-      border: 1px solid var(--border); 
-      border-radius: 8px;
-      padding: 0; /* Internal padding handled by children */
-      margin-bottom: 24px; 
-      position: relative;
-      z-index: 1;
-      transition: transform 0.2s, border-color 0.2s;
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      margin-bottom: 24px; position: relative; z-index: 1; transition: all 0.2s;
     }
+    .step-card:hover { border-color: var(--text-dim); }
 
-    .step-card:hover {
-      border-color: var(--text-dim);
-    }
-
-    /* Step Number (The "Node" on the timeline) */
     .step-num {
-      position: absolute;
-      left: -30px; /* Push out to timeline */
-      top: 16px;
-      width: 24px; 
-      height: 24px; 
-      background: var(--panel); 
-      border: 2px solid var(--border);
-      border-radius: 50%; 
-      font-size: 10px; 
-      font-weight: 700; 
-      color: var(--text-dim); 
-      display: flex; 
-      align-items: center; 
-      justify-content: center;
-      z-index: 2;
-      transition: all 0.2s;
+      position: absolute; left: -30px; top: 16px; width: 24px; height: 24px;
+      background: var(--panel); border: 2px solid var(--border); border-radius: 50%;
+      font-size: 10px; font-weight: 700; color: var(--text-dim);
+      display: flex; align-items: center; justify-content: center; z-index: 2;
     }
+    .step-card:hover .step-num { border-color: var(--accent-light); color: var(--accent-light); }
 
-    .step-card:hover .step-num {
-      border-color: var(--accent-light);
-      color: var(--accent-light);
-      background: var(--bg);
-      transform: scale(1.1);
-    }
+    .step-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .step-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .step-type { font-size: 10px; text-transform: uppercase; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; }
 
-    .step-header {
-      padding: 16px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+    .step-body { padding: 16px; }
+    .step-body:empty { display: none; }
 
-    .step-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .step-type {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-dim);
-      background: rgba(255,255,255,0.05);
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-
-    .step-body {
-      padding: 16px;
-    }
-
-    /* Empty body state */
-    .step-body:empty {
-      display: none;
-    }
-
-    /* PARAMETERS INSIDE STEPS */
+    /* CONTROLS */
     .control { margin-bottom: 16px; }
     .control:last-child { margin-bottom: 0; }
-
-    .control-header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center;
-      font-size: 11px; 
-      margin-bottom: 8px; 
-    }
-
+    .control-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 8px; }
     .control-label { color: var(--text-dim); font-weight: 500; }
     .control-val { font-family: monospace; color: var(--accent-light); }
 
-    input[type=range] {
-      width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer; display: block;
-    }
-    input[type=range]::-webkit-slider-runnable-track {
-      width: 100%; height: 4px; background: #333; border-radius: 2px;
-    }
-    input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%;
-      background: #d4d4d8; margin-top: -5px;
-      transition: background 0.15s, transform 0.15s;
-    }
-    input[type=range]:hover::-webkit-slider-thumb { 
-      background: var(--accent-light); 
-      transform: scale(1.2); 
-    }
+    input[type=range] { width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer; display: block; }
+    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #333; border-radius: 2px; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: #d4d4d8; margin-top: -5px; }
+    input[type=range]:hover::-webkit-slider-thumb { background: var(--accent-light); transform: scale(1.2); }
 
-    /* GLOBAL PARAMS (Top section) */
+    /* ORPHAN PARAMS */
     .global-params {
-      margin-bottom: 32px;
-      padding: 16px;
-      background: rgba(109, 40, 217, 0.1); /* Tinted background */
-      border: 1px solid rgba(109, 40, 217, 0.2);
-      border-radius: 8px;
-      position: relative;
+      margin-bottom: 32px; padding: 16px; background: rgba(109, 40, 217, 0.1);
+      border: 1px solid rgba(109, 40, 217, 0.2); border-radius: 8px; position: relative;
     }
-
     .global-params::after {
-      content: 'GLOBAL CONTEXT';
-      position: absolute;
-      top: -8px;
-      left: 12px;
-      font-size: 9px;
-      font-weight: 700;
-      color: var(--accent-light);
-      background: var(--panel);
-      padding: 0 6px;
+      content: 'GLOBAL CONTEXT'; position: absolute; top: -8px; left: 12px;
+      font-size: 9px; font-weight: 700; color: var(--accent-light); background: var(--panel); padding: 0 6px;
     }
 
-    /* JSON EDITOR (Hidden by default) */
-    .json-toggle {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      font-size: 11px;
-      color: #666;
-      cursor: pointer;
-      text-decoration: underline;
-      z-index: 20;
-    }
-
-    .json-panel {
-      position: absolute;
-      top: 0; right: -400px; width: 400px; height: 100%;
-      background: #111; border-left: 1px solid #333;
-      transition: right 0.3s; z-index: 20;
-      display: flex; flex-direction: column;
-    }
+    /* JSON EDITOR */
+    .json-toggle { position: absolute; bottom: 20px; left: 20px; font-size: 11px; color: #666; cursor: pointer; text-decoration: underline; z-index: 20; }
+    .json-panel { position: absolute; top: 0; right: -400px; width: 400px; height: 100%; background: #111; border-left: 1px solid #333; transition: right 0.3s; z-index: 20; display: flex; flex-direction: column; }
     .json-panel.open { right: 0; }
-
-    textarea {
-      flex: 1; background: #000; border: none; color: #0f0;
-      font-family: monospace; padding: 16px; resize: none; font-size: 11px;
-    }
+    textarea { flex: 1; background: #000; border: none; color: #0f0; font-family: monospace; padding: 16px; resize: none; font-size: 11px; }
 
     /* VIEWPORT */
     .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #1f1f23 0%, #09090b 100%); }
     canvas { display: block; width: 100%; height: 100%; outline: none; }
-
-    .stats {
-      position: absolute; bottom: 24px; right: 24px;
-      font-family: monospace; font-size: 10px; color: #52525b;
-      pointer-events: none;
-    }
+    .stats { position: absolute; bottom: 24px; right: 24px; font-family: monospace; font-size: 10px; color: #52525b; pointer-events: none; }
   </style>
 </head>
 <body>
@@ -259,8 +119,7 @@
       <div class="header">
         <h1>Spellshape</h1>
         <p>Procedural Generator</p>
-
-        <select class="schema-select" onchange="loadSchema(this.value)">
+        <select class="schema-select" onchange="window.loadSchema(this.value)">
           <option value="schema1">Logic Tower</option>
           <option value="schema2">Noise Column</option>
           <option value="schema3">Deformed Monolith</option>
@@ -268,11 +127,8 @@
         </select>
       </div>
 
-      <div class="pipeline" id="pipeline">
-        <!-- Generated dynamically -->
-      </div>
-
-      <div class="json-toggle" onclick="toggleJson()">View Source JSON</div>
+      <div class="pipeline" id="pipeline"></div>
+      <div class="json-toggle" onclick="window.toggleJson()">View Source JSON</div>
     </div>
 
     <div class="viewport">
@@ -280,14 +136,13 @@
       <div class="stats" id="stats">Ready</div>
     </div>
 
-    <!-- Hidden JSON Panel -->
     <div class="json-panel" id="json-panel">
       <div style="padding: 10px; border-bottom: 1px solid #333; display:flex; justify-content:space-between;">
         <span style="color:#888; font-size:12px; font-weight:bold;">SCHEMA SOURCE</span>
-        <span style="color:#888; cursor:pointer;" onclick="toggleJson()">Close [x]</span>
+        <span style="color:#888; cursor:pointer;" onclick="window.toggleJson()">Close [x]</span>
       </div>
       <textarea id="json-input" spellcheck="false"></textarea>
-      <button onclick="updateFromJSON()" style="padding:12px; background:#222; color:#fff; border:none; border-top:1px solid #333; cursor:pointer;">Update & Run</button>
+      <button onclick="window.updateFromJSON()" style="padding:12px; background:#222; color:#fff; border:none; border-top:1px solid #333; cursor:pointer;">Update & Run</button>
     </div>
   </div>
 
@@ -296,24 +151,31 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
 
-    // --- SCHEMAS (From your input) ---
+    // --- RESTORED FULL SCHEMAS ---
     const schemas = {
       schema1: {
-        "version": "4.9", "intent": "Decoupled Logic Tower",
-        "materials": { "wall": { "color": "#1a3a5c" }, "window": { "color": "#b3d9ff", "transparent": true, "opacity": 0.6 }, "core": { "color": "#c1440e" }, "column": { "color": "#2a2a2a" }, "floor_slab": { "color": "#b8b8b8" } },
+        "version": "4.9",
+        "intent": "Decoupled Logic Tower",
+        "materials": {
+          "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
+          "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
+          "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
+          "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
+          "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
+        },
         "globalParameters": {
-          "floors": { "value": 15, "min": 3, "max": 30 },
-          "floorHeight": { "value": 3.5, "min": 2, "max": 5 },
-          "slabWidth": { "value": 12, "min": 6, "max": 24 },
-          "slabDepth": { "value": 12, "min": 6, "max": 24 },
-          "slabThickness": { "value": 0.3, "min": 0.1, "max": 1.0 },
-          "coreWidth": { "value": 8, "min": 4, "max": 16 },
-          "coreDepth": { "value": 8, "min": 4, "max": 16 },
-          "colRadius": { "value": 0.4, "min": 0.2, "max": 0.8 },
-          "colInsetX": { "value": 1.0, "min": 0.5, "max": 4.0 },
-          "colInsetZ": { "value": 1.0, "min": 0.5, "max": 4.0 },
-          "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12 },
-          "rotationPerFloor": { "value": 0.08, "min": 0, "max": 0.2 }
+          "floors": { "value": 15, "type": "integer", "min": 3, "max": 30, "group": "Massing" },
+          "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5, "group": "Massing" },
+          "slabWidth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
+          "slabDepth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
+          "slabThickness": { "value": 0.3, "type": "number", "min": 0.1, "max": 1.0, "group": "Slab" },
+          "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
+          "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
+          "colRadius": { "value": 0.4, "type": "number", "min": 0.2, "max": 0.8, "group": "Columns" },
+          "colInsetX": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
+          "colInsetZ": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
+          "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12, "group": "Facade" },
+          "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2, "group": "Animation" }
         },
         "actions": [
           { "thought": "Create Slab Base", "do": "createBox", "params": { "width": "ctx.slabWidth", "height": "ctx.slabThickness", "depth": "ctx.slabDepth" }, "transform": { "position": [0, "-ctx.slabThickness/2", 0] }, "as": "slab_mesh", "controls": ["slabWidth", "slabDepth", "slabThickness"] },
@@ -321,30 +183,95 @@
           { "thought": "Define Columns", "do": "createCylinder", "params": { "radiusTop": "ctx.colRadius", "radiusBottom": "ctx.colRadius", "height": "ctx.floorHeight" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "col_base", "controls": ["colRadius", "floorHeight"] },
           { "thought": "Distribute Columns", "do": "distributeOnGrid3d", "params": { "geometry": "col_base", "rows": 2, "cols": 2, "spacing": ["ctx.slabWidth - (ctx.colInsetX * 2)", 0, "ctx.slabDepth - (ctx.colInsetZ * 2)"] }, "as": "cols_mesh", "controls": ["colInsetX", "colInsetZ"] },
           { "thought": "Create Facade Geometry", "do": "createBox", "params": { "width": "ctx.slabWidth / ctx.panelsPerSide - 0.1", "height": "ctx.floorHeight", "depth": 0.2 }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "panel_horz", "controls": ["panelsPerSide"] },
-          { "thought": "Assemble Facade", "do": "repeatLinear3d", "as": "facade_assembly" },
-          { "thought": "Stack Floors", "do": "loop", "var": "i", "controls": ["floors", "rotationPerFloor"] }
+          { "thought": "Create Facade Verticals", "do": "createBox", "params": { "width": 0.2, "height": "ctx.floorHeight", "depth": "ctx.slabDepth / ctx.panelsPerSide - 0.1" }, "transform": { "position": [0, "ctx.floorHeight/2", 0] }, "as": "panel_vert" },
+          { "thought": "Assemble Facade", "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, "as": "front_even" },
+          { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, "as": "front_odd" },
+          { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_even" },
+          { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_odd" },
+          { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-ctx.slabWidth/2 + 0.1", 0, "-(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "left_even" },
+          { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-ctx.slabWidth/2 + 0.1", 0, "(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "left_odd" },
+          { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["ctx.slabWidth/2 - 0.1", 0, "-(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "right_even" },
+          { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["ctx.slabWidth/2 - 0.1", 0, "(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "right_odd" },
+
+          { 
+            "thought": "Stack Floors", 
+            "do": "loop", "var": "i", "from": 0, "to": "ctx.floors",
+            "controls": ["floors", "rotationPerFloor"],
+            "body": [
+               { "do": "clone", "params": {"id":"slab_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "floor_slab" },
+               { "do": "clone", "params": {"id":"core_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "core" },
+               { "do": "clone", "params": {"id":"cols_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "column" },
+               { "do": "clone", "params": {"id":"front_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+               { "do": "clone", "params": {"id":"front_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+               { "do": "clone", "params": {"id":"back_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+               { "do": "clone", "params": {"id":"back_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+               { "do": "clone", "params": {"id":"left_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+               { "do": "clone", "params": {"id":"left_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+               { "do": "clone", "params": {"id":"right_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+               { "do": "clone", "params": {"id":"right_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" }
+            ] 
+          }
         ]
       },
       schema2: {
-        "version": "4.9", "intent": "Noise Eroded Column",
-        "materials": { "concrete": { "color": "#8c8c8c", "roughness": 0.9 }, "inner_core": { "color": "#333333" } },
+        "version": "4.9",
+        "intent": "Noise Eroded Column",
+        "materials": {
+          "concrete": { "color": "#8c8c8c", "roughness": 0.9, "metalness": 0.1 },
+          "inner_core": { "color": "#333333", "roughness": 0.5, "metalness": 0.5 }
+        },
         "globalParameters": {
-          "height": { "value": 12, "min": 5, "max": 20 },
-          "width": { "value": 3, "min": 1, "max": 6 },
-          "layerCount": { "value": 100, "type": "integer", "min": 20, "max": 200 },
-          "erosionScale": { "value": 0.8, "min": 0.1, "max": 2.0 },
-          "erosionDepth": { "value": 1.2, "min": 0, "max": 2.0 },
-          "chaos": { "value": 1.5, "min": 0, "max": 5.0 }
+          "height": { "value": 12, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
+          "width": { "value": 3, "type": "number", "min": 1, "max": 6, "group": "Dimensions" },
+          "layerCount": { "value": 100, "type": "integer", "min": 20, "max": 200, "group": "Resolution" },
+          "erosionScale": { "value": 0.8, "type": "number", "min": 0.1, "max": 2.0, "group": "Erosion" },
+          "erosionDepth": { "value": 1.2, "type": "number", "min": 0, "max": 2.0, "group": "Erosion" },
+          "chaos": { "value": 1.5, "type": "number", "min": 0, "max": 5.0, "group": "Erosion" }
         },
         "actions": [
-          { "thought": "Define Base Geometry", "do": "createBox", "as": "slice_geo", "controls": ["width", "height", "layerCount"] },
-          { "thought": "Define Inner Core", "do": "createBox", "as": "core_geo" },
-          { "thought": "Erode & Stack Loop", "do": "loop", "controls": ["erosionScale", "erosionDepth", "chaos"] }
+          {
+            "thought": "Define Base Geometry",
+            "do": "createBox",
+            "params": { "width": "ctx.width", "height": "ctx.height / ctx.layerCount", "depth": "ctx.width" },
+            "as": "slice_geo",
+            "controls": ["width", "height", "layerCount"]
+          },
+          {
+            "thought": "Define Inner Core",
+            "do": "createBox",
+            "params": { "width": "ctx.width * 0.4", "height": "ctx.height / ctx.layerCount", "depth": "ctx.width * 0.4" },
+            "as": "core_geo"
+          },
+          {
+            "thought": "Erode & Stack Loop",
+            "do": "loop", "var": "i", "from": 0, "to": "ctx.layerCount",
+            "controls": ["erosionScale", "erosionDepth", "chaos"],
+            "body": [
+              {
+                "do": "clone", "params": { "id": "slice_geo" },
+                "transform": {
+                  "position": [0, "i * (ctx.height / ctx.layerCount)", 0],
+                  "scale": [
+                    "1.0 - Math.max(0, (Math.sin(i * 0.1 * ctx.erosionScale) + Math.cos(i * 0.3 * ctx.chaos)) * ctx.erosionDepth * 0.5)", 
+                    1, 
+                    "1.0 - Math.max(0, (Math.cos(i * 0.1 * ctx.erosionScale) + Math.sin(i * 0.33 * ctx.chaos)) * ctx.erosionDepth * 0.5)"
+                  ],
+                  "rotation": [0, "i * 0.02", 0]
+                },
+                "material": "concrete"
+              },
+              {
+                "do": "clone", "params": { "id": "core_geo" },
+                "transform": { "position": [0, "i * (ctx.height / ctx.layerCount)", 0], "rotation": [0, "i * 0.02", 0] },
+                "material": "inner_core"
+              }
+            ]
+          }
         ]
       },
       schema3: {
         "version": "4.9", "intent": "Deformed Surface Monolith",
-        "materials": { "stone": { "color": "#e0e0e0" } },
+        "materials": { "stone": { "color": "#e0e0e0", "roughness": 0.8, "metalness": 0.1 } },
         "globalParameters": {
           "width": { "value": 6, "min": 2, "max": 10 },
           "height": { "value": 12, "min": 5, "max": 20 },
@@ -355,13 +282,22 @@
           "taper": { "value": 0.3, "min": -0.5, "max": 1.0 }
         },
         "actions": [
-          { "thought": "Create High-Res Mesh", "do": "createBox", "as": "base_mesh", "controls": ["width", "height", "resolution"] },
-          { "thought": "Apply Deformations", "do": "modifyGeometry", "as": "final_mesh", "controls": ["waveFreq", "waveAmp", "taper"] }
+          { "thought": "Create High-Res Mesh", "do": "createBox", "params": { "width": "ctx.width", "height": "ctx.height", "depth": "ctx.depth", "widthSegments": "ctx.resolution", "heightSegments": "ctx.resolution", "depthSegments": "ctx.resolution" }, "as": "base_mesh", "controls": ["width", "height", "resolution"] },
+          { "thought": "Apply Deformations", "do": "modifyGeometry", "params": {
+              "geometry": "base_mesh",
+              "operations": [
+                { "type": "displace", "expression": "v.x += Math.sin(v.y * ctx.waveFreq) * ctx.waveAmp; v.z += Math.cos(v.y * ctx.waveFreq) * ctx.waveAmp;" },
+                { "type": "scale", "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;" }
+              ]
+            },
+            "material": "stone",
+            "as": "final_mesh", "controls": ["waveFreq", "waveAmp", "taper"]
+          }
         ]
       },
       schema4: {
         "version": "4.9", "intent": "Box-Preserving Voxel Monolith",
-        "materials": { "stone": { "color": "#e0e0e0" } },
+        "materials": { "stone": { "color": "#e0e0e0", "roughness": 0.9, "metalness": 0.1 } },
         "globalParameters": {
           "width": { "value": 5, "min": 2, "max": 10 },
           "height": { "value": 12, "min": 5, "max": 20 },
@@ -373,8 +309,17 @@
           "taper": { "value": 0.2, "min": -0.5, "max": 1.0 }
         },
         "actions": [
-          { "thought": "Create Base Core", "do": "createBox", "as": "base_mesh", "controls": ["width", "height", "depth", "resolution"] },
-          { "thought": "Voxel Expansion", "do": "modifyGeometry", "as": "final_mesh", "controls": ["voxelSize", "erosionThreshold", "layerDepth", "taper"] }
+          { "thought": "Create Base Core", "do": "createBox", "params": { "width": "ctx.width", "height": "ctx.height", "depth": "ctx.depth", "widthSegments": "ctx.resolution", "heightSegments": "ctx.resolution", "depthSegments": "ctx.resolution" }, "as": "base_mesh", "controls": ["width", "height", "depth", "resolution"] },
+          { "thought": "Voxel Expansion", "do": "modifyGeometry", "params": {
+              "geometry": "base_mesh",
+              "operations": [
+                { "type": "scale", "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;" },
+                { "type": "displace", "expression": "var step=ctx.voxelSize; var qx=Math.floor(v.x/step); var qy=Math.floor(v.y/step); var qz=Math.floor(v.z/step); var dot=qx*12.9898+qy*78.233+qz*37.719; var hash=Math.sin(dot)*43758.5453; var noise=hash-Math.floor(hash); if(noise>ctx.erosionThreshold){ var kx=(2.0*ctx.layerDepth)/ctx.width; var ky=(2.0*ctx.layerDepth)/ctx.height; var kz=(2.0*ctx.layerDepth)/ctx.depth; v.x+=v.x*kx; v.y+=v.y*ky; v.z+=v.z*kz; }" }
+              ]
+            },
+            "material": "stone",
+            "as": "final_mesh", "controls": ["voxelSize", "erosionThreshold", "layerDepth", "taper"]
+          }
         ]
       }
     };
@@ -384,21 +329,18 @@
     const executor = new ProceduralExecutor();
 
     // --- RENDER PIPELINE UI ---
-    // This function dynamically builds the UI based on the schema structure
-    // It places controls INSIDE the steps they belong to.
     function renderPipeline() {
       const container = document.getElementById('pipeline');
       container.innerHTML = '';
 
-      // 1. Identify "Orphan" parameters (globals not assigned to any step)
+      // 1. Identify "Orphan" parameters
       const assignedParams = new Set();
       currentSchema.actions.forEach(a => {
         if(a.controls) a.controls.forEach(c => assignedParams.add(c));
       });
-
       const globalParams = Object.keys(currentSchema.globalParameters).filter(k => !assignedParams.has(k));
 
-      // 2. Render Global Context Card (if any orphans exist)
+      // 2. Global Card
       if (globalParams.length > 0) {
         const globalCard = document.createElement('div');
         globalCard.className = 'global-params';
@@ -408,18 +350,16 @@
         container.appendChild(globalCard);
       }
 
-      // 3. Render Action Steps
+      // 3. Steps
       currentSchema.actions.forEach((action, index) => {
         const card = document.createElement('div');
         card.className = 'step-card';
 
-        // Step Node (Timeline dot)
         const dot = document.createElement('div');
         dot.className = 'step-num';
         dot.innerText = index + 1;
         card.appendChild(dot);
 
-        // Header
         const header = document.createElement('div');
         header.className = 'step-header';
         header.innerHTML = `
@@ -428,7 +368,6 @@
         `;
         card.appendChild(header);
 
-        // Body (Controls)
         const body = document.createElement('div');
         body.className = 'step-body';
 
@@ -440,7 +379,6 @@
           });
           card.appendChild(body);
         }
-
         container.appendChild(card);
       });
     }
@@ -467,14 +405,12 @@
         const val = def.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
         def.value = val;
         document.querySelectorAll(`#val-${key}`).forEach(el => el.innerText = val);
-        // Sync other sliders for same param
         document.querySelectorAll(`input`).forEach(el => {
           if (el !== input && el.dataset.key === key) el.value = val;
         });
         run();
       };
-      input.dataset.key = key; // marker for syncing
-
+      input.dataset.key = key;
       wrapper.appendChild(header);
       wrapper.appendChild(input);
       return wrapper;
@@ -487,11 +423,7 @@
       renderPipeline();
       run();
     };
-
-    window.toggleJson = () => {
-      document.getElementById('json-panel').classList.toggle('open');
-    };
-
+    window.toggleJson = () => { document.getElementById('json-panel').classList.toggle('open'); };
     window.updateFromJSON = () => {
       try {
         const json = document.getElementById('json-input').value;
@@ -526,7 +458,10 @@
     function run() {
       if (currentMesh) {
         scene.remove(currentMesh);
-        if (currentMesh.geometry) currentMesh.geometry.dispose();
+        currentMesh.traverse(c => {
+           if (c.geometry) c.geometry.dispose();
+           if (c.material && !Array.isArray(c.material)) c.material.dispose();
+        });
       }
 
       const params = {};
@@ -541,9 +476,8 @@
       } catch (e) { console.error(e); }
     }
 
-    // INIT
     setupScene();
-    window.loadSchema('schema1'); // Load default
+    window.loadSchema('schema1');
 
     function animate() {
       requestAnimationFrame(animate);
