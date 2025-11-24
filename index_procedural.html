@@ -600,15 +600,15 @@
     const schema = {
   "version": "4.9",
   "type": "emergent_procedure",
-  "intent": "Axis-Aligned Voxel Monolith",
+  "intent": "Column-Safe Voxel Monolith",
   "materials": {
     "stone": { "color": "#e0e0e0", "roughness": 0.9, "metalness": 0.1 }
   },
   "globalParameters": {
-    // DIMENSIONS
-    "width": { "value": 5, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
-    "height": { "value": 12, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
-    "depth": { "value": 5, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
+    // DIMENSIONS (Works for Columns now)
+    "width": { "value": 4, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
+    "height": { "value": 14, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
+    "depth": { "value": 4, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
     
     // QUALITY
     "resolution": { "value": 60, "type": "integer", "min": 20, "max": 120, "group": "Quality" },
@@ -616,7 +616,7 @@
     // VOXEL EROSION
     "voxelSize": { "value": 0.5, "type": "number", "min": 0.1, "max": 2.0, "group": "Voxel Layer" },
     "erosionThreshold": { "value": 0.4, "type": "number", "min": 0.0, "max": 0.9, "group": "Voxel Layer" },
-    "layerDepth": { "value": 1.5, "type": "number", "min": 0.5, "max": 5.0, "group": "Voxel Layer" },
+    "layerDepth": { "value": 1.0, "type": "number", "min": 0.5, "max": 5.0, "group": "Voxel Layer" },
     
     // BASE SHAPE
     "taper": { "value": 0.2, "type": "number", "min": -0.5, "max": 1.0, "group": "Base Shape" }
@@ -639,14 +639,14 @@
       "controls": ["width", "height", "depth", "resolution"]
     },
     
-    // 2. Apply Axis-Aligned Erosion (Before Tapering)
+    // 2. Normalized Axis-Aligned Erosion
     {
-      "thought": "2. Apply Axis-Aligned Voxel Erosion",
+      "thought": "2. Apply Aspect-Ratio Correct Erosion",
       "do": "modifyGeometry",
       "params": {
         "geometry": "base_mesh",
         "operations": [
-          // 1. Voxel Erosion (Dominant Axis Logic)
+          // 1. Voxel Erosion (Normalized Logic)
           {
             "type": "displace",
             "expression": `
@@ -661,27 +661,28 @@
               var hash = Math.sin(dot) * 43758.5453;
               var noise = hash - Math.floor(hash);
 
-              // C. EXTRUDE PERPENDICULAR TO BOX FACES
+              // C. EXTRUDE
               if (noise > ctx.erosionThreshold) {
-                  // Find dominant axis to snap movement to (avoids corner splitting)
-                  var ax = Math.abs(v.x);
-                  var ay = Math.abs(v.y);
-                  var az = Math.abs(v.z);
-                  
+                  // NORMALIZE coordinates relative to box dimensions
+                  // This makes a 2x10x2 column "feel" like a 1x1x1 cube for logic purposes
+                  var nx = Math.abs(v.x / (ctx.width * 0.5));
+                  var ny = Math.abs(v.y / (ctx.height * 0.5));
+                  var nz = Math.abs(v.z / (ctx.depth * 0.5));
+
                   var dx = 0.0;
                   var dy = 0.0;
                   var dz = 0.0;
 
-                  // If X is largest, move along X. Else if Y... etc.
-                  if (ax >= ay && ax >= az) {
+                  // Check which NORMALIZED face is closest
+                  if (nx >= ny && nx >= nz) {
                       dx = (v.x > 0) ? 1.0 : -1.0;
-                  } else if (ay >= ax && ay >= az) {
+                  } else if (ny >= nx && ny >= nz) {
                       dy = (v.y > 0) ? 1.0 : -1.0;
                   } else {
                       dz = (v.z > 0) ? 1.0 : -1.0;
                   }
 
-                  // Push along the calculated 'Box Normal'
+                  // Push along that direction
                   v.x += dx * ctx.layerDepth;
                   v.y += dy * ctx.layerDepth;
                   v.z += dz * ctx.layerDepth;
@@ -689,7 +690,7 @@
             `
           },
           
-          // 2. Apply Taper (After Erosion so logic uses original box shape)
+          // 2. Apply Taper (Must happen AFTER erosion)
           {
             "type": "scale",
             "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;"
@@ -701,6 +702,7 @@
     }
   ]
 };
+
 
 
 
