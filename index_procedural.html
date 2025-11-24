@@ -502,7 +502,7 @@
   ]
 };
 
-    const schema = {
+    const schema4 = {
   "version": "4.9",
   "type": "emergent_procedure",
   "intent": "Box-Preserving Voxel Monolith",
@@ -596,6 +596,63 @@
     }
   ]
 };
+
+    {
+  "thought": "Apply box-perpendicular voxel erosion",
+  "do": "modifyGeometry",
+  "params": {
+    "geometry": "base_mesh",
+    "operations": [
+      // 1. Voxel erosion FIRST, on the original cube
+      {
+        "type": "displace",
+        "expression": `
+          // Quantize for voxel pattern
+          var step = ctx.voxelSize;
+          var qx = Math.floor(v.x / step);
+          var qy = Math.floor(v.y / step);
+          var qz = Math.floor(v.z / step);
+
+          // Pseudo-noise hash
+          var dot = qx * 12.9898 + qy * 78.233 + qz * 37.719;
+          var hash = Math.sin(dot) * 43758.5453;
+          var noise = hash - Math.floor(hash);
+
+          if (noise > ctx.erosionThreshold) {
+              // Choose dominant axis (box face direction)
+              var ax = Math.abs(v.x);
+              var ay = Math.abs(v.y);
+              var az = Math.abs(v.z);
+
+              var dx = 0.0, dy = 0.0, dz = 0.0;
+
+              if (ax >= ay && ax >= az) {
+                  dx = (v.x >= 0.0) ? 1.0 : -1.0;  // ±X face
+              } else if (ay >= ax && ay >= az) {
+                  dy = (v.y >= 0.0) ? 1.0 : -1.0;  // ±Y face
+              } else {
+                  dz = (v.z >= 0.0) ? 1.0 : -1.0;  // ±Z face
+              }
+
+              // Move along that face normal
+              v.x += dx * ctx.layerDepth;
+              v.y += dy * ctx.layerDepth;
+              v.z += dz * ctx.layerDepth;
+          }
+        `
+      },
+
+      // 2. Then apply taper / other deformations on top
+      {
+        "type": "scale",
+        "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;"
+      }
+    ]
+  },
+  "material": "stone",
+  "controls": ["voxelSize", "erosionThreshold", "layerDepth", "taper"]
+}
+
 
 
 
