@@ -164,16 +164,25 @@
     }
 
     /* --- RIGHT PANEL (The Engine Room) --- */
-    .engine-room {
+   .engine-room {
+      position: absolute; /* Overlay on top of viewport */
+      top: 0; 
+      right: 0; 
+      bottom: 0;
       width: 0;
       background: var(--code-bg);
       border-left: 1px solid var(--border);
-      transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      /* Improved transition */
+      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
       overflow: hidden;
-      display: flex; flex-direction: column;
-      position: relative;
+      display: flex; 
+      flex-direction: column;
+      z-index: 50; /* Ensure it sits above canvas */
+      box-shadow: -4px 0 24px rgba(0,0,0,0.5);
     }
-    .engine-room.open { width: 400px; }
+
+    /* Only apply width when open class is present */
+    .engine-room.open { width: 450px; }
 
     .engine-header {
       padding: 12px 16px;
