@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spellshape - Logic Workbench</title>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --bg: #09090b;
+      --panel: #18181b;
+      --card: #27272a;
+      --border: #3f3f46;
+      --accent: #8b5cf6;
+      --accent-hover: #a78bfa;
+      --text: #e4e4e7;
+      --text-dim: #a1a1aa;
+      --danger: #ef4444;
+      --success: #22c55e;
+    }
+
+    * { box-sizing: border-box; user-select: none; }
+    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); font-size: 13px; }
+    .app { display: flex; height: 100vh; width: 100vw; }
+
+    /* --- TOOLBOX (Left) --- */
+    .toolbox {
+      width: 200px;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      z-index: 10;
+    }
+    .toolbox-header { padding: 16px; border-bottom: 1px solid var(--border); font-weight: 700; color: var(--text-dim); font-size: 11px; letter-spacing: 0.05em; }
+    .tool-list { padding: 12px; overflow-y: auto; flex: 1; }
+    .tool-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 6px;
+      cursor: grab;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .tool-item:hover { border-color: var(--accent); color: #fff; }
+    .tool-item:active { cursor: grabbing; }
+    .tool-icon { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+    /* --- TIMELINE (Center Sidebar) --- */
+    .timeline-sidebar {
+      width: 380px;
+      background: var(--bg);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      position: relative;
+    }
+
+    .timeline-header { padding: 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
+    .brand { font-size: 14px; font-weight: 700; color: #fff; display: block; margin-bottom: 8px; }
+
+    .timeline-content { 
+      flex: 1; overflow-y: auto; padding: 20px; 
+      position: relative; 
+    }
+    /* Vertical line */
+    .timeline-content::before {
+      content: ''; position: absolute; top: 20px; bottom: 20px; left: 34px; width: 1px; background: var(--border); z-index: 0;
+    }
+
+    /* DRAGGABLE STEPS */
+    .step-card {
+      background: var(--card); 
+      border: 1px solid var(--border); 
+      border-radius: 8px;
+      margin-bottom: 16px; 
+      position: relative; 
+      z-index: 1;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+    .step-card:hover { border-color: var(--text-dim); }
+    .step-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .step-card.dragging { opacity: 0.5; transform: scale(0.95); }
+
+    /* Drop Zones */
+    .drop-zone {
+      height: 4px; margin: 8px 0; border-radius: 2px; transition: all 0.2s;
+    }
+    .drop-zone.active { height: 24px; background: rgba(139, 92, 246, 0.1); border: 1px dashed var(--accent); }
+
+    .step-num {
+      position: absolute; left: -27px; top: 12px; width: 20px; height: 20px;
+      background: var(--panel); border: 1px solid var(--text-dim); border-radius: 50%;
+      font-size: 10px; font-weight: 700; color: var(--text-dim);
+      display: flex; align-items: center; justify-content: center; z-index: 2;
+      cursor: grab;
+    }
+    .step-header { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+    .step-title { font-weight: 600; color: var(--text); font-size: 12px; }
+    .step-type { font-family: monospace; font-size: 10px; color: var(--accent); background: rgba(139, 92, 246, 0.1); padding: 2px 6px; border-radius: 4px; }
+
+    .step-controls { padding: 0 16px 16px 16px; }
+
+    /* SLIDERS (Mini) */
+    .mini-control { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; font-size: 11px; }
+    .mini-label { color: var(--text-dim); }
+    .mini-val { font-family: monospace; color: var(--accent); }
+    input[type=range] { width: 100%; margin-top: 4px; -webkit-appearance: none; background: transparent; cursor: pointer; }
+    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 3px; background: #333; border-radius: 2px; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 10px; width: 10px; border-radius: 50%; background: #d4d4d8; margin-top: -3.5px; }
+
+    /* --- VIEWPORT --- */
+    .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #18181b 0%, #09090b 100%); }
+    canvas { display: block; width: 100%; height: 100%; outline: none; }
+
+    /* --- INSPECTOR (Right) --- */
+    .inspector {
+      width: 300px;
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      z-index: 20;
+    }
+    .inspector-header { padding: 16px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 12px; display: flex; justify-content: space-between; }
+    .inspector-content { padding: 16px; flex: 1; overflow-y: auto; }
+
+    .prop-group { margin-bottom: 16px; }
+    .prop-label { font-size: 11px; font-weight: 600; color: var(--text-dim); margin-bottom: 6px; display: block; }
+    .prop-input { 
+      width: 100%; background: #111; border: 1px solid var(--border); color: #fff; 
+      padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; 
+    }
+    .prop-input:focus { border-color: var(--accent); outline: none; }
+
+    .btn-danger { width: 100%; padding: 8px; background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); border-radius: 4px; cursor: pointer; font-weight: 600; margin-top: 24px; }
+    .btn-danger:hover { background: var(--danger); color: #fff; }
+
+    .btn-primary { width: 100%; padding: 8px; background: var(--accent); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; margin-top: 12px; }
+
+    /* JSON TOGGLE */
+    .json-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:50; display:none; flex-direction:column; }
+    .json-overlay.open { display: flex; }
+    textarea.full-code { flex:1; background:transparent; color:#0f0; border:none; padding:20px; font-family:monospace; resize:none; }
+  </style>
+</head>
+<body>
+
+  <div class="app">
+    <!-- 1. TOOLBOX -->
+    <div class="toolbox">
+      <div class="toolbox-header">HELPER LIBRARY</div>
+      <div class="tool-list">
+        <div class="tool-item" draggable="true" ondragstart="dragStartTool(event, 'createBox')">
+          <div class="tool-icon"></div> Create Box
+        </div>
+        <div class="tool-item" draggable="true" ondragstart="dragStartTool(event, 'createCylinder')">
+          <div class="tool-icon"></div> Create Cylinder
+        </div>
+        <div class="tool-item" draggable="true" ondragstart="dragStartTool(event, 'distributeOnGrid3d')">
+          <div class="tool-icon"></div> Grid Distribute
+        </div>
+        <div class="tool-item" draggable="true" ondragstart="dragStartTool(event, 'modifyGeometry')">
+          <div class="tool-icon"></div> Modify Geometry
+        </div>
+        <div class="tool-item" draggable="true" ondragstart="dragStartTool(event, 'loop')">
+          <div class="tool-icon" style="background: #fbbf24"></div> Loop
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. TIMELINE (Logic Editor) -->
+    <div class="timeline-sidebar">
+      <div class="timeline-header">
+        <span class="brand">Spellshape Workbench</span>
+        <select style="width:100%; padding:6px; background:#111; color:#ccc; border:1px solid #333; border-radius:4px;" onchange="window.loadSchema(this.value)">
+          <option value="schema1">Logic Tower</option>
+          <option value="schema2">Noise Column</option>
+          <option value="schema4">Voxel Monolith</option>
+        </select>
+      </div>
+
+      <div class="timeline-content" id="timeline" ondragover="dragOver(event)" ondrop="drop(event)">
+        <!-- Steps Injected Here -->
+      </div>
+
+      <div style="padding:16px; border-top:1px solid #333;">
+        <button onclick="window.toggleJson()" style="width:100%; padding:8px; background:#222; color:#888; border:1px solid #333; cursor:pointer;">View Source JSON</button>
+      </div>
+    </div>
+
+    <!-- 3. VIEWPORT -->
+    <div class="viewport">
+      <canvas id="gl"></canvas>
+    </div>
+
+    <!-- 4. INSPECTOR (Properties) -->
+    <div class="inspector">
+      <div class="inspector-header">STEP PROPERTIES</div>
+      <div class="inspector-content" id="inspector-content">
+        <div style="color: #666; font-style: italic; text-align: center; margin-top: 40px;">
+          Select a step to edit its logic
+        </div>
+      </div>
+    </div>
+
+    <!-- JSON OVERLAY -->
+    <div class="json-overlay" id="json-overlay">
+      <div style="padding:10px; border-bottom:1px solid #333; display:flex; justify-content:space-between;">
+        <span style="color:#fff; font-weight:bold;">SCHEMA SOURCE</span>
+        <button onclick="window.toggleJson()" style="background:#333; color:#fff; border:none; padding:4px 10px; cursor:pointer;">Close</button>
+      </div>
+      <textarea id="json-input" class="full-code" spellcheck="false"></textarea>
+      <button onclick="window.updateFromJSON()" style="padding:15px; background:#6d28d9; color:#fff; border:none; font-weight:bold; cursor:pointer;">UPDATE GEOMETRY</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
+
+    // --- SCHEMAS ---
+    const schemas = {
+      schema1: {
+        "version": "4.9", "intent": "Decoupled Logic Tower",
+        "globalParameters": {
+          "floors": { "value": 15, "min": 3, "max": 30, "type": "integer" },
+          "floorHeight": { "value": 3.5, "min": 2, "max": 5, "type": "number" }
+        },
+        "actions": [
+          { "thought": "Create Slab", "do": "createBox", "params": { "width": 12, "height": 0.3, "depth": 12 }, "as": "slab", "controls": [] },
+          { "thought": "Create Core", "do": "createBox", "params": { "width": 6, "height": "ctx.floorHeight", "depth": 6 }, "as": "core", "controls": [] },
+          { "thought": "Stack Loop", "do": "loop", "var": "i", "from": 0, "to": "ctx.floors", "controls": ["floors"], 
+            "body": [
+              { "do": "clone", "params": {"id": "slab"}, "transform": { "position": [0, "i * ctx.floorHeight", 0] } },
+              { "do": "clone", "params": {"id": "core"}, "transform": { "position": [0, "i * ctx.floorHeight", 0] } }
+            ]
+          }
+        ]
+      },
+      schema2: {
+        "version": "4.9", "intent": "Noise Column",
+        "globalParameters": { "layers": { "value": 50, "min": 10, "max": 100 } },
+        "actions": [
+          { "thought": "Base Slice", "do": "createBox", "params": { "width": 4, "height": 0.2, "depth": 4 }, "as": "slice" },
+          { "thought": "Noise Loop", "do": "loop", "var": "i", "from": 0, "to": "ctx.layers", "body": [
+             { "do": "clone", "params": {"id":"slice"}, "transform": { "position": [0, "i*0.2", 0], "scale": ["1 + Math.sin(i*0.2)", 1, "1 + Math.cos(i*0.2)"] } }
+          ]}
+        ]
+      }
+    };
+
+    let currentSchema = schemas.schema1;
+    let currentMesh = null;
+    let draggedItem = null;
+    let selectedStepIndex = -1;
+    const executor = new ProceduralExecutor();
+
+    // --- RENDER TIMELINE ---
+    function renderTimeline() {
+      const container = document.getElementById('timeline');
+      container.innerHTML = '';
+
+      // Global Context (Simplified)
+      const globalDiv = document.createElement('div');
+      globalDiv.style.paddingBottom = '20px';
+      globalDiv.innerHTML = `<div style="font-size:10px; font-weight:700; color:#666; margin-bottom:8px;">GLOBAL PARAMETERS</div>`;
+      Object.keys(currentSchema.globalParameters).forEach(key => {
+        globalDiv.appendChild(createSlider(key, currentSchema.globalParameters[key]));
+      });
+      container.appendChild(globalDiv);
+
+      // Steps
+      currentSchema.actions.forEach((action, index) => {
+        // Drop Zone Before
+        const dropZone = document.createElement('div');
+        dropZone.className = 'drop-zone';
+        dropZone.ondragenter = (e) => e.target.classList.add('active');
+        dropZone.ondragleave = (e) => e.target.classList.remove('active');
+        dropZone.ondrop = (e) => handleDrop(e, index);
+        container.appendChild(dropZone);
+
+        // Step Card
+        const card = document.createElement('div');
+        card.className = `step-card ${selectedStepIndex === index ? 'selected' : ''}`;
+        card.draggable = true;
+        card.ondragstart = (e) => dragStartStep(e, index);
+        card.onclick = () => selectStep(index);
+
+        card.innerHTML = `
+          <div class="step-num">${index + 1}</div>
+          <div class="step-header">
+            <span class="step-title">${action.thought || 'Action'}</span>
+            <span class="step-type">${action.do}</span>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      // Final Drop Zone
+      const lastDrop = document.createElement('div');
+      lastDrop.className = 'drop-zone';
+      lastDrop.ondragenter = (e) => e.target.classList.add('active');
+      lastDrop.ondragleave = (e) => e.target.classList.remove('active');
+      lastDrop.ondrop = (e) => handleDrop(e, currentSchema.actions.length);
+      container.appendChild(lastDrop);
+    }
+
+    function createSlider(key, def) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mini-control';
+      wrapper.innerHTML = `
+        <div style="flex:1">
+          <div style="display:flex; justify-content:space-between;">
+            <span class="mini-label">${key}</span>
+            <span class="mini-val">${def.value}</span>
+          </div>
+          <input type="range" min="${def.min}" max="${def.max}" step="${def.type==='integer'?1:0.1}" value="${def.value}">
+        </div>
+      `;
+      wrapper.querySelector('input').oninput = (e) => {
+        const val = parseFloat(e.target.value);
+        def.value = val;
+        renderTimeline(); // Brute force update
+        run();
+      };
+      return wrapper;
+    }
+
+    // --- DRAG & DROP LOGIC ---
+    window.dragStartTool = (e, type) => {
+      draggedItem = { type: 'tool', tool: type };
+      e.dataTransfer.effectAllowed = 'copy';
+    };
+
+    window.dragStartStep = (e, index) => {
+      draggedItem = { type: 'step', index: index };
+      e.dataTransfer.effectAllowed = 'move';
+      e.target.classList.add('dragging');
+    };
+
+    window.dragOver = (e) => {
+      e.preventDefault(); // Allow drop
+    };
+
+    window.drop = (e) => {
+      // Handled by specific drop zones, but this catches misses
+      e.preventDefault();
+      document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('active'));
+    };
+
+    window.handleDrop = (e, targetIndex) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!draggedItem) return;
+
+      const actions = currentSchema.actions;
+
+      if (draggedItem.type === 'step') {
+        // Reorder
+        const oldIndex = draggedItem.index;
+        if (oldIndex === targetIndex || oldIndex === targetIndex - 1) return; // No op
+
+        const [item] = actions.splice(oldIndex, 1);
+        // Adjust target index if shifting down
+        const newIndex = oldIndex < targetIndex ? targetIndex - 1 : targetIndex;
+        actions.splice(newIndex, 0, item);
+
+      } else if (draggedItem.type === 'tool') {
+        // Add New
+        const newAction = createDefaultAction(draggedItem.tool);
+        actions.splice(targetIndex, 0, newAction);
+      }
+
+      draggedItem = null;
+      renderTimeline();
+      run();
+    };
+
+    function createDefaultAction(type) {
+      const base = { thought: `New ${type}`, do: type, params: {}, as: `obj_${Date.now().toString().slice(-4)}` };
+      if (type === 'createBox') base.params = { width: 2, height: 2, depth: 2 };
+      if (type === 'createCylinder') base.params = { radiusTop: 1, radiusBottom: 1, height: 2 };
+      if (type === 'loop') { base.thought = "Loop"; base.from=0; base.to=5; base.var="i"; base.body=[]; }
+      return base;
+    }
+
+    // --- INSPECTOR LOGIC ---
+    window.selectStep = (index) => {
+      selectedStepIndex = index;
+      renderTimeline(); // Update selection highlight
+      renderInspector();
+    };
+
+    function renderInspector() {
+      const container = document.getElementById('inspector-content');
+      container.innerHTML = '';
+
+      if (selectedStepIndex < 0 || selectedStepIndex >= currentSchema.actions.length) return;
+
+      const action = currentSchema.actions[selectedStepIndex];
+
+      // Title Edit
+      container.appendChild(createPropInput('Thought', action.thought, (v) => { action.thought = v; renderTimeline(); }));
+      container.appendChild(createPropInput('Result Name (as)', action.as, (v) => { action.as = v; }));
+
+      // Params
+      const paramsHeader = document.createElement('div');
+      paramsHeader.style = "margin-top:16px; font-weight:700; color:#fff; font-size:11px; border-bottom:1px solid #333; padding-bottom:4px;";
+      paramsHeader.innerText = "PARAMETERS";
+      container.appendChild(paramsHeader);
+
+      if (action.params) {
+        Object.keys(action.params).forEach(key => {
+          container.appendChild(createPropInput(key, action.params[key], (v) => {
+            // Try parse number
+            const num = parseFloat(v);
+            action.params[key] = isNaN(num) ? v : num; // Allow string expressions like "ctx.width"
+            run();
+          }));
+        });
+      }
+
+      // Delete Button
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-danger';
+      delBtn.innerText = 'Delete Step';
+      delBtn.onclick = () => {
+        currentSchema.actions.splice(selectedStepIndex, 1);
+        selectedStepIndex = -1;
+        renderTimeline();
+        renderInspector();
+        run();
+      };
+      container.appendChild(delBtn);
+    }
+
+    function createPropInput(label, val, onChange) {
+      const group = document.createElement('div');
+      group.className = 'prop-group';
+      group.innerHTML = `<span class="prop-label">${label}</span><input class="prop-input" value="${val || ''}">`;
+      group.querySelector('input').onchange = (e) => onChange(e.target.value);
+      return group;
+    }
+
+    // --- ENGINE & UTILS ---
+    window.loadSchema = (k) => { currentSchema = schemas[k]; selectedStepIndex = -1; renderTimeline(); renderInspector(); run(); };
+    window.toggleJson = () => { document.getElementById('json-overlay').classList.toggle('open'); document.getElementById('json-input').value = JSON.stringify(currentSchema, null, 2); };
+    window.updateFromJSON = () => { 
+      try { currentSchema = JSON.parse(document.getElementById('json-input').value); window.toggleJson(); renderTimeline(); run(); } 
+      catch(e){ alert('Invalid JSON'); } 
+    };
+
+    // 3D Setup
+    const canvas = document.querySelector('#gl');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    const controls = new OrbitControls(camera, canvas);
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    camera.position.set(30, 30, 30);
+    scene.background = new THREE.Color(0x09090b);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(50, 100, 50);
+    scene.add(dirLight);
+    scene.add(new THREE.GridHelper(100, 20, 0x27272a, 0x18181b));
+
+    function run() {
+      if (currentMesh) { scene.remove(currentMesh); if(currentMesh.geometry) currentMesh.geometry.dispose(); }
+      const params = {};
+      for (const [k, v] of Object.entries(currentSchema.globalParameters)) params[k] = v.value;
+      try { currentMesh = executor.execute(currentSchema, params); scene.add(currentMesh); } catch(e) { console.error(e); }
+    }
+
+    function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+    animate();
+    renderTimeline();
+    run();
+
+    window.onresize = () => { renderer.setSize(canvas.clientWidth, canvas.clientHeight); camera.aspect = canvas.clientWidth/canvas.clientHeight; camera.updateProjectionMatrix(); };
+  </script>
+</body>
+</html>
