@@ -130,7 +130,7 @@
     .helper-menu {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
       background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-      z-index: 1000; display: none; flex-direction: column; max-height: 60vh;
+      z-index: 1000; display: none; flex-direction: column; max-height: 60vh; width: 300px;
     }
     .helper-menu.open { display: flex; }
     .helper-menu-header { padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; }
@@ -163,7 +163,7 @@
     <div class="sidebar">
       <div class="header">
         <h1>Spellshape</h1>
-        <select onchange="loadSchema(this.value)">
+        <select onchange="window.loadSchema(this.value)">
           <option value="schema1">Tower Schema</option>
           <option value="schema2">Noise Column</option>
           <option value="schema3">Deformed Surface</option>
@@ -171,9 +171,9 @@
       </div>
 
       <div class="tabs">
-        <div class="tab active" onclick="setTab('controls')">Controls</div>
-        <div class="tab" onclick="setTab('recipe')">Recipe</div>
-        <div class="tab" onclick="setTab('json')">JSON</div>
+        <div class="tab active" onclick="window.setTab('controls')">Controls</div>
+        <div class="tab" onclick="window.setTab('recipe')">Recipe</div>
+        <div class="tab" onclick="window.setTab('json')">JSON</div>
       </div>
 
       <div id="tab-controls" class="content active"></div>
@@ -181,7 +181,7 @@
       <div id="tab-json" class="content" style="padding:0; display: flex; flex-direction: column;">
         <textarea id="json-input" spellcheck="false"></textarea>
         <div class="json-footer">
-          <button class="json-btn" onclick="updateFromJSON()">Update Geometry</button>
+          <button class="json-btn" onclick="window.updateFromJSON()">Update Geometry</button>
         </div>
       </div>
     </div>
@@ -192,7 +192,7 @@
     </div>
   </div>
 
-  <div class="overlay" id="overlay" onclick="closeHelperMenu()"></div>
+  <div class="overlay" id="overlay" onclick="window.closeHelperMenu()"></div>
   <div class="helper-menu" id="helper-menu">
     <div class="helper-menu-header">Select Helper</div>
     <div class="helper-menu-list" id="helper-list"></div>
@@ -612,25 +612,24 @@
       json: document.getElementById('tab-json')
     };
     const jsonInput = document.getElementById('json-input');
-    let helperMenuFor = null;
 
-    window.setTab = (name) => {
+    function setTab(name) {
       document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
 
-      document.querySelector(`.tab[onclick="setTab('${name}')"]`).classList.add('active');
+      document.querySelector(`.tab[onclick="window.setTab('${name}')"]`).classList.add('active');
       tabs[name].classList.add('active');
 
       if (name === 'json') {
         jsonInput.value = JSON.stringify(schema, null, 2);
       }
-    };
+    }
 
-    window.loadSchema = (key) => {
+    function loadSchema(key) {
       schema = JSON.parse(JSON.stringify(schemas[key]));
       renderUI();
       run();
-    };
+    }
 
     // --- SLIDER CREATION ---
     function createSlider(key, def, context = 'global') {
@@ -703,7 +702,7 @@
           <div class="step-num">${i+1}</div>
           <div class="step-title">${action.thought}</div>
           <div class="step-type">${action.do}</div>
-          <div class="step-delete" onclick="deleteStep(${i})">✕</div>
+          <div class="step-delete" onclick="window.deleteStep(${i})">✕</div>
         `;
         card.appendChild(header);
 
@@ -730,7 +729,7 @@
     }
 
     // --- HELPER MENU ---
-    window.openHelperMenu = () => {
+    function openHelperMenu() {
       const list = document.getElementById('helper-list');
       list.innerHTML = '';
       const categories = {};
@@ -757,14 +756,14 @@
 
       document.getElementById('helper-menu').classList.add('open');
       document.getElementById('overlay').classList.add('open');
-    };
+    }
 
-    window.closeHelperMenu = () => {
+    function closeHelperMenu() {
       document.getElementById('helper-menu').classList.remove('open');
       document.getElementById('overlay').classList.remove('open');
-    };
+    }
 
-    window.addStep = (helperName) => {
+    function addStep(helperName) {
       const helperInfo = helpers[helperName];
       const newAction = {
         thought: helperName,
@@ -777,15 +776,15 @@
       closeHelperMenu();
       renderUI();
       run();
-    };
+    }
 
-    window.deleteStep = (index) => {
+    function deleteStep(index) {
       schema.actions.splice(index, 1);
       renderUI();
       run();
-    };
+    }
 
-    window.updateFromJSON = () => {
+    function updateFromJSON() {
       try {
         schema = JSON.parse(jsonInput.value);
         renderUI();
@@ -794,7 +793,7 @@
       } catch (e) {
         alert('Invalid JSON: ' + e.message);
       }
-    };
+    }
 
     // --- 3D ENGINE ---
     const canvas = document.querySelector('#gl');
@@ -840,7 +839,7 @@
         document.getElementById('stats').innerText = `Meshes: ${count}`;
       } catch (e) {
         console.error(e);
-        document.getElementById('stats').innerText = `Error: ${e.message}`;
+        document.getElementById('stats').innerText = `Error: ${e.message.substring(0, 30)}`;
       }
     }
 
@@ -861,6 +860,15 @@
       camera.aspect = canvas.clientWidth / canvas.clientHeight;
       camera.updateProjectionMatrix();
     };
+
+    // === EXPOSE TO WINDOW ===
+    window.setTab = setTab;
+    window.loadSchema = loadSchema;
+    window.openHelperMenu = openHelperMenu;
+    window.closeHelperMenu = closeHelperMenu;
+    window.addStep = addStep;
+    window.deleteStep = deleteStep;
+    window.updateFromJSON = updateFromJSON;
   </script>
 </body>
 </html>
