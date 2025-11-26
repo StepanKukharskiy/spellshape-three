@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spellshape - Procedural Editor</title>
-
+  <title>Spellshape - Procedural Timeline Editor</title>
+  
   <script type="importmap">
     {
       "imports": {
@@ -19,19 +19,23 @@
       --bg: #121214;
       --panel: #1c1c21;
       --card: #25252b;
+      --card-hover: #2d2d33;
       --border: #333;
       --accent: #646cff;
       --text: #ececec;
       --text-dim: #888;
+      --success: #4ade80;
+      --error: #ff6464;
     }
 
     * { box-sizing: border-box; }
-    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); font-size: 12px; }
+    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); }
     .app { display: flex; height: 100vh; width: 100vw; }
-
+    
+    /* SIDEBAR */
     .sidebar {
-      flex: 0 0 400px;
-      width: 400px;
+      flex: 0 0 500px;
+      width: 500px;
       background: var(--panel);
       border-right: 1px solid var(--border);
       display: flex;
@@ -40,121 +44,142 @@
     }
 
     .header {
-      padding: 20px;
+      padding: 16px 20px;
       border-bottom: 1px solid var(--border);
       background: var(--bg);
     }
-    .header h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.5px; }
-    .header select { width: 100%; padding: 6px; margin-top: 8px; background: #111; border: 1px solid var(--border); color: #fff; border-radius: 4px; cursor: pointer; }
+    .header h1 { margin: 0; font-size: 14px; font-weight: 700; }
 
-    .tabs { display: flex; padding: 0 20px; border-bottom: 1px solid var(--border); }
+    /* TABS */
+    .tabs { display: flex; padding: 0 20px; border-bottom: 1px solid var(--border); gap: 20px; }
     .tab {
-      padding: 12px 0; margin-right: 20px;
-      font-size: 12px; font-weight: 600; color: var(--text-dim);
+      padding: 10px 0;
+      font-size: 11px; font-weight: 600; color: var(--text-dim);
       cursor: pointer; border-bottom: 2px solid transparent;
       transition: all 0.2s;
     }
     .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
     .tab:hover { color: #fff; }
 
-    .content { flex: 1; overflow-y: auto; padding: 20px; display: none; }
+    /* CONTENT AREA */
+    .content { flex: 1; overflow-y: auto; padding: 16px; display: none; }
     .content.active { display: block; }
 
-    /* CONTROLS TAB */
-    .group-title {
-      font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-dim);
-      margin: 20px 0 12px 0; letter-spacing: 1px; border-bottom: 1px solid #333; padding-bottom: 4px;
+    /* TAB 1: GLOBALS */
+    .globals-container { display: flex; flex-direction: column; gap: 12px; }
+    .global-group { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+    .global-header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-dim);
     }
-    .group-title:first-child { margin-top: 0; }
+    .btn-add-global { width: 20px; height: 20px; background: rgba(100, 108, 255, 0.2); border: none; border-radius: 3px; color: var(--accent); cursor: pointer; font-weight: bold; }
+    .btn-add-global:hover { background: rgba(100, 108, 255, 0.4); }
 
-    .control { margin-bottom: 16px; }
-    .control-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; }
-    .control-val { font-family: monospace; color: var(--accent); }
-    .control-label { color: #ccc; font-weight: 500; }
+    .global-item {
+      display: flex; gap: 8px; margin-bottom: 8px; align-items: center;
+    }
+    .global-item:last-child { margin-bottom: 0; }
+    
+    input[type="text"], input[type="number"] {
+      flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px;
+      padding: 6px 10px; color: var(--text); font-size: 11px;
+    }
+    input[type="text"]:focus, input[type="number"]:focus {
+      outline: none; border-color: var(--accent);
+    }
 
-    input[type=range] {
-      width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer;
-    }
-    input[type=range]::-webkit-slider-runnable-track {
-      width: 100%; height: 4px; background: #333; border-radius: 2px;
-    }
-    input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%;
-      background: #fff; margin-top: -5px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-      transition: background 0.2s, transform 0.2s;
-    }
-    input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); transform: scale(1.1); }
+    .btn-icon { width: 20px; height: 20px; background: rgba(255, 100, 100, 0.2); border: none; border-radius: 3px; color: var(--error); cursor: pointer; font-size: 12px; }
+    .btn-icon:hover { background: rgba(255, 100, 100, 0.4); }
 
-    /* RECIPE TAB */
+    /* TAB 2: TIMELINE */
+    .timeline { display: flex; flex-direction: column; gap: 12px; }
+
     .step-card {
       background: var(--card); border: 1px solid var(--border); border-radius: 6px;
-      padding: 14px; margin-bottom: 12px; position: relative;
+      padding: 12px; position: relative; transition: all 0.2s;
     }
-    .step-card.add-card {
-      border: 2px dashed var(--accent); display: flex; align-items: center; justify-content: center;
-      cursor: pointer; min-height: 60px;
-    }
-    .step-card.add-card:hover { background: rgba(100, 108, 255, 0.1); }
+    .step-card:hover { background: var(--card-hover); border-color: var(--accent); }
 
-    .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; justify-content: space-between; }
-    .step-num { 
-      width: 18px; height: 18px; background: #333; border-radius: 50%; 
-      font-size: 10px; font-weight: bold; color: #888; 
-      display: flex; align-items: center; justify-content: center;
+    .step-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px; justify-content: space-between;
     }
-    .step-title { font-size: 13px; font-weight: 600; color: #fff; flex: 1; }
-    .step-type { font-family: monospace; font-size: 9px; color: var(--accent); background: rgba(100, 108, 255, 0.1); padding: 2px 6px; border-radius: 3px; }
-    .step-delete { font-size: 18px; cursor: pointer; color: #888; transition: color 0.2s; }
-    .step-delete:hover { color: #f44; }
+    .step-num { width: 16px; height: 16px; background: #333; border-radius: 50%; font-size: 9px; font-weight: bold; color: #888; display: flex; align-items: center; justify-content: center; }
+    .step-title-input {
+      flex: 1; background: transparent; border: 1px solid transparent; padding: 4px 8px;
+      color: var(--text); font-size: 12px; font-weight: 600; border-radius: 3px;
+    }
+    .step-title-input:hover { border-color: var(--border); }
+    .step-title-input:focus { outline: none; border-color: var(--accent); background: rgba(100, 108, 255, 0.1); }
 
-    .step-controls { 
-      margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); 
+    .step-actions { display: flex; gap: 6px; }
+    .step-btn { width: 22px; height: 22px; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .step-btn-add { background: rgba(100, 108, 255, 0.2); color: var(--accent); }
+    .step-btn-add:hover { background: rgba(100, 108, 255, 0.4); }
+    .step-btn-remove { background: rgba(255, 100, 100, 0.2); color: var(--error); }
+    .step-btn-remove:hover { background: rgba(255, 100, 100, 0.4); }
+
+    .step-body { display: flex; flex-direction: column; gap: 8px; }
+
+    .field-group { display: flex; flex-direction: column; gap: 4px; }
+    .field-label { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); }
+
+    .helper-select {
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px;
+      padding: 6px 10px; color: var(--text); font-size: 11px; cursor: pointer;
+    }
+    .helper-select:hover { border-color: var(--accent); }
+    .helper-select:focus { outline: none; border-color: var(--accent); }
+
+    textarea.expr-input {
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 4px;
+      padding: 6px 10px; color: var(--text); font-size: 10px; font-family: 'Courier New', monospace;
+      resize: vertical; min-height: 40px; max-height: 80px;
+    }
+    textarea.expr-input:focus { outline: none; border-color: var(--accent); }
+
+    .expr-autocomplete {
+      position: absolute; background: var(--card); border: 1px solid var(--border); border-radius: 4px;
+      max-height: 120px; overflow-y: auto; font-size: 10px; z-index: 100; display: none;
+    }
+    .expr-autocomplete.active { display: block; }
+    .autocomplete-item { padding: 6px 10px; cursor: pointer; color: var(--text-dim); }
+    .autocomplete-item:hover { background: rgba(100, 108, 255, 0.2); color: var(--accent); }
+
+    /* ADD STEP MENU */
+    .menu-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; z-index: 1000;
+    }
+    .menu-overlay.active { display: block; }
+
+    .menu-popup {
+      position: fixed; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      min-width: 200px; max-height: 400px; overflow-y: auto; z-index: 1001;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
     }
 
-    /* JSON TAB */
-    textarea {
-      width: 100%; height: 100%; background: #111; border: none;
-      color: #ccc; font-family: monospace; font-size: 11px; padding: 10px; resize: none;
+    .menu-item {
+      padding: 10px 16px; cursor: pointer; font-size: 11px; border-bottom: 1px solid rgba(255,255,255,0.05);
+      transition: all 0.2s;
     }
-
-    .json-footer {
-      padding: 10px; background: var(--panel); border-top: 1px solid var(--border);
-    }
-    .json-btn {
-      width: 100%; padding: 8px; background: var(--accent); border: none; border-radius: 4px;
-      color: white; cursor: pointer; font-weight: 600; font-size: 11px;
-    }
-    .json-btn:hover { opacity: 0.9; }
-
-    /* HELPER MENU */
-    .helper-menu {
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-      z-index: 1000; display: none; flex-direction: column; max-height: 60vh; width: 300px;
-    }
-    .helper-menu.open { display: flex; }
-    .helper-menu-header { padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; }
-    .helper-menu-list { overflow-y: auto; padding: 12px; flex: 1; }
-    .helper-item {
-      padding: 8px 12px; margin-bottom: 4px; background: var(--card); border: 1px solid var(--border);
-      border-radius: 4px; cursor: pointer; transition: all 0.2s; font-size: 11px;
-    }
-    .helper-item:hover { border-color: var(--accent); background: rgba(100, 108, 255, 0.1); }
-    .helper-category { font-size: 9px; font-weight: 700; color: var(--text-dim); margin-top: 12px; margin-bottom: 6px; }
-    .helper-category:first-child { margin-top: 0; }
-    .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999; display: none; }
-    .overlay.open { display: block; }
+    .menu-item:hover { background: rgba(100, 108, 255, 0.2); color: var(--accent); }
+    .menu-item:last-child { border-bottom: none; }
 
     /* VIEWPORT */
     .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #222 0%, #111 100%); }
     canvas { display: block; width: 100%; height: 100%; outline: none; }
-
+    
     .stats {
       position: absolute; bottom: 20px; right: 20px;
       font-family: monospace; font-size: 10px; color: #666;
       background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 4px;
       pointer-events: none;
     }
+
+    /* HELPER REFERENCE */
+    .helpers-list {
+      font-size: 10px; line-height: 1.6; color: var(--text-dim);
+    }
+    .helpers-list strong { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -162,26 +187,35 @@
   <div class="app">
     <div class="sidebar">
       <div class="header">
-        <h1>Spellshape</h1>
-        <select id="schema-select" onchange="APP.loadSchema(this.value)">
-          <option value="schema1">Tower Schema</option>
-          <option value="schema2">Noise Column</option>
-          <option value="schema3">Deformed Surface</option>
-        </select>
+        <h1>Spellshape - Procedural Editor</h1>
       </div>
-
+      
       <div class="tabs">
-        <div class="tab active" onclick="APP.setTab('controls')">Controls</div>
-        <div class="tab" onclick="APP.setTab('recipe')">Recipe</div>
-        <div class="tab" onclick="APP.setTab('json')">JSON</div>
+        <div class="tab active" onclick="setTab('globals')">Globals</div>
+        <div class="tab" onclick="setTab('timeline')">Timeline</div>
+        <div class="tab" onclick="setTab('helpers')">Helpers</div>
       </div>
 
-      <div id="tab-controls" class="content active"></div>
-      <div id="tab-recipe" class="content"></div>
-      <div id="tab-json" class="content" style="padding:0; display: flex; flex-direction: column;">
-        <textarea id="json-input" spellcheck="false"></textarea>
-        <div class="json-footer">
-          <button class="json-btn" onclick="APP.updateFromJSON()">Update Geometry</button>
+      <!-- TAB 1: GLOBALS -->
+      <div id="tab-globals" class="content active">
+        <div class="globals-container" id="globals-container"></div>
+        <button onclick="addGlobalParam()" style="width: 100%; padding: 10px; background: rgba(100, 108, 255, 0.2); border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); cursor: pointer; font-weight: 600; margin-top: 12px;">+ Add Global Parameter</button>
+      </div>
+
+      <!-- TAB 2: TIMELINE -->
+      <div id="tab-timeline" class="content">
+        <div class="timeline" id="timeline-container"></div>
+        <button onclick="addStep()" style="width: 100%; padding: 10px; background: rgba(100, 108, 255, 0.2); border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); cursor: pointer; font-weight: 600; margin-top: 12px;">+ Add Step</button>
+      </div>
+
+      <!-- TAB 3: HELPERS -->
+      <div id="tab-helpers" class="content">
+        <div class="helpers-list">
+          <strong>Available Helpers:</strong>
+          <br/>createBox, createSphere, createCylinder, createPlane, createCone, createTorus
+          <br/>createBox, cloneMesh, repeatLinear3d, distributeOnGrid3d, loop, clone, modifyGeometry, transformMesh
+          <br/><strong>Context Variables:</strong> ctx.paramName
+          <br/><strong>Example:</strong> "ctx.width * 0.5"
         </div>
       </div>
     </div>
@@ -192,586 +226,226 @@
     </div>
   </div>
 
-  <div class="overlay" id="overlay" onclick="APP.closeHelperMenu()"></div>
-  <div class="helper-menu" id="helper-menu">
-    <div class="helper-menu-header">Select Helper</div>
-    <div class="helper-menu-list" id="helper-list"></div>
-  </div>
+  <!-- Add Step Menu -->
+  <div class="menu-overlay" id="menu-overlay" onclick="closeAddMenu()"></div>
+  <div class="menu-popup" id="menu-popup"></div>
 
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
 
-    // --- APP NAMESPACE ---
-    window.APP = {};
-
-    // --- HELPERS LIBRARY ---
-    const helpers = {
-      'createBox': { category: 'Basic', params: { width: 1, height: 1, depth: 1 } },
-      'createCylinder': { category: 'Basic', params: { radiusTop: 1, radiusBottom: 1, height: 1 } },
-      'createSphere': { category: 'Basic', params: { radius: 1, widthSegments: 32, heightSegments: 16 } },
-      'createCone': { category: 'Basic', params: { radius: 1, height: 1 } },
-      'createPlane': { category: 'Basic', params: { width: 1, height: 1 } },
-      'twistGeometry': { category: 'Deform', params: { geometry: null, angle: 0.785, axis: [0, 1, 0] } },
-      'taperGeometry': { category: 'Deform', params: { geometry: null, topScale: [0.5, 0.5] } },
-      'bendGeometry': { category: 'Deform', params: { geometry: null, angle: 0.785 } },
-      'deformByNoise': { category: 'Deform', params: { geometry: null, amount: 0.2, frequency: 1.0 } },
-      'repeatLinear3d': { category: 'Distribution', params: { geometry: null, count: 3, spacing: 1, axis: 'x' } },
-      'repeatRadial3d': { category: 'Distribution', params: { geometry: null, count: 8, radius: 5 } },
-      'distributeOnGrid3d': { category: 'Distribution', params: { geometry: null, rows: 3, cols: 3, spacing: [2, 0, 2] } },
-      'modifyGeometry': { category: 'Emergent', params: { geometry: null, operations: [] } },
-      'loop': { category: 'Logic', params: { var: 'i', from: 0, to: 10, body: [] } },
-    };
-
-    // --- SAMPLE SCHEMAS ---
+    // --- SCHEMA STATE ---
     let schema = {
-      "version": "4.9",
-      "intent": "My Design",
-      "globalParameters": {
-        "scale": { "value": 1.0, "type": "number", "min": 0.5, "max": 2.0, "group": "General" },
-        "detail": { "value": 32, "type": "integer", "min": 8, "max": 64, "group": "General" }
+      "version": "5.0",
+      "type": "emergent_procedure",
+      "intent": "Custom Procedure",
+      "materials": {
+        "default": { "color": "#888888", "roughness": 0.7, "metalness": 0.1 }
       },
+      "globalParameters": {
+        "width": { "value": 10, "type": "number", "min": 1, "max": 50, "group": "Dimensions" },
+        "height": { "value": 10, "type": "number", "min": 1, "max": 50, "group": "Dimensions" }
+      },
+      "context": {},
       "actions": []
     };
 
-    const schemas = {
-      schema1: {
-  "version": "4.9",
-  "type": "emergent_procedure",
-  "intent": "Decoupled Logic Tower",
-  "materials": {
-    "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
-    "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
-    "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
-    "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
-    "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
-  },
-  
-  // 1. INDEPENDENT PARAMETERS
-  "globalParameters": {
-    "floors": { "value": 15, "type": "integer", "min": 3, "max": 30, "group": "Massing" },
-    "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5, "group": "Massing" },
-    
-    // SLAB IS NOW INDEPENDENT
-    "slabWidth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
-    "slabDepth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
-    "slabThickness": { "value": 0.3, "type": "number", "min": 0.1, "max": 1.0, "group": "Slab" },
+    const HELPERS = [
+      "createBox", "createSphere", "createCylinder", "createPlane", "createCone", "createTorus",
+      "clone", "repeatLinear3d", "distributeOnGrid3d", "loop", "modifyGeometry", "transformMesh"
+    ];
 
-    // CORE IS INDEPENDENT
-    "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
-    "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
-    
-    // COLUMNS USE INSET FROM SLAB EDGE
-    "colRadius": { "value": 0.4, "type": "number", "min": 0.2, "max": 0.8, "group": "Columns" },
-    "colInsetX": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
-    "colInsetZ": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
-    
-    "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12, "group": "Facade" },
-    "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2, "group": "Animation" }
-  },
-  
-  "context": {}, 
-
-  "actions": [
-    // ----------------------------------------------------------------
-    // 1. SLAB (Uses slabWidth/Depth directly)
-    // ----------------------------------------------------------------
-    { 
-      "thought": "1. Create Slab Base", 
-      "do": "createBox", 
-      "params": { 
-        "width": "ctx.slabWidth", 
-        "height": "ctx.slabThickness", 
-        "depth": "ctx.slabDepth" 
-      }, 
-      "transform": { "position": [0, "-ctx.slabThickness/2", 0] }, 
-      "as": "slab_mesh",
-      "controls": ["slabWidth", "slabDepth", "slabThickness"] 
-    },
-
-    // ----------------------------------------------------------------
-    // 2. CORE
-    // ----------------------------------------------------------------
-    { 
-      "thought": "2. Create Core", 
-      "do": "createBox", 
-      "params": { 
-        "width": "ctx.coreWidth", 
-        "height": "ctx.floorHeight", 
-        "depth": "ctx.coreDepth" 
-      }, 
-      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
-      "as": "core_mesh",
-      "controls": ["coreWidth", "coreDepth"]
-    },
-
-    // ----------------------------------------------------------------
-    // 3. COLUMNS (Position based on Slab Width minus Inset)
-    // ----------------------------------------------------------------
-    { 
-      "thought": "3. Define Columns", 
-      "do": "createCylinder", 
-      "params": { 
-        "radiusTop": "ctx.colRadius", 
-        "radiusBottom": "ctx.colRadius", 
-        "height": "ctx.floorHeight" 
-      }, 
-      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
-      "as": "col_base",
-      "controls": ["colRadius", "floorHeight"]
-    },
-    { 
-      "thought": "4. Distribute Columns", 
-      "do": "distributeOnGrid3d", 
-      "params": { 
-        "geometry": "col_base", 
-        "rows": 2, "cols": 2, 
-        "spacing": [
-          "ctx.slabWidth - (ctx.colInsetX * 2)", 
-          0, 
-          "ctx.slabDepth - (ctx.colInsetZ * 2)"
-        ], 
-        "centered": true, "autoMerge": true 
-      }, 
-      "as": "cols_mesh",
-      "controls": ["colInsetX", "colInsetZ"]
-    },
-
-    // ----------------------------------------------------------------
-    // 4. FACADE PANELS (Follows Slab Size)
-    // ----------------------------------------------------------------
-    { 
-      "thought": "5. Create Facade Geometry", 
-      "do": "createBox", 
-      "params": { 
-        "width": "ctx.slabWidth / ctx.panelsPerSide - 0.1", 
-        "height": "ctx.floorHeight", 
-        "depth": 0.2 
-      }, 
-      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
-      "as": "panel_horz",
-      "controls": ["panelsPerSide"]
-    },
-    { 
-      "do": "createBox", 
-      "params": { 
-        "width": 0.2, 
-        "height": "ctx.floorHeight", 
-        "depth": "ctx.slabDepth / ctx.panelsPerSide - 0.1" 
-      }, 
-      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
-      "as": "panel_vert" 
-    },
-
-    // ----------------------------------------------------------------
-    // 5. FACADE ASSEMBLY
-    // ----------------------------------------------------------------
-    { 
-      "thought": "6. Assemble Facade", 
-      "do": "repeatLinear3d", 
-      "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, 
-      "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, 
-      "as": "front_even" 
-    },
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, "as": "front_odd" },
-    
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_even" },
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_odd" },
-
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-ctx.slabWidth/2 + 0.1", 0, "-(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "left_even" },
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-ctx.slabWidth/2 + 0.1", 0, "(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "left_odd" },
-
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["ctx.slabWidth/2 - 0.1", 0, "-(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "right_even" },
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["ctx.slabWidth/2 - 0.1", 0, "(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "right_odd" },
-
-    // ----------------------------------------------------------------
-    // 6. STACKING
-    // ----------------------------------------------------------------
-    { 
-      "thought": "7. Stack Floors", 
-      "do": "loop", "var": "i", "from": 0, "to": "ctx.floors",
-      "controls": ["floors", "rotationPerFloor"],
-      "body": [
-         { "do": "clone", "params": {"id":"slab_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "floor_slab" },
-         { "do": "clone", "params": {"id":"core_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "core" },
-         { "do": "clone", "params": {"id":"cols_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "column" },
-         { "do": "clone", "params": {"id":"front_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
-         { "do": "clone", "params": {"id":"front_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
-         { "do": "clone", "params": {"id":"back_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
-         { "do": "clone", "params": {"id":"back_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
-         { "do": "clone", "params": {"id":"left_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
-         { "do": "clone", "params": {"id":"left_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
-         { "do": "clone", "params": {"id":"right_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
-         { "do": "clone", "params": {"id":"right_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" }
-      ] 
-    }
-  ]
-},
-      schema2: {
-        "version": "4.9", "intent": "Noise Eroded Column",
-        "materials": { "concrete": { "color": "#8c8c8c" }, "inner_core": { "color": "#333333" } },
-        "globalParameters": {
-          "height": { "value": 12, "min": 5, "max": 20 },
-          "width": { "value": 3, "min": 1, "max": 6 },
-          "layerCount": { "value": 100, "type": "integer", "min": 20, "max": 200 },
-          "erosionScale": { "value": 0.8, "min": 0.1, "max": 2.0 },
-          "erosionDepth": { "value": 1.2, "min": 0, "max": 2.0 },
-          "chaos": { "value": 1.5, "min": 0, "max": 5.0 }
-        },
-        "actions": [
-          { "thought": "Define Base Geometry", "do": "createBox", "as": "slice_geo", "controls": ["width", "height", "layerCount"] },
-          { "thought": "Define Inner Core", "do": "createBox", "as": "core_geo" },
-          {
-            "thought": "Erode & Stack Loop",
-            "do": "loop", "var": "i", "from": 0, "to": "ctx.layerCount",
-            "controls": ["erosionScale", "erosionDepth", "chaos"],
-            "body": [
-              {
-                "do": "clone", "params": { "id": "slice_geo" },
-                "transform": {
-                  "position": [0, "i * (ctx.height / ctx.layerCount)", 0],
-                  "scale": [
-                    "1.0 - Math.max(0, (Math.sin(i * 0.1 * ctx.erosionScale) + Math.cos(i * 0.3 * ctx.chaos)) * ctx.erosionDepth * 0.5)", 
-                    1, 
-                    "1.0 - Math.max(0, (Math.cos(i * 0.1 * ctx.erosionScale) + Math.sin(i * 0.33 * ctx.chaos)) * ctx.erosionDepth * 0.5)"
-                  ],
-                  "rotation": [0, "i * 0.02", 0]
-                },
-                "material": "concrete"
-              },
-              {
-                "do": "clone", "params": { "id": "core_geo" },
-                "transform": { "position": [0, "i * (ctx.height / ctx.layerCount)", 0], "rotation": [0, "i * 0.02", 0] },
-                "material": "inner_core"
-              }
-            ]
-          }
-        ]
-      },
-      schema3: {
-        "version": "4.9", "intent": "Deformed Surface Monolith",
-        "materials": { "stone": { "color": "#e0e0e0" } },
-        "globalParameters": {
-          "width": { "value": 6, "min": 2, "max": 10 },
-          "height": { "value": 12, "min": 5, "max": 20 },
-          "resolution": { "value": 30, "type": "integer", "min": 10, "max": 100 },
-          "waveFreq": { "value": 0.8, "min": 0.1, "max": 2.0 },
-          "waveAmp": { "value": 1.5, "min": 0.0, "max": 3.0 },
-          "taper": { "value": 0.3, "min": -0.5, "max": 1.0 }
-        },
-        "actions": [
-          { "thought": "Create High-Res Mesh", "do": "createBox", "as": "base_mesh", "controls": ["width", "height", "resolution"] },
-          { "thought": "Apply Deformations", "do": "modifyGeometry", "params": {
-              "geometry": "base_mesh",
-              "operations": [
-                { "type": "displace", "expression": "v.x += Math.sin(v.y * ctx.waveFreq) * ctx.waveAmp; v.z += Math.cos(v.y * ctx.waveFreq) * ctx.waveAmp;" },
-                { "type": "scale", "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;" }
-              ]
-            },
-            "material": "stone",
-            "as": "final_mesh", "controls": ["waveFreq", "waveAmp", "taper"]
-          }
-        ]
-      }, 
-      schema4: {
-  "version": "4.9",
-  "type": "emergent_procedure",
-  "intent": "Column-Safe Voxel Monolith",
-  "materials": {
-    "stone": { "color": "#e0e0e0", "roughness": 0.9, "metalness": 0.1 }
-  },
-  "globalParameters": {
-    // DIMENSIONS (Works for Columns now)
-    "width": { "value": 4, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
-    "height": { "value": 14, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
-    "depth": { "value": 4, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
-    
-    // QUALITY
-    "resolution": { "value": 60, "type": "integer", "min": 20, "max": 120, "group": "Quality" },
-    
-    // VOXEL EROSION
-    "voxelSize": { "value": 0.5, "type": "number", "min": 0.1, "max": 2.0, "group": "Voxel Layer" },
-    "erosionThreshold": { "value": 0.4, "type": "number", "min": 0.0, "max": 0.9, "group": "Voxel Layer" },
-    "layerDepth": { "value": 1.0, "type": "number", "min": 0.5, "max": 5.0, "group": "Voxel Layer" },
-    
-    // BASE SHAPE
-    "taper": { "value": 0.2, "type": "number", "min": -0.5, "max": 1.0, "group": "Base Shape" }
-  },
-  "context": {},
-  "actions": [
-    // 1. Create Base Core
-    {
-      "thought": "1. Create Base Core",
-      "do": "createBox",
-      "params": {
-        "width": "ctx.width",
-        "height": "ctx.height",
-        "depth": "ctx.depth",
-        "widthSegments": "ctx.resolution",
-        "heightSegments": "ctx.resolution",
-        "depthSegments": "ctx.resolution"
-      },
-      "as": "base_mesh",
-      "controls": ["width", "height", "depth", "resolution"]
-    },
-    
-    // 2. Normalized Axis-Aligned Erosion
-    {
-      "thought": "2. Apply Aspect-Ratio Correct Erosion",
-      "do": "modifyGeometry",
-      "params": {
-        "geometry": "base_mesh",
-        "operations": [
-          // 1. Voxel Erosion (Normalized Logic)
-          {
-            "type": "displace",
-            "expression": `
-              // A. Voxel Quantization
-              var step = ctx.voxelSize;
-              var qx = Math.floor(v.x / step);
-              var qy = Math.floor(v.y / step);
-              var qz = Math.floor(v.z / step);
-
-              // B. Generate Hash
-              var dot = qx * 12.9898 + qy * 78.233 + qz * 37.719;
-              var hash = Math.sin(dot) * 43758.5453;
-              var noise = hash - Math.floor(hash);
-
-              // C. EXTRUDE
-              if (noise > ctx.erosionThreshold) {
-                  // NORMALIZE coordinates relative to box dimensions
-                  // This makes a 2x10x2 column "feel" like a 1x1x1 cube for logic purposes
-                  var nx = Math.abs(v.x / (ctx.width * 0.5));
-                  var ny = Math.abs(v.y / (ctx.height * 0.5));
-                  var nz = Math.abs(v.z / (ctx.depth * 0.5));
-
-                  var dx = 0.0;
-                  var dy = 0.0;
-                  var dz = 0.0;
-
-                  // Check which NORMALIZED face is closest
-                  if (nx >= ny && nx >= nz) {
-                      dx = (v.x > 0) ? 1.0 : -1.0;
-                  } else if (ny >= nx && ny >= nz) {
-                      dy = (v.y > 0) ? 1.0 : -1.0;
-                  } else {
-                      dz = (v.z > 0) ? 1.0 : -1.0;
-                  }
-
-                  // Push along that direction
-                  v.x += dx * ctx.layerDepth;
-                  v.y += dy * ctx.layerDepth;
-                  v.z += dz * ctx.layerDepth;
-              }
-            `
-          },
-          
-          // 2. Apply Taper (Must happen AFTER erosion)
-          {
-            "type": "scale",
-            "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;"
-          }
-        ]
-      },
-      "material": "stone",
-      "controls": ["voxelSize", "erosionThreshold", "layerDepth", "taper"]
-    }
-  ]
-}
-
-    };
-
-    // --- UI STATE ---
-    const tabs = {
-      controls: document.getElementById('tab-controls'),
-      recipe: document.getElementById('tab-recipe'),
-      json: document.getElementById('tab-json')
-    };
-    const jsonInput = document.getElementById('json-input');
-
-    // --- UI FUNCTIONS ---
-    APP.setTab = function(name) {
+    // --- UI LOGIC ---
+    window.setTab = (name) => {
       document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
-
-      document.querySelector(`.tab[onclick="APP.setTab('${name}')"]`).classList.add('active');
-      tabs[name].classList.add('active');
-
-      if (name === 'json') {
-        jsonInput.value = JSON.stringify(schema, null, 2);
-      }
+      
+      document.querySelector(`.tab[onclick="setTab('${name}')"]`).classList.add('active');
+      document.getElementById(`tab-${name}`).classList.add('active');
     };
 
-    APP.loadSchema = function(key) {
-      schema = JSON.parse(JSON.stringify(schemas[key]));
-      renderUI();
+    // --- GLOBAL PARAMETERS UI ---
+    window.addGlobalParam = () => {
+      const key = `param_${Date.now()}`;
+      schema.globalParameters[key] = { value: 5, type: "number", min: 0, max: 100, group: "Custom" };
+      renderGlobals();
       run();
     };
 
-    // --- SLIDER CREATION ---
-    function createSlider(key, def, context = 'global') {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'control';
+    window.removeGlobalParam = (key) => {
+      delete schema.globalParameters[key];
+      renderGlobals();
+      run();
+    };
 
-      const header = document.createElement('div');
-      header.className = 'control-header';
-      const val = document.createElement('span');
-      val.className = 'control-val';
-      val.innerText = def.value;
-      val.id = `val-${context}-${key}`;
+    window.updateGlobalParam = (key, field, value) => {
+      if (field === 'value') schema.globalParameters[key].value = parseFloat(value) || 0;
+      else if (field === 'min') schema.globalParameters[key].min = parseFloat(value) || 0;
+      else if (field === 'max') schema.globalParameters[key].max = parseFloat(value) || 100;
+      else if (field === 'key') {
+        schema.globalParameters[value] = schema.globalParameters[key];
+        delete schema.globalParameters[key];
+        renderGlobals();
+      }
+      run();
+    };
 
-      header.innerHTML = `<span class="control-label">${key}</span>`;
-      header.appendChild(val);
+    function renderGlobals() {
+      const container = document.getElementById('globals-container');
+      container.innerHTML = '';
 
-      const input = document.createElement('input');
-      input.type = 'range';
-      input.min = def.min;
-      input.max = def.max;
-      input.step = def.type === 'integer' ? 1 : 0.01;
-      input.value = def.value;
-      input.setAttribute('data-key', key);
-      input.setAttribute('data-context', context);
+      for (const [key, param] of Object.entries(schema.globalParameters)) {
+        const group = document.createElement('div');
+        group.className = 'global-group';
 
-      input.oninput = (e) => {
-        const parsed = def.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
-        def.value = parsed;
-
-        // Update ALL displays of this key
-        document.querySelectorAll(`[id^="val-"][id$="-${key}"]`).forEach(el => el.innerText = parsed);
-        document.querySelectorAll(`input[data-key="${key}"]`).forEach(el => el.value = parsed);
-
-        run();
-      };
-
-      wrapper.appendChild(header);
-      wrapper.appendChild(input);
-      return wrapper;
+        const headerHtml = `
+          <div class="global-header">
+            <span>Parameter</span>
+            <button class="btn-add-global" onclick="removeGlobalParam('${key}')">×</button>
+          </div>
+          <div class="global-item">
+            <label style="font-size: 10px; min-width: 40px;">Name:</label>
+            <input type="text" value="${key}" onchange="updateGlobalParam('${key}', 'key', this.value)" placeholder="param name" />
+          </div>
+          <div class="global-item">
+            <label style="font-size: 10px; min-width: 40px;">Value:</label>
+            <input type="number" value="${param.value}" onchange="updateGlobalParam('${key}', 'value', this.value)" />
+          </div>
+          <div class="global-item">
+            <label style="font-size: 10px; min-width: 40px;">Min:</label>
+            <input type="number" value="${param.min}" onchange="updateGlobalParam('${key}', 'min', this.value)" />
+          </div>
+          <div class="global-item">
+            <label style="font-size: 10px; min-width: 40px;">Max:</label>
+            <input type="number" value="${param.max}" onchange="updateGlobalParam('${key}', 'max', this.value)" />
+          </div>
+        `;
+        group.innerHTML = headerHtml;
+        container.appendChild(group);
+      }
     }
 
-    // --- RENDER UI ---
-    function renderUI() {
-      // CONTROLS TAB
-      tabs.controls.innerHTML = '';
-      const groups = {};
-      for (const [key, def] of Object.entries(schema.globalParameters)) {
-        const g = def.group || 'General';
-        if (!groups[g]) groups[g] = [];
-        groups[g].push({ key, def });
-      }
+    // --- TIMELINE ACTIONS UI ---
+    window.addStep = (afterIndex = -1) => {
+      const newStep = {
+        "thought": "New Step",
+        "do": "createBox",
+        "params": { "width": "ctx.width", "height": "ctx.height", "depth": "ctx.width" },
+        "transform": { "position": [0, 0, 0] },
+        "as": `step_${Date.now()}`,
+        "material": "default"
+      };
 
-      for (const [gName, items] of Object.entries(groups)) {
-        const title = document.createElement('div');
-        title.className = 'group-title';
-        title.innerText = gName;
-        tabs.controls.appendChild(title);
-        items.forEach(({ key, def }) => tabs.controls.appendChild(createSlider(key, def, 'ctrl')));
-      }
+      if (afterIndex >= 0) schema.actions.splice(afterIndex + 1, 0, newStep);
+      else schema.actions.push(newStep);
 
-      // RECIPE TAB
-      tabs.recipe.innerHTML = '';
+      renderTimeline();
+      run();
+    };
+
+    window.removeStep = (index) => {
+      schema.actions.splice(index, 1);
+      renderTimeline();
+      run();
+    };
+
+    window.openAddMenu = (index) => {
+      const overlay = document.getElementById('menu-overlay');
+      const popup = document.getElementById('menu-popup');
+      overlay.classList.add('active');
+
+      popup.innerHTML = HELPERS.map(h => `<div class="menu-item" onclick="addStepWithHelper('${h}', ${index})">${h}</div>`).join('');
+
+      const btn = event.target;
+      const rect = btn.getBoundingClientRect();
+      popup.style.top = rect.bottom + 'px';
+      popup.style.left = rect.left + 'px';
+    };
+
+    window.addStepWithHelper = (helper, index) => {
+      const newStep = {
+        "thought": `Use ${helper}`,
+        "do": helper,
+        "params": helper === "loop" ? { "var": "i", "from": 0, "to": 10, "body": [] } : { "width": "ctx.width" },
+        "as": `${helper}_${Date.now()}`,
+        "material": "default"
+      };
+
+      schema.actions.splice(index + 1, 0, newStep);
+      closeAddMenu();
+      renderTimeline();
+      run();
+    };
+
+    window.closeAddMenu = () => {
+      document.getElementById('menu-overlay').classList.remove('active');
+    };
+
+    window.updateStepField = (index, field, value) => {
+      if (field === 'thought') schema.actions[index].thought = value;
+      else if (field === 'do') schema.actions[index].do = value;
+      else if (field === 'as') schema.actions[index].as = value;
+      else if (field === 'material') schema.actions[index].material = value;
+      else if (field.startsWith('param-')) {
+        const paramKey = field.replace('param-', '');
+        try {
+          schema.actions[index].params[paramKey] = value;
+        } catch(e) { }
+      }
+      run();
+    };
+
+    function renderTimeline() {
+      const container = document.getElementById('timeline-container');
+      container.innerHTML = '';
+
       schema.actions.forEach((action, i) => {
         const card = document.createElement('div');
         card.className = 'step-card';
 
-        const header = document.createElement('div');
-        header.className = 'step-header';
-        header.innerHTML = `
-          <div class="step-num">${i+1}</div>
-          <div class="step-title">${action.thought}</div>
-          <div class="step-type">${action.do}</div>
-          <div class="step-delete" onclick="APP.deleteStep(${i})">✕</div>
+        const header = `
+          <div class="step-header">
+            <div class="step-num">${i+1}</div>
+            <input class="step-title-input" value="${action.thought || ''}" onchange="updateStepField(${i}, 'thought', this.value)" placeholder="Step description" />
+            <div class="step-actions">
+              <button class="step-btn step-btn-add" onclick="openAddMenu(${i})" title="Add step after">+</button>
+              <button class="step-btn step-btn-remove" onclick="removeStep(${i})" title="Remove step">×</button>
+            </div>
+          </div>
         `;
-        card.appendChild(header);
 
-        if (action.controls && action.controls.length > 0) {
-          const controlsArea = document.createElement('div');
-          controlsArea.className = 'step-controls';
-          action.controls.forEach(key => {
-            if (schema.globalParameters[key]) {
-              controlsArea.appendChild(createSlider(key, schema.globalParameters[key], `recipe-${i}`));
-            }
-          });
-          card.appendChild(controlsArea);
-        }
+        const bodyHtml = `
+          <div class="step-body">
+            <div class="field-group">
+              <label class="field-label">Helper (do)</label>
+              <select class="helper-select" value="${action.do}" onchange="updateStepField(${i}, 'do', this.value)">
+                <option value="">-- Select --</option>
+                ${HELPERS.map(h => `<option value="${h}" ${action.do === h ? 'selected' : ''}>${h}</option>`).join('')}
+              </select>
+            </div>
 
-        tabs.recipe.appendChild(card);
+            <div class="field-group">
+              <label class="field-label">Output Name (as)</label>
+              <input type="text" value="${action.as || ''}" onchange="updateStepField(${i}, 'as', this.value)" placeholder="e.g., box_mesh" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--text); font-size: 11px;" />
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Parameters (JSON)</label>
+              <textarea class="expr-input" onchange="updateStepField(${i}, 'params', this.value)" placeholder='{"width": "ctx.width"}'>${JSON.stringify(action.params || {})}</textarea>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Material</label>
+              <input type="text" value="${action.material || 'default'}" onchange="updateStepField(${i}, 'material', this.value)" placeholder="material name" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--text); font-size: 11px;" />
+            </div>
+          </div>
+        `;
+
+        card.innerHTML = header + bodyHtml;
+        container.appendChild(card);
       });
-
-      // ADD BUTTON
-      const addCard = document.createElement('div');
-      addCard.className = 'step-card add-card';
-      addCard.innerText = '+ Add Step';
-      addCard.onclick = () => APP.openHelperMenu();
-      tabs.recipe.appendChild(addCard);
     }
-
-    // --- HELPER MENU ---
-    APP.openHelperMenu = function() {
-      const list = document.getElementById('helper-list');
-      list.innerHTML = '';
-      const categories = {};
-
-      for (const [name, info] of Object.entries(helpers)) {
-        if (!categories[info.category]) categories[info.category] = [];
-        categories[info.category].push(name);
-      }
-
-      for (const [cat, items] of Object.entries(categories)) {
-        const catTitle = document.createElement('div');
-        catTitle.className = 'helper-category';
-        catTitle.innerText = cat;
-        list.appendChild(catTitle);
-
-        items.forEach(name => {
-          const item = document.createElement('div');
-          item.className = 'helper-item';
-          item.innerText = name;
-          item.onclick = () => APP.addStep(name);
-          list.appendChild(item);
-        });
-      }
-
-      document.getElementById('helper-menu').classList.add('open');
-      document.getElementById('overlay').classList.add('open');
-    };
-
-    APP.closeHelperMenu = function() {
-      document.getElementById('helper-menu').classList.remove('open');
-      document.getElementById('overlay').classList.remove('open');
-    };
-
-    APP.addStep = function(helperName) {
-      const helperInfo = helpers[helperName];
-      const newAction = {
-        thought: helperName,
-        do: helperName,
-        params: { ...helperInfo.params },
-        as: `obj_${Date.now().toString().slice(-4)}`,
-        controls: []
-      };
-      schema.actions.push(newAction);
-      APP.closeHelperMenu();
-      renderUI();
-      run();
-    };
-
-    APP.deleteStep = function(index) {
-      schema.actions.splice(index, 1);
-      renderUI();
-      run();
-    };
-
-    APP.updateFromJSON = function() {
-      try {
-        schema = JSON.parse(jsonInput.value);
-        renderUI();
-        run();
-        APP.setTab('controls');
-      } catch (e) {
-        alert('Invalid JSON: ' + e.message);
-      }
-    };
 
     // --- 3D ENGINE ---
     const canvas = document.querySelector('#gl');
@@ -785,10 +459,10 @@
     function setupScene() {
       renderer.setSize(canvas.clientWidth, canvas.clientHeight);
       camera.aspect = canvas.clientWidth / canvas.clientHeight;
-      camera.position.set(60, 50, 60);
+      camera.position.set(40, 40, 40);
       camera.updateProjectionMatrix();
       controls.enableDamping = true;
-      controls.target.set(0, 20, 0);
+      controls.target.set(0, 0, 0);
       scene.background = new THREE.Color(0x111114);
       scene.add(new THREE.AmbientLight(0xffffff, 0.6));
       const dirLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -796,7 +470,7 @@
       scene.add(dirLight);
       scene.add(new THREE.GridHelper(100, 20, 0x333333, 0x111111));
     }
-
+    
     function run() {
       if (currentMesh) {
         scene.remove(currentMesh);
@@ -816,14 +490,15 @@
         currentMesh.traverse(c => { if (c.isMesh) count++; });
         document.getElementById('stats').innerText = `Meshes: ${count}`;
       } catch (e) {
-        console.error(e);
         document.getElementById('stats').innerText = `Error: ${e.message.substring(0, 30)}`;
+        console.error(e);
       }
     }
 
     // INIT
     setupScene();
-    renderUI();
+    renderGlobals();
+    renderTimeline();
     run();
 
     function animate() {
@@ -837,7 +512,7 @@
       renderer.setSize(canvas.clientWidth, canvas.clientHeight);
       camera.aspect = canvas.clientWidth / canvas.clientHeight;
       camera.updateProjectionMatrix();
-    };
+    }
   </script>
 </body>
 </html>
