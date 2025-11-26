@@ -151,24 +151,399 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
 
+    // --- HELPER DEFINITIONS WITH PARAMS ---
     const helpers = {
+      // Basic Geometry
       'createBox': { category: 'Basic', params: { width: 1, height: 1, depth: 1, widthSegments: 1, heightSegments: 1, depthSegments: 1 } },
+      'createSphere': { category: 'Basic', params: { radius: 1, widthSegments: 32, heightSegments: 16 } },
       'createCylinder': { category: 'Basic', params: { radiusTop: 1, radiusBottom: 1, height: 1, radialSegments: 32, heightSegments: 1 } },
+      'createCone': { category: 'Basic', params: { radius: 1, height: 1, radialSegments: 32, heightSegments: 1 } },
+      'createTorus': { category: 'Basic', params: { radius: 1, tube: 0.4, radialSegments: 16, tubularSegments: 100 } },
+      'createCircle': { category: 'Basic', params: { radius: 1, segments: 32 } },
+      'createPlane': { category: 'Basic', params: { width: 1, height: 1, widthSegments: 1, heightSegments: 1 } },
+
+      // Advanced
+      'createLoft': { category: 'Advanced', params: { profiles: [], heights: null, segments: 32, closed: false } },
+      'createLathe': { category: 'Advanced', params: { points: [], segments: 12 } },
+      'createConvexHull': { category: 'Advanced', params: { points: [] } },
+      'createParametricSurface': { category: 'Advanced', params: { func: null, slices: 32, stacks: 32 } },
+
+      // Curves
+      'createSplinePath': { category: 'Curves', params: { points: [], tension: 0.5 } },
+      'createArcPath': { category: 'Curves', params: { center: [0, 0, 0], radius: 1, startAngle: 0, endAngle: Math.PI, segments: 32 } },
+      'createHelixPath': { category: 'Curves', params: { radius: 1, height: 3, turns: 3, segments: 128 } },
+
+      // Deformations
+      'twistGeometry': { category: 'Deform', params: { geometry: null, angle: 0.785, axis: [0, 1, 0], height: null } },
+      'taperGeometry': { category: 'Deform', params: { geometry: null, topScale: [0.5, 0.5], axis: [0, 1, 0], height: null } },
+      'bendGeometry': { category: 'Deform', params: { geometry: null, angle: 0.785, direction: [1, 0, 0] } },
+      'deformByNoise': { category: 'Deform', params: { geometry: null, amount: 0.2, frequency: 1.0, axis: [0, 1, 0] } },
+
+      // Distribution
+      'repeatLinear3d': { category: 'Distribution', params: { geometry: null, count: 3, spacing: 1, axis: 'x', centered: false, autoMerge: true } },
+      'repeatRadial3d': { category: 'Distribution', params: { geometry: null, count: 8, radius: 5, startAngle: 0, endAngle: 6.28, axis: 'y', faceCenter: true, autoMerge: true } },
       'distributeOnGrid3d': { category: 'Distribution', params: { geometry: null, rows: 3, cols: 3, spacing: [2, 0, 2], centered: true, autoMerge: true } },
+      'distributeRandom3d': { category: 'Distribution', params: { geometry: null, bounds: [[0, 0, 0], [1, 1, 1]], count: 50, seed: 42, autoMerge: true } },
+
+      // Procedural
+      'cellularAutomata': { category: 'Procedural', params: { gridSize: 10, iterations: 10, rules: { survive: [2, 3], born: [3] } } },
+      'lSystemGeometry': { category: 'Procedural', params: { axiom: 'F', rules: {}, iterations: 3, angle: 25, length: 1, thickness: 0.1 } },
+
+      // Emergent
+      'modifyGeometry': { category: 'Emergent', params: { geometry: null, operations: [], expression: '', context: {} } },
+      'meshFromMarchingCubes': { category: 'Emergent', params: { resolution: 32, isovalue: 0.5, bounds: 10, expression: '', context: {} } },
+
+      // Utilities
+      'mergeGeometries': { category: 'Utility', params: { geometries: [] } },
       'loop': { category: 'Logic', params: { var: 'i', from: 0, to: 10, body: [] } },
     };
 
+    // --- SCHEMAS ---
     const schemas = {
       schema1: {
-        "version": "4.9", "intent": "Logic Tower",
-        "globalParameters": { "floors": { "value": 15, "type": "integer", "min": 3, "max": 30 } },
-        "actions": [ { "thought": "Create Slab", "do": "createBox", "params": { "width": 12, "height": 0.3, "depth": 12 }, "as": "slab" } ]
-      },
+  "version": "4.9",
+  "type": "emergent_procedure",
+  "intent": "Decoupled Logic Tower",
+  "materials": {
+    "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
+    "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
+    "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
+    "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
+    "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
+  },
+  
+  // 1. INDEPENDENT PARAMETERS
+  "globalParameters": {
+    "floors": { "value": 15, "type": "integer", "min": 3, "max": 30, "group": "Massing" },
+    "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5, "group": "Massing" },
+    
+    // SLAB IS NOW INDEPENDENT
+    "slabWidth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
+    "slabDepth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
+    "slabThickness": { "value": 0.3, "type": "number", "min": 0.1, "max": 1.0, "group": "Slab" },
+
+    // CORE IS INDEPENDENT
+    "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
+    "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
+    
+    // COLUMNS USE INSET FROM SLAB EDGE
+    "colRadius": { "value": 0.4, "type": "number", "min": 0.2, "max": 0.8, "group": "Columns" },
+    "colInsetX": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
+    "colInsetZ": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
+    
+    "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12, "group": "Facade" },
+    "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2, "group": "Animation" }
+  },
+  
+  "context": {}, 
+
+  "actions": [
+    // ----------------------------------------------------------------
+    // 1. SLAB (Uses slabWidth/Depth directly)
+    // ----------------------------------------------------------------
+    { 
+      "thought": "1. Create Slab Base", 
+      "do": "createBox", 
+      "params": { 
+        "width": "ctx.slabWidth", 
+        "height": "ctx.slabThickness", 
+        "depth": "ctx.slabDepth" 
+      }, 
+      "transform": { "position": [0, "-ctx.slabThickness/2", 0] }, 
+      "as": "slab_mesh",
+      "controls": ["slabWidth", "slabDepth", "slabThickness"] 
+    },
+
+    // ----------------------------------------------------------------
+    // 2. CORE
+    // ----------------------------------------------------------------
+    { 
+      "thought": "2. Create Core", 
+      "do": "createBox", 
+      "params": { 
+        "width": "ctx.coreWidth", 
+        "height": "ctx.floorHeight", 
+        "depth": "ctx.coreDepth" 
+      }, 
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+      "as": "core_mesh",
+      "controls": ["coreWidth", "coreDepth"]
+    },
+
+    // ----------------------------------------------------------------
+    // 3. COLUMNS (Position based on Slab Width minus Inset)
+    // ----------------------------------------------------------------
+    { 
+      "thought": "3. Define Columns", 
+      "do": "createCylinder", 
+      "params": { 
+        "radiusTop": "ctx.colRadius", 
+        "radiusBottom": "ctx.colRadius", 
+        "height": "ctx.floorHeight" 
+      }, 
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+      "as": "col_base",
+      "controls": ["colRadius", "floorHeight"]
+    },
+    { 
+      "thought": "4. Distribute Columns", 
+      "do": "distributeOnGrid3d", 
+      "params": { 
+        "geometry": "col_base", 
+        "rows": 2, "cols": 2, 
+        "spacing": [
+          "ctx.slabWidth - (ctx.colInsetX * 2)", 
+          0, 
+          "ctx.slabDepth - (ctx.colInsetZ * 2)"
+        ], 
+        "centered": true, "autoMerge": true 
+      }, 
+      "as": "cols_mesh",
+      "controls": ["colInsetX", "colInsetZ"]
+    },
+
+    // ----------------------------------------------------------------
+    // 4. FACADE PANELS (Follows Slab Size)
+    // ----------------------------------------------------------------
+    { 
+      "thought": "5. Create Facade Geometry", 
+      "do": "createBox", 
+      "params": { 
+        "width": "ctx.slabWidth / ctx.panelsPerSide - 0.1", 
+        "height": "ctx.floorHeight", 
+        "depth": 0.2 
+      }, 
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+      "as": "panel_horz",
+      "controls": ["panelsPerSide"]
+    },
+    { 
+      "do": "createBox", 
+      "params": { 
+        "width": 0.2, 
+        "height": "ctx.floorHeight", 
+        "depth": "ctx.slabDepth / ctx.panelsPerSide - 0.1" 
+      }, 
+      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
+      "as": "panel_vert" 
+    },
+
+    // ----------------------------------------------------------------
+    // 5. FACADE ASSEMBLY
+    // ----------------------------------------------------------------
+    { 
+      "thought": "6. Assemble Facade", 
+      "do": "repeatLinear3d", 
+      "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, 
+      "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, 
+      "as": "front_even" 
+    },
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, "as": "front_odd" },
+    
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_even" },
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_odd" },
+
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-ctx.slabWidth/2 + 0.1", 0, "-(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "left_even" },
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-ctx.slabWidth/2 + 0.1", 0, "(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "left_odd" },
+
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["ctx.slabWidth/2 - 0.1", 0, "-(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "right_even" },
+    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["ctx.slabWidth/2 - 0.1", 0, "(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "right_odd" },
+
+    // ----------------------------------------------------------------
+    // 6. STACKING
+    // ----------------------------------------------------------------
+    { 
+      "thought": "7. Stack Floors", 
+      "do": "loop", "var": "i", "from": 0, "to": "ctx.floors",
+      "controls": ["floors", "rotationPerFloor"],
+      "body": [
+         { "do": "clone", "params": {"id":"slab_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "floor_slab" },
+         { "do": "clone", "params": {"id":"core_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "core" },
+         { "do": "clone", "params": {"id":"cols_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "column" },
+         { "do": "clone", "params": {"id":"front_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+         { "do": "clone", "params": {"id":"front_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+         { "do": "clone", "params": {"id":"back_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+         { "do": "clone", "params": {"id":"back_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+         { "do": "clone", "params": {"id":"left_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+         { "do": "clone", "params": {"id":"left_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
+         { "do": "clone", "params": {"id":"right_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
+         { "do": "clone", "params": {"id":"right_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" }
+      ] 
+    }
+  ]
+},
       schema2: {
-        "version": "4.9", "intent": "Noise Column",
-        "globalParameters": { "layers": { "value": 50, "type": "integer", "min": 10, "max": 100 } },
-        "actions": [ { "thought": "Base Slice", "do": "createBox", "params": { "width": 4, "height": 0.2, "depth": 4 }, "as": "slice" } ]
-      }
+        "version": "4.9", "intent": "Noise Eroded Column",
+        "materials": { "concrete": { "color": "#8c8c8c" }, "inner_core": { "color": "#333333" } },
+        "globalParameters": {
+          "height": { "value": 12, "min": 5, "max": 20 },
+          "width": { "value": 3, "min": 1, "max": 6 },
+          "layerCount": { "value": 100, "type": "integer", "min": 20, "max": 200 },
+          "erosionScale": { "value": 0.8, "min": 0.1, "max": 2.0 },
+          "erosionDepth": { "value": 1.2, "min": 0, "max": 2.0 },
+          "chaos": { "value": 1.5, "min": 0, "max": 5.0 }
+        },
+        "actions": [
+          { "thought": "Define Base Geometry", "do": "createBox", "as": "slice_geo", "controls": ["width", "height", "layerCount"] },
+          { "thought": "Define Inner Core", "do": "createBox", "as": "core_geo" },
+          {
+            "thought": "Erode & Stack Loop",
+            "do": "loop", "var": "i", "from": 0, "to": "ctx.layerCount",
+            "controls": ["erosionScale", "erosionDepth", "chaos"],
+            "body": [
+              {
+                "do": "clone", "params": { "id": "slice_geo" },
+                "transform": {
+                  "position": [0, "i * (ctx.height / ctx.layerCount)", 0],
+                  "scale": [
+                    "1.0 - Math.max(0, (Math.sin(i * 0.1 * ctx.erosionScale) + Math.cos(i * 0.3 * ctx.chaos)) * ctx.erosionDepth * 0.5)", 
+                    1, 
+                    "1.0 - Math.max(0, (Math.cos(i * 0.1 * ctx.erosionScale) + Math.sin(i * 0.33 * ctx.chaos)) * ctx.erosionDepth * 0.5)"
+                  ],
+                  "rotation": [0, "i * 0.02", 0]
+                },
+                "material": "concrete"
+              },
+              {
+                "do": "clone", "params": { "id": "core_geo" },
+                "transform": { "position": [0, "i * (ctx.height / ctx.layerCount)", 0], "rotation": [0, "i * 0.02", 0] },
+                "material": "inner_core"
+              }
+            ]
+          }
+        ]
+      },
+      schema3: {
+        "version": "4.9", "intent": "Deformed Surface Monolith",
+        "materials": { "stone": { "color": "#e0e0e0" } },
+        "globalParameters": {
+          "width": { "value": 6, "min": 2, "max": 10 },
+          "height": { "value": 12, "min": 5, "max": 20 },
+          "resolution": { "value": 30, "type": "integer", "min": 10, "max": 100 },
+          "waveFreq": { "value": 0.8, "min": 0.1, "max": 2.0 },
+          "waveAmp": { "value": 1.5, "min": 0.0, "max": 3.0 },
+          "taper": { "value": 0.3, "min": -0.5, "max": 1.0 }
+        },
+        "actions": [
+          { "thought": "Create High-Res Mesh", "do": "createBox", "as": "base_mesh", "controls": ["width", "height", "resolution"] },
+          { "thought": "Apply Deformations", "do": "modifyGeometry", "params": {
+              "geometry": "base_mesh",
+              "operations": [
+                { "type": "displace", "expression": "v.x += Math.sin(v.y * ctx.waveFreq) * ctx.waveAmp; v.z += Math.cos(v.y * ctx.waveFreq) * ctx.waveAmp;" },
+                { "type": "scale", "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;" }
+              ]
+            },
+            "material": "stone",
+            "as": "final_mesh", "controls": ["waveFreq", "waveAmp", "taper"]
+          }
+        ]
+      }, 
+      schema4: {
+  "version": "4.9",
+  "type": "emergent_procedure",
+  "intent": "Column-Safe Voxel Monolith",
+  "materials": {
+    "stone": { "color": "#e0e0e0", "roughness": 0.9, "metalness": 0.1 }
+  },
+  "globalParameters": {
+    // DIMENSIONS (Works for Columns now)
+    "width": { "value": 4, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
+    "height": { "value": 14, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
+    "depth": { "value": 4, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
+    
+    // QUALITY
+    "resolution": { "value": 60, "type": "integer", "min": 20, "max": 120, "group": "Quality" },
+    
+    // VOXEL EROSION
+    "voxelSize": { "value": 0.5, "type": "number", "min": 0.1, "max": 2.0, "group": "Voxel Layer" },
+    "erosionThreshold": { "value": 0.4, "type": "number", "min": 0.0, "max": 0.9, "group": "Voxel Layer" },
+    "layerDepth": { "value": 1.0, "type": "number", "min": 0.5, "max": 5.0, "group": "Voxel Layer" },
+    
+    // BASE SHAPE
+    "taper": { "value": 0.2, "type": "number", "min": -0.5, "max": 1.0, "group": "Base Shape" }
+  },
+  "context": {},
+  "actions": [
+    // 1. Create Base Core
+    {
+      "thought": "1. Create Base Core",
+      "do": "createBox",
+      "params": {
+        "width": "ctx.width",
+        "height": "ctx.height",
+        "depth": "ctx.depth",
+        "widthSegments": "ctx.resolution",
+        "heightSegments": "ctx.resolution",
+        "depthSegments": "ctx.resolution"
+      },
+      "as": "base_mesh",
+      "controls": ["width", "height", "depth", "resolution"]
+    },
+    
+    // 2. Normalized Axis-Aligned Erosion
+    {
+      "thought": "2. Apply Aspect-Ratio Correct Erosion",
+      "do": "modifyGeometry",
+      "params": {
+        "geometry": "base_mesh",
+        "operations": [
+          // 1. Voxel Erosion (Normalized Logic)
+          {
+            "type": "displace",
+            "expression": `
+              // A. Voxel Quantization
+              var step = ctx.voxelSize;
+              var qx = Math.floor(v.x / step);
+              var qy = Math.floor(v.y / step);
+              var qz = Math.floor(v.z / step);
+
+              // B. Generate Hash
+              var dot = qx * 12.9898 + qy * 78.233 + qz * 37.719;
+              var hash = Math.sin(dot) * 43758.5453;
+              var noise = hash - Math.floor(hash);
+
+              // C. EXTRUDE
+              if (noise > ctx.erosionThreshold) {
+                  // NORMALIZE coordinates relative to box dimensions
+                  // This makes a 2x10x2 column "feel" like a 1x1x1 cube for logic purposes
+                  var nx = Math.abs(v.x / (ctx.width * 0.5));
+                  var ny = Math.abs(v.y / (ctx.height * 0.5));
+                  var nz = Math.abs(v.z / (ctx.depth * 0.5));
+
+                  var dx = 0.0;
+                  var dy = 0.0;
+                  var dz = 0.0;
+
+                  // Check which NORMALIZED face is closest
+                  if (nx >= ny && nx >= nz) {
+                      dx = (v.x > 0) ? 1.0 : -1.0;
+                  } else if (ny >= nx && ny >= nz) {
+                      dy = (v.y > 0) ? 1.0 : -1.0;
+                  } else {
+                      dz = (v.z > 0) ? 1.0 : -1.0;
+                  }
+
+                  // Push along that direction
+                  v.x += dx * ctx.layerDepth;
+                  v.y += dy * ctx.layerDepth;
+                  v.z += dz * ctx.layerDepth;
+              }
+            `
+          },
+          
+          // 2. Apply Taper (Must happen AFTER erosion)
+          {
+            "type": "scale",
+            "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;"
+          }
+        ]
+      },
+      "material": "stone",
+      "controls": ["voxelSize", "erosionThreshold", "layerDepth", "taper"]
+    }
+  ]
+}
+
     };
 
     let currentSchema = schemas.schema1;
