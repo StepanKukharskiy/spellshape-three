@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spellshape - Final UI</title>
-  
+  <title>Spellshape - Procedural Editor</title>
+
   <script type="importmap">
     {
       "imports": {
@@ -25,10 +25,10 @@
       --text-dim: #888;
     }
 
-    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); }
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); font-size: 12px; }
     .app { display: flex; height: 100vh; width: 100vw; }
-    
-    /* SIDEBAR */
+
     .sidebar {
       flex: 0 0 400px;
       width: 400px;
@@ -45,8 +45,8 @@
       background: var(--bg);
     }
     .header h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.5px; }
+    .header select { width: 100%; padding: 6px; margin-top: 8px; background: #111; border: 1px solid var(--border); color: #fff; border-radius: 4px; cursor: pointer; }
 
-    /* TABS */
     .tabs { display: flex; padding: 0 20px; border-bottom: 1px solid var(--border); }
     .tab {
       padding: 12px 0; margin-right: 20px;
@@ -57,11 +57,16 @@
     .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
     .tab:hover { color: #fff; }
 
-    /* CONTENT AREA */
     .content { flex: 1; overflow-y: auto; padding: 20px; display: none; }
     .content.active { display: block; }
 
-    /* SHARED SLIDER STYLES */
+    /* CONTROLS TAB */
+    .group-title {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-dim);
+      margin: 20px 0 12px 0; letter-spacing: 1px; border-bottom: 1px solid #333; padding-bottom: 4px;
+    }
+    .group-title:first-child { margin-top: 0; }
+
     .control { margin-bottom: 16px; }
     .control-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; }
     .control-val { font-family: monospace; color: var(--accent); }
@@ -80,61 +85,70 @@
     }
     input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); transform: scale(1.1); }
 
-    /* TAB 1: GROUPS */
-    .group-title {
-      font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-dim);
-      margin: 24px 0 12px 0; letter-spacing: 1px; border-bottom: 1px solid #333; padding-bottom: 4px;
-    }
-    .group-title:first-child { margin-top: 0; }
-
-    /* TAB 2: RECIPE CARDS */
+    /* RECIPE TAB */
     .step-card {
       background: var(--card); border: 1px solid var(--border); border-radius: 6px;
       padding: 14px; margin-bottom: 12px; position: relative;
     }
-    .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .step-card.add-card {
+      border: 2px dashed var(--accent); display: flex; align-items: center; justify-content: center;
+      cursor: pointer; min-height: 60px;
+    }
+    .step-card.add-card:hover { background: rgba(100, 108, 255, 0.1); }
+
+    .step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; justify-content: space-between; }
     .step-num { 
       width: 18px; height: 18px; background: #333; border-radius: 50%; 
       font-size: 10px; font-weight: bold; color: #888; 
       display: flex; align-items: center; justify-content: center;
     }
     .step-title { font-size: 13px; font-weight: 600; color: #fff; flex: 1; }
-    
-    .step-actions {
-      display: flex; gap: 8px; margin-left: auto;
-    }
-    .step-btn {
-      width: 24px; height: 24px; border: none; border-radius: 4px; cursor: pointer;
-      font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;
-      transition: all 0.2s;
-    }
-    .step-btn-add {
-      background: rgba(100, 108, 255, 0.2); color: var(--accent);
-    }
-    .step-btn-add:hover {
-      background: rgba(100, 108, 255, 0.4); transform: scale(1.1);
-    }
-    .step-btn-remove {
-      background: rgba(255, 100, 100, 0.2); color: #ff6464;
-    }
-    .step-btn-remove:hover {
-      background: rgba(255, 100, 100, 0.4); transform: scale(1.1);
-    }
-    
+    .step-type { font-family: monospace; font-size: 9px; color: var(--accent); background: rgba(100, 108, 255, 0.1); padding: 2px 6px; border-radius: 3px; }
+    .step-delete { font-size: 18px; cursor: pointer; color: #888; transition: color 0.2s; }
+    .step-delete:hover { color: #f44; }
+
     .step-controls { 
       margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); 
     }
 
-    /* TAB 3: JSON */
+    /* JSON TAB */
     textarea {
       width: 100%; height: 100%; background: #111; border: none;
-      color: #ccc; font-family: monospace; font-size: 11px; padding: 10px; resize: none;
+      color: #ccc; font-family: monospace; font-size: 11px; padding: 10px; resize: none; font-size: 11px;
     }
+
+    .json-footer {
+      padding: 10px; background: var(--panel); border-top: 1px solid var(--border);
+    }
+    .json-btn {
+      width: 100%; padding: 8px; background: var(--accent); border: none; border-radius: 4px;
+      color: white; cursor: pointer; font-weight: 600; font-size: 11px;
+    }
+    .json-btn:hover { opacity: 0.9; }
+
+    /* HELPER MENU */
+    .helper-menu {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      z-index: 1000; display: none; flex-direction: column; max-height: 60vh;
+    }
+    .helper-menu.open { display: flex; }
+    .helper-menu-header { padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; }
+    .helper-menu-list { overflow-y: auto; padding: 12px; flex: 1; }
+    .helper-item {
+      padding: 8px 12px; margin-bottom: 4px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 4px; cursor: pointer; transition: all 0.2s; font-size: 11px;
+    }
+    .helper-item:hover { border-color: var(--accent); background: rgba(100, 108, 255, 0.1); }
+    .helper-category { font-size: 9px; font-weight: 700; color: var(--text-dim); margin-top: 12px; margin-bottom: 6px; }
+    .helper-category:first-child { margin-top: 0; }
+    .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999; display: none; }
+    .overlay.open { display: block; }
 
     /* VIEWPORT */
     .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #222 0%, #111 100%); }
     canvas { display: block; width: 100%; height: 100%; outline: none; }
-    
+
     .stats {
       position: absolute; bottom: 20px; right: 20px;
       font-family: monospace; font-size: 10px; color: #666;
@@ -149,29 +163,25 @@
     <div class="sidebar">
       <div class="header">
         <h1>Spellshape</h1>
+        <select onchange="loadSchema(this.value)">
+          <option value="schema1">Tower Schema</option>
+          <option value="schema2">Noise Column</option>
+          <option value="schema3">Deformed Surface</option>
+        </select>
       </div>
-      
+
       <div class="tabs">
         <div class="tab active" onclick="setTab('controls')">Controls</div>
         <div class="tab" onclick="setTab('recipe')">Recipe</div>
         <div class="tab" onclick="setTab('json')">JSON</div>
       </div>
 
-      <!-- TAB 1: CONTROLS -->
-      <div id="tab-controls" class="content active">
-        <!-- Generated JS -->
-      </div>
-
-      <!-- TAB 2: RECIPE -->
-      <div id="tab-recipe" class="content">
-        <!-- Generated JS -->
-      </div>
-
-      <!-- TAB 3: JSON -->
-      <div id="tab-json" class="content" style="padding:0;">
+      <div id="tab-controls" class="content active"></div>
+      <div id="tab-recipe" class="content"></div>
+      <div id="tab-json" class="content" style="padding:0; display: flex; flex-direction: column;">
         <textarea id="json-input" spellcheck="false"></textarea>
-        <div style="padding: 10px; background: var(--panel); border-top: 1px solid var(--border);">
-          <button onclick="updateFromJSON()" style="width:100%; padding:8px; background:var(--accent); border:none; border-radius:4px; color:white; cursor:pointer; font-weight:600;">Update</button>
+        <div class="json-footer">
+          <button class="json-btn" onclick="updateFromJSON()">Update Geometry</button>
         </div>
       </div>
     </div>
@@ -182,77 +192,95 @@
     </div>
   </div>
 
+  <div class="overlay" id="overlay" onclick="closeHelperMenu()"></div>
+  <div class="helper-menu" id="helper-menu">
+    <div class="helper-menu-header">Select Helper</div>
+    <div class="helper-menu-list" id="helper-list"></div>
+  </div>
+
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
 
-    // --- SCHEMA (v4.8 - Curated Controls) ---
+    // --- HELPERS LIBRARY ---
+    const helpers = {
+      'createBox': { category: 'Basic', params: { width: 1, height: 1, depth: 1 } },
+      'createCylinder': { category: 'Basic', params: { radiusTop: 1, radiusBottom: 1, height: 1 } },
+      'createSphere': { category: 'Basic', params: { radius: 1, widthSegments: 32, heightSegments: 16 } },
+      'createCone': { category: 'Basic', params: { radius: 1, height: 1 } },
+      'createPlane': { category: 'Basic', params: { width: 1, height: 1 } },
+      'twistGeometry': { category: 'Deform', params: { geometry: null, angle: 0.785, axis: [0, 1, 0] } },
+      'taperGeometry': { category: 'Deform', params: { geometry: null, topScale: [0.5, 0.5] } },
+      'bendGeometry': { category: 'Deform', params: { geometry: null, angle: 0.785 } },
+      'deformByNoise': { category: 'Deform', params: { geometry: null, amount: 0.2, frequency: 1.0 } },
+      'repeatLinear3d': { category: 'Distribution', params: { geometry: null, count: 3, spacing: 1, axis: 'x' } },
+      'repeatRadial3d': { category: 'Distribution', params: { geometry: null, count: 8, radius: 5 } },
+      'distributeOnGrid3d': { category: 'Distribution', params: { geometry: null, rows: 3, cols: 3, spacing: [2, 0, 2] } },
+      'modifyGeometry': { category: 'Emergent', params: { geometry: null, operations: [] } },
+      'loop': { category: 'Logic', params: { var: 'i', from: 0, to: 10, body: [] } },
+    };
+
+    // --- SAMPLE SCHEMAS ---
     let schema = {
-  "version": "4.9",
-  "type": "emergent_procedure",
-  "intent": "Decoupled Logic Tower",
-  "materials": {
-    "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
-    "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
-    "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
-    "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
-    "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
-  },
-  
-  "globalParameters": {
-    "floors": { "value": 15, "type": "integer", "min": 3, "max": 30, "group": "Massing" },
-    "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5, "group": "Massing" },
-    "slabWidth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
-    "slabDepth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
-    "slabThickness": { "value": 0.3, "type": "number", "min": 0.1, "max": 1.0, "group": "Slab" },
-    "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
-    "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
-    "colRadius": { "value": 0.4, "type": "number", "min": 0.2, "max": 0.8, "group": "Columns" },
-    "colInsetX": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
-    "colInsetZ": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
-    "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12, "group": "Facade" },
-    "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2, "group": "Animation" }
-  },
-  
-  "context": {}, 
+      "version": "4.9",
+      "intent": "My Design",
+      "globalParameters": {
+        "scale": { "value": 1.0, "type": "number", "min": 0.5, "max": 2.0, "group": "General" },
+        "detail": { "value": 32, "type": "integer", "min": 8, "max": 64, "group": "General" }
+      },
+      "actions": []
+    };
 
-  "actions": [
-    { 
-      "thought": "1. Create Slab Base", 
-      "do": "createBox", 
-      "params": { 
-        "width": "ctx.slabWidth", 
-        "height": "ctx.slabThickness", 
-        "depth": "ctx.slabDepth" 
-      }, 
-      "transform": { "position": [0, "-ctx.slabThickness/2", 0] }, 
-      "as": "slab_mesh",
-      "controls": ["slabWidth", "slabDepth", "slabThickness"] 
-    },
-    { 
-      "thought": "2. Create Core", 
-      "do": "createBox", 
-      "params": { 
-        "width": "ctx.coreWidth", 
-        "height": "ctx.floorHeight", 
-        "depth": "ctx.coreDepth" 
-      }, 
-      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
-      "as": "core_mesh",
-      "controls": ["coreWidth", "coreDepth"]
-    }
-  ]
-};
+    const schemas = {
+      schema1: {
+        "version": "4.9",
+        "intent": "Tower",
+        "globalParameters": {
+          "floors": { "value": 10, "type": "integer", "min": 3, "max": 20, "group": "Massing" },
+          "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5, "group": "Massing" }
+        },
+        "actions": [
+          { "thought": "Create Slab", "do": "createBox", "params": { "width": 12, "height": 0.3, "depth": 12 }, "as": "slab", "controls": [] },
+          { "thought": "Create Core", "do": "createBox", "params": { "width": 6, "height": "ctx.floorHeight", "depth": 6 }, "as": "core", "controls": [] }
+        ]
+      },
+      schema2: {
+        "version": "4.9",
+        "intent": "Noise Column",
+        "globalParameters": {
+          "layers": { "value": 50, "type": "integer", "min": 20, "max": 100, "group": "General" }
+        },
+        "actions": [
+          { "thought": "Create Slice", "do": "createBox", "params": { "width": 4, "height": 0.2, "depth": 4 }, "as": "slice", "controls": [] }
+        ]
+      },
+      schema3: {
+        "version": "4.9",
+        "intent": "Deformed Surface",
+        "globalParameters": {
+          "width": { "value": 6, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
+          "resolution": { "value": 30, "type": "integer", "min": 10, "max": 100, "group": "Quality" }
+        },
+        "actions": [
+          { "thought": "Create Base", "do": "createBox", "params": { "width": "ctx.width", "height": 8, "depth": 6, "widthSegments": "ctx.resolution", "heightSegments": "ctx.resolution" }, "as": "base", "controls": ["width", "resolution"] }
+        ]
+      }
+    };
 
-    // --- UI LOGIC ---
-    const tabs = { controls: document.getElementById('tab-controls'), recipe: document.getElementById('tab-recipe'), json: document.getElementById('tab-json') };
+    // --- UI STATE ---
+    const tabs = {
+      controls: document.getElementById('tab-controls'),
+      recipe: document.getElementById('tab-recipe'),
+      json: document.getElementById('tab-json')
+    };
     const jsonInput = document.getElementById('json-input');
+    let helperMenuFor = null;
 
     window.setTab = (name) => {
       document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
-      
+
       document.querySelector(`.tab[onclick="setTab('${name}')"]`).classList.add('active');
       tabs[name].classList.add('active');
 
@@ -261,34 +289,44 @@
       }
     };
 
-    // --- HELPER: Create Slider ---
-    function createSlider(key, def, uniqueId) {
+    window.loadSchema = (key) => {
+      schema = JSON.parse(JSON.stringify(schemas[key]));
+      renderUI();
+      run();
+    };
+
+    // --- SLIDER CREATION ---
+    function createSlider(key, def, context = 'global') {
       const wrapper = document.createElement('div');
       wrapper.className = 'control';
-      
+
       const header = document.createElement('div');
       header.className = 'control-header';
-      header.innerHTML = `<span class="control-label">${key}</span><span class="control-val" id="val-${uniqueId}">${def.value}</span>`;
-      
+      const val = document.createElement('span');
+      val.className = 'control-val';
+      val.innerText = def.value;
+      val.id = `val-${context}-${key}`;
+
+      header.innerHTML = `<span class="control-label">${key}</span>`;
+      header.appendChild(val);
+
       const input = document.createElement('input');
       input.type = 'range';
       input.min = def.min;
       input.max = def.max;
-      input.step = def.step || (def.type === 'integer' ? 0.1 : 0.01);
+      input.step = def.type === 'integer' ? 1 : 0.01;
       input.value = def.value;
       input.setAttribute('data-key', key);
+      input.setAttribute('data-context', context);
 
       input.oninput = (e) => {
-        const val = def.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
-        def.value = val;
-        
-        document.querySelectorAll(`input[data-key="${key}"]`).forEach(el => el.value = val);
-        document.querySelectorAll(`[id^="val-"]`).forEach(el => {
-          if (el.id.startsWith(`val-ctrl-${key}`) || el.id.startsWith(`val-recipe-${key}`)) {
-            el.innerText = val;
-          }
-        });
-        
+        const parsed = def.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
+        def.value = parsed;
+
+        // Update ALL displays of this key
+        document.querySelectorAll(`[id^="val-"][id$="-${key}"]`).forEach(el => el.innerText = parsed);
+        document.querySelectorAll(`input[data-key="${key}"]`).forEach(el => el.value = parsed);
+
         run();
       };
 
@@ -297,29 +335,9 @@
       return wrapper;
     }
 
-    // --- ADD STEP ---
-    window.addStepAfter = (index) => {
-      const newStep = {
-        "thought": "New Step",
-        "do": "clone",
-        "params": { "id": "base" },
-        "as": `step_${Date.now()}`
-      };
-      schema.actions.splice(index + 1, 0, newStep);
-      renderUI();
-      run();
-    };
-
-    // --- REMOVE STEP ---
-    window.removeStep = (index) => {
-      schema.actions.splice(index, 1);
-      renderUI();
-      run();
-    };
-
-    // --- RENDER TABS ---
+    // --- RENDER UI ---
     function renderUI() {
-      // 1. CONTROLS TAB
+      // CONTROLS TAB
       tabs.controls.innerHTML = '';
       const groups = {};
       for (const [key, def] of Object.entries(schema.globalParameters)) {
@@ -333,26 +351,22 @@
         title.className = 'group-title';
         title.innerText = gName;
         tabs.controls.appendChild(title);
-        items.forEach(({ key, def }) => tabs.controls.appendChild(createSlider(key, def, `ctrl-${key}`)));
+        items.forEach(({ key, def }) => tabs.controls.appendChild(createSlider(key, def, 'ctrl')));
       }
 
-      // 2. RECIPE TAB
+      // RECIPE TAB
       tabs.recipe.innerHTML = '';
       schema.actions.forEach((action, i) => {
-        if (!action.thought) return;
-
         const card = document.createElement('div');
         card.className = 'step-card';
-        
+
         const header = document.createElement('div');
         header.className = 'step-header';
         header.innerHTML = `
           <div class="step-num">${i+1}</div>
           <div class="step-title">${action.thought}</div>
-          <div class="step-actions">
-            <button class="step-btn step-btn-add" onclick="addStepAfter(${i})" title="Add step after">+</button>
-            <button class="step-btn step-btn-remove" onclick="removeStep(${i})" title="Remove step">×</button>
-          </div>
+          <div class="step-type">${action.do}</div>
+          <div class="step-delete" onclick="deleteStep(${i})">✕</div>
         `;
         card.appendChild(header);
 
@@ -361,14 +375,78 @@
           controlsArea.className = 'step-controls';
           action.controls.forEach(key => {
             if (schema.globalParameters[key]) {
-              controlsArea.appendChild(createSlider(key, schema.globalParameters[key], `recipe-${key}`));
+              controlsArea.appendChild(createSlider(key, schema.globalParameters[key], `recipe-${i}`));
             }
           });
           card.appendChild(controlsArea);
         }
+
         tabs.recipe.appendChild(card);
       });
+
+      // ADD BUTTON
+      const addCard = document.createElement('div');
+      addCard.className = 'step-card add-card';
+      addCard.innerText = '+ Add Step';
+      addCard.onclick = () => openHelperMenu();
+      tabs.recipe.appendChild(addCard);
     }
+
+    // --- HELPER MENU ---
+    window.openHelperMenu = () => {
+      const list = document.getElementById('helper-list');
+      list.innerHTML = '';
+      const categories = {};
+
+      for (const [name, info] of Object.entries(helpers)) {
+        if (!categories[info.category]) categories[info.category] = [];
+        categories[info.category].push(name);
+      }
+
+      for (const [cat, items] of Object.entries(categories)) {
+        const catTitle = document.createElement('div');
+        catTitle.className = 'helper-category';
+        catTitle.innerText = cat;
+        list.appendChild(catTitle);
+
+        items.forEach(name => {
+          const item = document.createElement('div');
+          item.className = 'helper-item';
+          item.innerText = name;
+          item.onclick = () => addStep(name);
+          list.appendChild(item);
+        });
+      }
+
+      document.getElementById('helper-menu').classList.add('open');
+      document.getElementById('overlay').classList.add('open');
+    };
+
+    window.closeHelperMenu = () => {
+      document.getElementById('helper-menu').classList.remove('open');
+      document.getElementById('overlay').classList.remove('open');
+    };
+
+    window.addStep = (helperName) => {
+      const helperInfo = helpers[helperName];
+      const newAction = {
+        thought: helperName,
+        do: helperName,
+        params: { ...helperInfo.params },
+        as: `obj_${Date.now().toString().slice(-4)}`,
+        controls: []
+      };
+      schema.actions.push(newAction);
+      closeHelperMenu();
+      renderUI();
+      run();
+    };
+
+    window.deleteStep = (index) => {
+      schema.actions.splice(index, 1);
+      renderUI();
+      run();
+    };
 
     window.updateFromJSON = () => {
       try {
@@ -376,8 +454,10 @@
         renderUI();
         run();
         setTab('controls');
-      } catch(e) { alert('Invalid JSON'); }
-    }
+      } catch (e) {
+        alert('Invalid JSON: ' + e.message);
+      }
+    };
 
     // --- 3D ENGINE ---
     const canvas = document.querySelector('#gl');
@@ -402,7 +482,7 @@
       scene.add(dirLight);
       scene.add(new THREE.GridHelper(100, 20, 0x333333, 0x111111));
     }
-    
+
     function run() {
       if (currentMesh) {
         scene.remove(currentMesh);
@@ -423,6 +503,7 @@
         document.getElementById('stats').innerText = `Meshes: ${count}`;
       } catch (e) {
         console.error(e);
+        document.getElementById('stats').innerText = `Error: ${e.message}`;
       }
     }
 
@@ -442,7 +523,7 @@
       renderer.setSize(canvas.clientWidth, canvas.clientHeight);
       camera.aspect = canvas.clientWidth / canvas.clientHeight;
       camera.updateProjectionMatrix();
-    }
+    };
   </script>
 </body>
 </html>
