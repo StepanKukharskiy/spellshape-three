@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spellshape - Workbench (Debug)</title>
+  <title>Spellshape - Complete Workbench</title>
 
   <script type="importmap">
     {
@@ -46,15 +46,15 @@
     .timeline-content { flex: 1; overflow-y: auto; padding: 16px; position: relative; }
     .timeline-content::before { content: ''; position: absolute; top: 16px; bottom: 16px; left: 29px; width: 1px; background: var(--border); z-index: 0; }
 
-    .step-card { background: var(--card); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px; position: relative; z-index: 1; cursor: pointer; }
+    .step-card { background: var(--card); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px; position: relative; z-index: 1; cursor: pointer; transition: all 0.2s; }
     .step-card:hover { border-color: var(--text-dim); }
-    .step-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .step-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: rgba(139, 92, 246, 0.1); }
     .step-num { position: absolute; left: -23px; top: 10px; width: 18px; height: 18px; background: var(--panel); border: 1px solid var(--text-dim); border-radius: 50%; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; z-index: 2; }
     .step-header { padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; }
     .step-title { font-weight: 600; font-size: 11px; }
     .step-type { font-family: monospace; font-size: 9px; color: var(--accent); background: rgba(139, 92, 246, 0.1); padding: 1px 4px; border-radius: 3px; }
-    .drop-zone { height: 3px; margin: 6px 0; border-radius: 2px; transition: all 0.2s; }
-    .drop-zone.active { height: 18px; background: rgba(139, 92, 246, 0.1); border: 1px dashed var(--accent); }
+    .drop-zone { height: 2px; margin: 4px 0; border-radius: 1px; transition: all 0.2s; }
+    .drop-zone.active { height: 16px; background: rgba(139, 92, 246, 0.2); border: 1px dashed var(--accent); }
 
     .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #18181b 0%, #09090b 100%); }
     canvas { display: block; width: 100%; height: 100%; }
@@ -64,26 +64,21 @@
       bottom: 20px;
       left: 20px;
       width: 360px;
-      max-height: 200px;
+      max-height: 180px;
       background: rgba(0, 0, 0, 0.95);
       border: 1px solid #22c55e;
       border-radius: 6px;
-      padding: 12px;
+      padding: 10px;
       font-family: 'Courier New', monospace;
-      font-size: 10px;
+      font-size: 9px;
       color: #22c55e;
       overflow-y: auto;
       z-index: 100;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
     }
 
-    .debug-line { white-space: pre-wrap; word-break: break-all; opacity: 0.9; }
+    .debug-line { opacity: 0.85; margin-bottom: 1px; }
     .debug-line.error { color: #ef4444; }
     .debug-line.success { color: #22c55e; }
-    .debug-line.warn { color: #f59e0b; }
-    .debug-line.action { color: #60a5fa; font-weight: bold; }
 
     .inspector { width: 340px; background: var(--panel); border-left: 1px solid var(--border); display: flex; flex-direction: column; }
     .inspector-header { padding: 12px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 11px; }
@@ -91,26 +86,34 @@
 
     .prop-group { margin-bottom: 14px; }
     .prop-label { font-size: 10px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px; display: block; }
-    .prop-input { width: 100%; background: #111; border: 1px solid var(--border); color: #fff; padding: 6px; border-radius: 4px; font-family: monospace; font-size: 10px; }
-    .prop-input:focus { border-color: var(--accent); outline: none; }
-    .btn-danger { width: 100%; padding: 6px; background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); border-radius: 4px; cursor: pointer; margin-top: 16px; font-size: 10px; }
+    .prop-input, .prop-select { width: 100%; background: #111; border: 1px solid var(--border); color: #fff; padding: 6px; border-radius: 4px; font-family: monospace; font-size: 10px; }
+    .prop-input:focus, .prop-select:focus { border-color: var(--accent); outline: none; }
+    .prop-select { color: var(--accent); }
+
+    .prop-value { font-family: monospace; font-size: 9px; color: var(--accent); margin-top: 2px; }
+
+    .btn-delete { width: 100%; padding: 8px; background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); border-radius: 4px; cursor: pointer; margin-top: 20px; font-size: 10px; font-weight: 600; }
+    .btn-delete:hover { background: var(--danger); color: #fff; }
 
     .json-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.95); z-index: 50; display: none; flex-direction: column; }
     .json-overlay.open { display: flex; }
     textarea.full-code { flex: 1; background: transparent; color: #0f0; border: none; padding: 16px; font-family: monospace; resize: none; font-size: 11px; }
+    .json-header { padding: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+    .json-footer { padding: 10px; border-top: 1px solid #333; }
+    .json-btn { padding: 10px 20px; background: #6d28d9; color: #fff; border: none; font-weight: bold; cursor: pointer; font-size: 11px; border-radius: 4px; }
   </style>
 </head>
 <body>
 
   <div class="app">
     <div class="toolbox">
-      <div class="toolbox-header">HELPERS LIBRARY</div>
+      <div class="toolbox-header">HELPERS</div>
       <div class="tool-list" id="tool-list"></div>
     </div>
 
     <div class="timeline-sidebar">
       <div class="timeline-header">
-        <div class="brand">Spellshape Workbench</div>
+        <div class="brand">Spellshape</div>
         <select class="schema-select" onchange="window.loadSchema(this.value)">
           <option value="schema1">Logic Tower</option>
           <option value="schema2">Noise Column</option>
@@ -128,21 +131,19 @@
     </div>
 
     <div class="inspector">
-      <div class="inspector-header">STEP PARAMETERS</div>
-      <div class="inspector-content" id="inspector-content">
-        <div style="color: #666; font-style: italic; text-align: center; margin-top: 30px;">
-          Select a step to edit
-        </div>
-      </div>
+      <div class="inspector-header">PARAMETERS</div>
+      <div class="inspector-content" id="inspector-content"></div>
     </div>
 
     <div class="json-overlay" id="json-overlay">
-      <div style="padding: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between;">
-        <span style="color: #fff; font-weight: bold; font-size: 11px;">SCHEMA SOURCE</span>
-        <button onclick="window.toggleJson()" style="background: #333; color: #fff; border: none; padding: 3px 8px; cursor: pointer; font-size: 10px;">Close</button>
+      <div class="json-header">
+        <span style="color: #fff; font-weight: bold;">SCHEMA SOURCE</span>
+        <button onclick="window.toggleJson()" style="background: #333; color: #fff; border: none; padding: 3px 8px; cursor: pointer; font-size: 10px; border-radius: 3px;">Close</button>
       </div>
       <textarea id="json-input" class="full-code" spellcheck="false"></textarea>
-      <button onclick="window.updateFromJSON()" style="padding: 10px; background: #6d28d9; color: #fff; border: none; font-weight: bold; cursor: pointer; font-size: 10px;">UPDATE</button>
+      <div class="json-footer">
+        <button onclick="window.updateFromJSON()" class="json-btn">UPDATE GEOMETRY</button>
+      </div>
     </div>
   </div>
 
@@ -555,13 +556,11 @@
     function updateDebugPanel() {
       const panel = document.getElementById('debug-panel');
       const messages = executor.debugLog || [];
-      const lastMessages = messages.slice(-12);
+      const lastMessages = messages.slice(-8);
       panel.innerHTML = lastMessages.map(msg => {
         let className = '';
         if (msg.includes('❌')) className = 'error';
         else if (msg.includes('✓') || msg.includes('💾')) className = 'success';
-        else if (msg.includes('⚠️')) className = 'warn';
-        else if (msg.includes('💭') || msg.includes('🔁')) className = 'action';
         return `<div class="debug-line ${className}">${msg}</div>`;
       }).join('');
     }
@@ -583,7 +582,7 @@
           tool.className = 'tool-item';
           tool.draggable = true;
           tool.ondragstart = (e) => { draggedItem = { type: 'tool', tool: item }; e.dataTransfer.effectAllowed = 'copy'; };
-          tool.innerHTML = `<div class="tool-icon"></div> ${item}`;
+          tool.innerHTML = `<div class="tool-icon"></div>${item}`;
           catDiv.appendChild(tool);
         }
         list.appendChild(catDiv);
@@ -593,38 +592,213 @@
     function renderTimeline() {
       const container = document.getElementById('timeline');
       container.innerHTML = '';
+
+      // Global params display
+      const globalDiv = document.createElement('div');
+      globalDiv.style = 'padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid #333;';
+      globalDiv.innerHTML = '<div style="font-size: 9px; font-weight: 700; color: #555; margin-bottom: 6px;">GLOBAL</div>';
+      for (const [key, param] of Object.entries(currentSchema.globalParameters)) {
+        globalDiv.innerHTML += `<div style="font-size: 9px; color: #666; margin-bottom: 2px;">${key}: <span style="color: var(--accent);">${param.value}</span></div>`;
+      }
+      container.appendChild(globalDiv);
+
+      // Drop zone before first step
+      const firstDrop = document.createElement('div');
+      firstDrop.className = 'drop-zone';
+      firstDrop.ondragenter = (e) => e.target.classList.add('active');
+      firstDrop.ondragleave = (e) => e.target.classList.remove('active');
+      firstDrop.ondrop = (e) => handleDrop(e, 0);
+      container.appendChild(firstDrop);
+
+      // Steps
       currentSchema.actions.forEach((action, index) => {
         const card = document.createElement('div');
         card.className = `step-card ${selectedStepIndex === index ? 'selected' : ''}`;
         card.draggable = true;
-        card.onclick = () => { selectedStepIndex = index; renderTimeline(); renderInspector(); };
+        card.ondragstart = (e) => { draggedItem = { type: 'step', index }; e.dataTransfer.effectAllowed = 'move'; };
+        card.ondragend = () => { document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('active')); };
+        card.onclick = () => selectStep(index);
         card.innerHTML = `
           <div class="step-num">${index + 1}</div>
           <div class="step-header">
-            <div class="step-title">${action.thought}</div>
-            <div class="step-type">${action.do}</div>
+            <span class="step-title">${action.thought}</span>
+            <span class="step-type">${action.do}</span>
           </div>
         `;
         container.appendChild(card);
+
+        const dropZone = document.createElement('div');
+        dropZone.className = 'drop-zone';
+        dropZone.ondragenter = (e) => e.target.classList.add('active');
+        dropZone.ondragleave = (e) => e.target.classList.remove('active');
+        dropZone.ondrop = (e) => handleDrop(e, index + 1);
+        container.appendChild(dropZone);
       });
     }
 
     window.dragOver = (e) => e.preventDefault();
     window.drop = (e) => e.preventDefault();
 
+    window.handleDrop = (e, targetIndex) => {
+      e.preventDefault();
+      e.stopPropagation();
+      document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('active'));
+      if (!draggedItem) return;
+
+      if (draggedItem.type === 'step') {
+        const [item] = currentSchema.actions.splice(draggedItem.index, 1);
+        const newIdx = draggedItem.index < targetIndex ? targetIndex - 1 : targetIndex;
+        currentSchema.actions.splice(newIdx, 0, item);
+      } else if (draggedItem.type === 'tool') {
+        const helperInfo = helpers[draggedItem.tool];
+        const newAction = {
+          thought: draggedItem.tool,
+          do: draggedItem.tool,
+          params: { ...helperInfo.params },
+          as: `obj_${Date.now().toString().slice(-4)}`
+        };
+        currentSchema.actions.splice(targetIndex, 0, newAction);
+      }
+
+      draggedItem = null;
+      selectedStepIndex = -1;
+      renderTimeline();
+      renderInspector();
+      run();
+    };
+
+    function selectStep(index) {
+      selectedStepIndex = index;
+      renderTimeline();
+      renderInspector();
+    }
+
     function renderInspector() {
       const container = document.getElementById('inspector-content');
       container.innerHTML = '';
-      if (selectedStepIndex < 0) return;
+
+      if (selectedStepIndex < 0 || selectedStepIndex >= currentSchema.actions.length) {
+        container.innerHTML = '<div style="color: #666; text-align: center; margin-top: 40px; font-style: italic;">Select a step to edit</div>';
+        return;
+      }
+
       const action = currentSchema.actions[selectedStepIndex];
-      container.innerHTML = `<p>Editing: ${action.thought}</p><p>Type: ${action.do}</p>`;
+      const helperInfo = helpers[action.do];
+
+      // Step name
+      const nameGroup = document.createElement('div');
+      nameGroup.className = 'prop-group';
+      nameGroup.innerHTML = `<label class="prop-label">Step Name</label>`;
+      const nameInput = document.createElement('input');
+      nameInput.className = 'prop-input';
+      nameInput.value = action.thought;
+      nameInput.onchange = (e) => { action.thought = e.target.value; renderTimeline(); };
+      nameGroup.appendChild(nameInput);
+      container.appendChild(nameGroup);
+
+      // Output name
+      const asGroup = document.createElement('div');
+      asGroup.className = 'prop-group';
+      asGroup.innerHTML = `<label class="prop-label">Output Name (as)</label>`;
+      const asInput = document.createElement('input');
+      asInput.className = 'prop-input';
+      asInput.value = action.as || '';
+      asInput.onchange = (e) => { action.as = e.target.value; };
+      asGroup.appendChild(asInput);
+      container.appendChild(asGroup);
+
+      // Parameters
+      if (helperInfo && helperInfo.params) {
+        const paramsHeader = document.createElement('div');
+        paramsHeader.style = 'margin-top: 16px; font-weight: 700; font-size: 10px; color: #fff; border-bottom: 1px solid #333; padding-bottom: 4px; margin-bottom: 8px;';
+        paramsHeader.innerText = `PARAMETERS (${action.do})`;
+        container.appendChild(paramsHeader);
+
+        const previousNames = currentSchema.actions.slice(0, selectedStepIndex).filter(a => a.as).map(a => a.as);
+
+        for (const [paramKey, defaultVal] of Object.entries(helperInfo.params)) {
+          const currentVal = action.params?.[paramKey] !== undefined ? action.params[paramKey] : defaultVal;
+
+          if (paramKey === 'geometry') {
+            const group = document.createElement('div');
+            group.className = 'prop-group';
+            group.innerHTML = `<label class="prop-label">${paramKey}</label>`;
+            const select = document.createElement('select');
+            select.className = 'prop-select';
+            select.innerHTML = '<option value="">-- Select --</option>';
+            previousNames.forEach(name => {
+              const opt = document.createElement('option');
+              opt.value = name;
+              opt.innerText = name;
+              opt.selected = currentVal === name;
+              select.appendChild(opt);
+            });
+            select.onchange = (e) => { action.params[paramKey] = e.target.value; run(); };
+            group.appendChild(select);
+            container.appendChild(group);
+          } else if (typeof defaultVal === 'number') {
+            const group = document.createElement('div');
+            group.className = 'prop-group';
+            group.innerHTML = `<label class="prop-label">${paramKey}</label>`;
+            const input = document.createElement('input');
+            input.className = 'prop-input';
+            input.type = 'number';
+            input.value = currentVal;
+            input.step = '0.1';
+            input.onchange = (e) => { action.params[paramKey] = parseFloat(e.target.value); run(); };
+            group.appendChild(input);
+            container.appendChild(group);
+          } else if (typeof defaultVal === 'string') {
+            const group = document.createElement('div');
+            group.className = 'prop-group';
+            group.innerHTML = `<label class="prop-label">${paramKey}</label>`;
+            const input = document.createElement('input');
+            input.className = 'prop-input';
+            input.value = currentVal;
+            input.placeholder = `e.g. ctx.floors`;
+            input.onchange = (e) => { action.params[paramKey] = e.target.value; run(); };
+            group.appendChild(input);
+            container.appendChild(group);
+          }
+        }
+      }
+
+      // Delete button
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-delete';
+      delBtn.innerText = 'Delete Step';
+      delBtn.onclick = () => {
+        currentSchema.actions.splice(selectedStepIndex, 1);
+        selectedStepIndex = -1;
+        renderTimeline();
+        renderInspector();
+        run();
+      };
+      container.appendChild(delBtn);
     }
 
-    window.loadSchema = (k) => { currentSchema = schemas[k]; selectedStepIndex = -1; renderTimeline(); run(); };
-    window.toggleJson = () => { document.getElementById('json-overlay').classList.toggle('open'); document.getElementById('json-input').value = JSON.stringify(currentSchema, null, 2); };
+    window.loadSchema = (k) => {
+      currentSchema = schemas[k];
+      selectedStepIndex = -1;
+      renderTimeline();
+      renderInspector();
+      run();
+    };
+
+    window.toggleJson = () => {
+      document.getElementById('json-overlay').classList.toggle('open');
+      document.getElementById('json-input').value = JSON.stringify(currentSchema, null, 2);
+    };
+
     window.updateFromJSON = () => {
-      try { currentSchema = JSON.parse(document.getElementById('json-input').value); window.toggleJson(); renderTimeline(); run(); }
-      catch(e) { alert('Invalid JSON'); }
+      try {
+        currentSchema = JSON.parse(document.getElementById('json-input').value);
+        window.toggleJson();
+        renderTimeline();
+        run();
+      } catch (e) {
+        alert('Invalid JSON: ' + e.message);
+      }
     };
 
     const canvas = document.querySelector('#gl');
@@ -644,18 +818,24 @@
     function run() {
       if (currentMesh) scene.remove(currentMesh);
       const params = {};
-      for (const [k, v] of Object.entries(currentSchema.globalParameters)) params[k] = v.value;
+      for (const [k, v] of Object.entries(currentSchema.globalParameters)) {
+        params[k] = v.value;
+      }
       try {
         currentMesh = executor.execute(currentSchema, params);
         scene.add(currentMesh);
         updateDebugPanel();
-      } catch(e) {
+      } catch (e) {
         console.error(e);
         updateDebugPanel();
       }
     }
 
-    function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
     animate();
 
     buildToolbox();
