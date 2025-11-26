@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spellshape - Canvas + Inspector</title>
+  <title>Spellshape - Complete Workbench</title>
 
   <script type="importmap">
     {
@@ -16,249 +16,123 @@
 
   <style>
     :root {
-      --bg: #09090b;         /* Zinc-950 */
-      --panel: #18181b;      /* Zinc-900 */
-      --card: #27272a;       /* Zinc-800 */
-      --border: #3f3f46;     /* Zinc-700 */
-      --accent: #8b5cf6;     /* Violet-500 */
+      --bg: #09090b;
+      --panel: #18181b;
+      --card: #27272a;
+      --border: #3f3f46;
+      --accent: #8b5cf6;
       --accent-hover: #a78bfa;
-      --text: #e4e4e7;       /* Zinc-200 */
-      --text-dim: #a1a1aa;   /* Zinc-400 */
-      --code-bg: #111113;
+      --text: #e4e4e7;
+      --text-dim: #a1a1aa;
+      --danger: #ef4444;
+      --success: #22c55e;
     }
 
-    * { box-sizing: border-box; }
-    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; color: var(--text); font-size: 13px; }
-    .app { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+    * { box-sizing: border-box; user-select: none; }
+    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); font-size: 12px; }
+    .app { display: flex; height: 100vh; width: 100vw; }
 
-    /* --- LEFT SIDEBAR (The Narrative) --- */
-    .sidebar {
-      flex: 0 0 360px;
-      width: 360px;
-      background: var(--panel);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      z-index: 10;
-      box-shadow: 4px 0 24px rgba(0,0,0,0.2);
-    }
+    /* TOOLBOX */
+    .toolbox { width: 180px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10; }
+    .toolbox-header { padding: 12px; border-bottom: 1px solid var(--border); font-weight: 700; color: var(--text-dim); font-size: 10px; }
+    .tool-list { padding: 10px; overflow-y: auto; flex: 1; }
+    .tool-category { margin-bottom: 16px; }
+    .tool-category-title { font-size: 9px; color: #666; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .tool-item { background: var(--card); border: 1px solid var(--border); padding: 8px; margin-bottom: 6px; border-radius: 4px; cursor: grab; font-size: 11px; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+    .tool-item:hover { border-color: var(--accent); color: #fff; }
+    .tool-icon { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 
-    .header {
-      padding: 20px;
-      border-bottom: 1px solid var(--border);
-      background: var(--panel);
-    }
+    /* TIMELINE */
+    .timeline-sidebar { width: 360px; background: var(--bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+    .timeline-header { padding: 14px; background: var(--panel); border-bottom: 1px solid var(--border); }
+    .brand { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    .schema-select { width: 100%; padding: 6px; background: #111; color: #ccc; border: 1px solid #333; border-radius: 4px; font-size: 11px; cursor: pointer; }
+    .timeline-content { flex: 1; overflow-y: auto; padding: 16px; position: relative; }
+    .timeline-content::before { content: ''; position: absolute; top: 16px; bottom: 16px; left: 29px; width: 1px; background: var(--border); z-index: 0; }
 
-    .brand { 
-      font-size: 14px; font-weight: 700; letter-spacing: -0.02em; color: #fff; margin-bottom: 12px; display: block;
-    }
+    .step-card { background: var(--card); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px; position: relative; z-index: 1; transition: all 0.2s; cursor: pointer; }
+    .step-card:hover { border-color: var(--text-dim); }
+    .step-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .step-num { position: absolute; left: -23px; top: 10px; width: 18px; height: 18px; background: var(--panel); border: 1px solid var(--text-dim); border-radius: 50%; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; z-index: 2; }
+    .step-header { padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; }
+    .step-title { font-weight: 600; font-size: 11px; }
+    .step-type { font-family: monospace; font-size: 9px; color: var(--accent); background: rgba(139, 92, 246, 0.1); padding: 1px 4px; border-radius: 3px; }
+    .drop-zone { height: 3px; margin: 6px 0; border-radius: 2px; transition: all 0.2s; }
+    .drop-zone.active { height: 18px; background: rgba(139, 92, 246, 0.1); border: 1px dashed var(--accent); }
 
-    .schema-select {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      outline: none;
-      cursor: pointer;
-      transition: border-color 0.2s;
-    }
-    .schema-select:hover { border-color: var(--text-dim); }
-
-    /* RECIPE PIPELINE */
-    .pipeline { 
-      flex: 1; 
-      overflow-y: auto; 
-      padding: 20px; 
-      position: relative;
-    }
-
-    /* Connector Line */
-    .pipeline::before {
-      content: ''; position: absolute; top: 20px; bottom: 20px; left: 34px;
-      width: 1px; background: var(--border); z-index: 0;
-    }
-
-    /* STEP CARDS */
-    .step-card {
-      background: var(--card); 
-      border: 1px solid var(--border); 
-      border-radius: 8px;
-      margin-bottom: 20px; 
-      position: relative; 
-      z-index: 1;
-    }
-
-    .step-num {
-      position: absolute; left: -27px; top: 12px; width: 20px; height: 20px;
-      background: var(--panel); border: 1px solid var(--text-dim); border-radius: 50%;
-      font-size: 10px; font-weight: 700; color: var(--text-dim);
-      display: flex; align-items: center; justify-content: center; z-index: 2;
-    }
-
-    .step-header { 
-      padding: 12px 16px; 
-      border-bottom: 1px solid rgba(255,255,255,0.05); 
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .step-title { font-weight: 600; color: var(--text); }
-    .step-action { font-family: monospace; font-size: 10px; color: var(--accent); background: rgba(139, 92, 246, 0.1); padding: 2px 6px; border-radius: 4px; }
-
-    .step-body { padding: 16px; }
-    .step-body:empty { display: none; }
-
-    /* CONTROLS */
-    .control { margin-bottom: 16px; }
-    .control:last-child { margin-bottom: 0; }
-
-    .control-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
-    .control-label { font-size: 11px; color: var(--text-dim); font-weight: 500; }
-    .control-val { font-family: monospace; font-size: 10px; color: var(--accent); }
-
-    input[type=range] {
-      width: 100%; -webkit-appearance: none; background: transparent; cursor: pointer; display: block;
-    }
-    input[type=range]::-webkit-slider-runnable-track {
-      width: 100%; height: 4px; background: #333; border-radius: 2px;
-    }
-    input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%;
-      background: #d4d4d8; margin-top: -4px; transition: transform 0.1s;
-    }
-    input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.2); background: var(--accent); }
-
-    /* GLOBAL CONTEXT CARD */
-    .context-card {
-      margin-bottom: 24px;
-      border: 1px dashed var(--border);
-      background: rgba(255,255,255,0.02);
-    }
-    .context-card .step-num { border-style: dashed; color: var(--accent); border-color: var(--accent); }
-
-    /* FOOTER (Code Toggle) */
-    .sidebar-footer {
-      padding: 16px;
-      border-top: 1px solid var(--border);
-      background: var(--panel);
-    }
-    .code-toggle-btn {
-      width: 100%;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      background: transparent; border: 1px solid var(--border); color: var(--text-dim);
-      padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600;
-      transition: all 0.2s;
-    }
-    .code-toggle-btn:hover, .code-toggle-btn.active {
-      background: var(--accent); color: #fff; border-color: var(--accent);
-    }
-
-    /* --- VIEWPORT (Center) --- */
+    /* VIEWPORT */
     .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #18181b 0%, #09090b 100%); }
-    canvas { display: block; width: 100%; height: 100%; outline: none; }
-    .stats { 
-      position: absolute; bottom: 20px; left: 20px; 
-      font-family: monospace; font-size: 10px; color: var(--text-dim); 
-      background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 4px; pointer-events: none;
-    }
+    canvas { display: block; width: 100%; height: 100%; }
 
-    /* --- RIGHT PANEL (The Engine Room) --- */
-   .engine-room {
-      position: absolute; /* Overlay on top of viewport */
-      top: 0; 
-      right: 0; 
-      bottom: 0;
-      width: 0;
-      background: var(--code-bg);
-      border-left: 1px solid var(--border);
-      /* Improved transition */
-      transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-      overflow: hidden;
-      display: flex; 
-      flex-direction: column;
-      z-index: 50; /* Ensure it sits above canvas */
-      box-shadow: -4px 0 24px rgba(0,0,0,0.5);
-    }
+    /* INSPECTOR */
+    .inspector { width: 340px; background: var(--panel); border-left: 1px solid var(--border); display: flex; flex-direction: column; }
+    .inspector-header { padding: 12px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 11px; display: flex; justify-content: space-between; }
+    .inspector-content { padding: 14px; flex: 1; overflow-y: auto; }
 
-    /* Only apply width when open class is present */
-    .engine-room.open { width: 450px; }
+    .prop-group { margin-bottom: 14px; }
+    .prop-label { font-size: 10px; font-weight: 600; color: var(--text-dim); margin-bottom: 4px; display: block; }
+    .prop-input { width: 100%; background: #111; border: 1px solid var(--border); color: #fff; padding: 6px; border-radius: 4px; font-family: monospace; font-size: 10px; }
+    .prop-input:focus { border-color: var(--accent); outline: none; }
+    select.prop-input { color: var(--accent); }
 
-    .engine-header {
-      padding: 12px 16px;
-      background: var(--panel);
-      border-bottom: 1px solid var(--border);
-      font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: var(--text-dim);
-      display: flex; justify-content: space-between; align-items: center;
-    }
+    .btn-danger { width: 100%; padding: 6px; background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); border-radius: 4px; cursor: pointer; font-weight: 600; margin-top: 16px; font-size: 10px; }
+    .btn-danger:hover { background: var(--danger); color: #fff; }
 
-    .engine-content { flex: 1; position: relative; }
-    textarea {
-      width: 100%; height: 100%; background: transparent; border: none;
-      color: #a78bfa; font-family: 'Menlo', 'Monaco', monospace; font-size: 11px; line-height: 1.5;
-      padding: 16px; resize: none; outline: none;
-    }
+    .info-box { background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); padding: 8px; border-radius: 4px; font-size: 10px; color: var(--text-dim); margin-bottom: 12px; }
 
-    .run-btn {
-      margin: 16px;
-      padding: 10px;
-      background: var(--accent);
-      color: #fff;
-      border: none; border-radius: 6px;
-      font-weight: 600; cursor: pointer;
-      font-size: 12px;
-    }
-    .run-btn:hover { background: var(--accent-hover); }
-
-    /* SCROLLBARS */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #444; }
+    /* JSON */
+    .json-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.95); z-index: 50; display: none; flex-direction: column; }
+    .json-overlay.open { display: flex; }
+    textarea.full-code { flex: 1; background: transparent; color: #0f0; border: none; padding: 16px; font-family: monospace; resize: none; font-size: 11px; }
   </style>
 </head>
 <body>
 
   <div class="app">
-    <!-- 1. NARRATIVE SIDEBAR -->
-    <div class="sidebar">
-      <div class="header">
-        <span class="brand">Spellshape</span>
+    <!-- TOOLBOX -->
+    <div class="toolbox">
+      <div class="toolbox-header">HELPERS LIBRARY</div>
+      <div class="tool-list" id="tool-list"></div>
+    </div>
+
+    <!-- TIMELINE -->
+    <div class="timeline-sidebar">
+      <div class="timeline-header">
+        <div class="brand">Spellshape Workbench</div>
         <select class="schema-select" onchange="window.loadSchema(this.value)">
           <option value="schema1">Logic Tower</option>
           <option value="schema2">Noise Column</option>
-          <option value="schema3">Deformed Monolith</option>
-          <option value="schema4">Voxel Monolith</option>
         </select>
       </div>
-
-      <div class="pipeline" id="pipeline">
-        <!-- Recipe cards injected here -->
-      </div>
-
-      <div class="sidebar-footer">
-        <button class="code-toggle-btn" onclick="window.toggleEngine()">
-          <span>&lt;/&gt;</span> View Source JSON
-        </button>
+      <div class="timeline-content" id="timeline" ondragover="dragOver(event)" ondrop="drop(event)"></div>
+      <div style="padding: 10px; border-top: 1px solid #333;">
+        <button onclick="window.toggleJson()" style="width: 100%; padding: 6px; background: #222; color: #888; border: 1px solid #333; border-radius: 4px; cursor: pointer; font-size: 10px;">View JSON</button>
       </div>
     </div>
 
-    <!-- 2. VIEWPORT -->
+    <!-- VIEWPORT -->
     <div class="viewport">
       <canvas id="gl"></canvas>
-      <div class="stats" id="stats">Ready</div>
     </div>
 
-    <!-- 3. ENGINE ROOM (Inspector) -->
-    <div class="engine-room" id="engine-room">
-      <div class="engine-header">
-        <span>SCHEMA SOURCE (LIVE)</span>
-        <span style="cursor:pointer; opacity:0.5;" onclick="window.toggleEngine()">✕</span>
+    <!-- INSPECTOR -->
+    <div class="inspector">
+      <div class="inspector-header">STEP PARAMETERS</div>
+      <div class="inspector-content" id="inspector-content">
+        <div style="color: #666; font-style: italic; text-align: center; margin-top: 30px;">
+          Select a step to edit
+        </div>
       </div>
-      <div class="engine-content">
-        <textarea id="json-input" spellcheck="false"></textarea>
+    </div>
+
+    <!-- JSON OVERLAY -->
+    <div class="json-overlay" id="json-overlay">
+      <div style="padding: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between;">
+        <span style="color: #fff; font-weight: bold; font-size: 11px;">SCHEMA SOURCE</span>
+        <button onclick="window.toggleJson()" style="background: #333; color: #fff; border: none; padding: 3px 8px; cursor: pointer; font-size: 10px;">Close</button>
       </div>
-      <button class="run-btn" onclick="window.updateFromJSON()">Update Geometry</button>
+      <textarea id="json-input" class="full-code" spellcheck="false"></textarea>
+      <button onclick="window.updateFromJSON()" style="padding: 10px; background: #6d28d9; color: #fff; border: none; font-weight: bold; cursor: pointer; font-size: 10px;">UPDATE</button>
     </div>
   </div>
 
@@ -267,544 +141,386 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
 
-    // --- FULL SCHEMAS ---
+    // --- HELPER DEFINITIONS WITH PARAMS ---
+    const helpers = {
+      // Basic Geometry
+      'createBox': { category: 'Basic', params: { width: 1, height: 1, depth: 1, widthSegments: 1, heightSegments: 1, depthSegments: 1 } },
+      'createSphere': { category: 'Basic', params: { radius: 1, widthSegments: 32, heightSegments: 16 } },
+      'createCylinder': { category: 'Basic', params: { radiusTop: 1, radiusBottom: 1, height: 1, radialSegments: 32, heightSegments: 1 } },
+      'createCone': { category: 'Basic', params: { radius: 1, height: 1, radialSegments: 32, heightSegments: 1 } },
+      'createTorus': { category: 'Basic', params: { radius: 1, tube: 0.4, radialSegments: 16, tubularSegments: 100 } },
+      'createCircle': { category: 'Basic', params: { radius: 1, segments: 32 } },
+      'createPlane': { category: 'Basic', params: { width: 1, height: 1, widthSegments: 1, heightSegments: 1 } },
+
+      // Advanced
+      'createLoft': { category: 'Advanced', params: { profiles: [], heights: null, segments: 32, closed: false } },
+      'createLathe': { category: 'Advanced', params: { points: [], segments: 12 } },
+      'createConvexHull': { category: 'Advanced', params: { points: [] } },
+      'createParametricSurface': { category: 'Advanced', params: { func: null, slices: 32, stacks: 32 } },
+
+      // Curves
+      'createSplinePath': { category: 'Curves', params: { points: [], tension: 0.5 } },
+      'createArcPath': { category: 'Curves', params: { center: [0, 0, 0], radius: 1, startAngle: 0, endAngle: Math.PI, segments: 32 } },
+      'createHelixPath': { category: 'Curves', params: { radius: 1, height: 3, turns: 3, segments: 128 } },
+
+      // Deformations
+      'twistGeometry': { category: 'Deform', params: { geometry: null, angle: 0.785, axis: [0, 1, 0], height: null } },
+      'taperGeometry': { category: 'Deform', params: { geometry: null, topScale: [0.5, 0.5], axis: [0, 1, 0], height: null } },
+      'bendGeometry': { category: 'Deform', params: { geometry: null, angle: 0.785, direction: [1, 0, 0] } },
+      'deformByNoise': { category: 'Deform', params: { geometry: null, amount: 0.2, frequency: 1.0, axis: [0, 1, 0] } },
+
+      // Distribution
+      'repeatLinear3d': { category: 'Distribution', params: { geometry: null, count: 3, spacing: 1, axis: 'x', centered: false, autoMerge: true } },
+      'repeatRadial3d': { category: 'Distribution', params: { geometry: null, count: 8, radius: 5, startAngle: 0, endAngle: 6.28, axis: 'y', faceCenter: true, autoMerge: true } },
+      'distributeOnGrid3d': { category: 'Distribution', params: { geometry: null, rows: 3, cols: 3, spacing: [2, 0, 2], centered: true, autoMerge: true } },
+      'distributeRandom3d': { category: 'Distribution', params: { geometry: null, bounds: [[0, 0, 0], [1, 1, 1]], count: 50, seed: 42, autoMerge: true } },
+
+      // Procedural
+      'cellularAutomata': { category: 'Procedural', params: { gridSize: 10, iterations: 10, rules: { survive: [2, 3], born: [3] } } },
+      'lSystemGeometry': { category: 'Procedural', params: { axiom: 'F', rules: {}, iterations: 3, angle: 25, length: 1, thickness: 0.1 } },
+
+      // Emergent
+      'modifyGeometry': { category: 'Emergent', params: { geometry: null, operations: [], expression: '', context: {} } },
+      'meshFromMarchingCubes': { category: 'Emergent', params: { resolution: 32, isovalue: 0.5, bounds: 10, expression: '', context: {} } },
+
+      // Utilities
+      'mergeGeometries': { category: 'Utility', params: { geometries: [] } },
+      'loop': { category: 'Logic', params: { var: 'i', from: 0, to: 10, body: [] } },
+    };
+
+    // --- SCHEMAS ---
     const schemas = {
       schema1: {
-  "version": "4.9",
-  "type": "emergent_procedure",
-  "intent": "Decoupled Logic Tower",
-  "materials": {
-    "wall": { "color": "#1a3a5c", "roughness": 0.7, "metalness": 0.1 },
-    "window": { "color": "#b3d9ff", "roughness": 0.1, "metalness": 0.8, "transparent": true, "opacity": 0.6 },
-    "core": { "color": "#c1440e", "roughness": 0.6, "metalness": 0 },
-    "column": { "color": "#2a2a2a", "roughness": 0.8, "metalness": 0.3 },
-    "floor_slab": { "color": "#b8b8b8", "roughness": 0.7, "metalness": 0.1 }
-  },
-  
-  // 1. INDEPENDENT PARAMETERS
-  "globalParameters": {
-    "floors": { "value": 15, "type": "integer", "min": 3, "max": 30, "group": "Massing" },
-    "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5, "group": "Massing" },
-    
-    // SLAB IS NOW INDEPENDENT
-    "slabWidth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
-    "slabDepth": { "value": 12, "type": "number", "min": 6, "max": 24, "group": "Slab" },
-    "slabThickness": { "value": 0.3, "type": "number", "min": 0.1, "max": 1.0, "group": "Slab" },
-
-    // CORE IS INDEPENDENT
-    "coreWidth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
-    "coreDepth": { "value": 8, "type": "number", "min": 4, "max": 16, "group": "Core" },
-    
-    // COLUMNS USE INSET FROM SLAB EDGE
-    "colRadius": { "value": 0.4, "type": "number", "min": 0.2, "max": 0.8, "group": "Columns" },
-    "colInsetX": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
-    "colInsetZ": { "value": 1.0, "type": "number", "min": 0.5, "max": 4.0, "group": "Columns" },
-    
-    "panelsPerSide": { "value": 6, "type": "integer", "min": 2, "max": 12, "group": "Facade" },
-    "rotationPerFloor": { "value": 0.08, "type": "number", "min": 0, "max": 0.2, "group": "Animation" }
-  },
-  
-  "context": {}, 
-
-  "actions": [
-    // ----------------------------------------------------------------
-    // 1. SLAB (Uses slabWidth/Depth directly)
-    // ----------------------------------------------------------------
-    { 
-      "thought": "1. Create Slab Base", 
-      "do": "createBox", 
-      "params": { 
-        "width": "ctx.slabWidth", 
-        "height": "ctx.slabThickness", 
-        "depth": "ctx.slabDepth" 
-      }, 
-      "transform": { "position": [0, "-ctx.slabThickness/2", 0] }, 
-      "as": "slab_mesh",
-      "controls": ["slabWidth", "slabDepth", "slabThickness"] 
-    },
-
-    // ----------------------------------------------------------------
-    // 2. CORE
-    // ----------------------------------------------------------------
-    { 
-      "thought": "2. Create Core", 
-      "do": "createBox", 
-      "params": { 
-        "width": "ctx.coreWidth", 
-        "height": "ctx.floorHeight", 
-        "depth": "ctx.coreDepth" 
-      }, 
-      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
-      "as": "core_mesh",
-      "controls": ["coreWidth", "coreDepth"]
-    },
-
-    // ----------------------------------------------------------------
-    // 3. COLUMNS (Position based on Slab Width minus Inset)
-    // ----------------------------------------------------------------
-    { 
-      "thought": "3. Define Columns", 
-      "do": "createCylinder", 
-      "params": { 
-        "radiusTop": "ctx.colRadius", 
-        "radiusBottom": "ctx.colRadius", 
-        "height": "ctx.floorHeight" 
-      }, 
-      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
-      "as": "col_base",
-      "controls": ["colRadius", "floorHeight"]
-    },
-    { 
-      "thought": "4. Distribute Columns", 
-      "do": "distributeOnGrid3d", 
-      "params": { 
-        "geometry": "col_base", 
-        "rows": 2, "cols": 2, 
-        "spacing": [
-          "ctx.slabWidth - (ctx.colInsetX * 2)", 
-          0, 
-          "ctx.slabDepth - (ctx.colInsetZ * 2)"
-        ], 
-        "centered": true, "autoMerge": true 
-      }, 
-      "as": "cols_mesh",
-      "controls": ["colInsetX", "colInsetZ"]
-    },
-
-    // ----------------------------------------------------------------
-    // 4. FACADE PANELS (Follows Slab Size)
-    // ----------------------------------------------------------------
-    { 
-      "thought": "5. Create Facade Geometry", 
-      "do": "createBox", 
-      "params": { 
-        "width": "ctx.slabWidth / ctx.panelsPerSide - 0.1", 
-        "height": "ctx.floorHeight", 
-        "depth": 0.2 
-      }, 
-      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
-      "as": "panel_horz",
-      "controls": ["panelsPerSide"]
-    },
-    { 
-      "do": "createBox", 
-      "params": { 
-        "width": 0.2, 
-        "height": "ctx.floorHeight", 
-        "depth": "ctx.slabDepth / ctx.panelsPerSide - 0.1" 
-      }, 
-      "transform": { "position": [0, "ctx.floorHeight/2", 0] }, 
-      "as": "panel_vert" 
-    },
-
-    // ----------------------------------------------------------------
-    // 5. FACADE ASSEMBLY
-    // ----------------------------------------------------------------
-    { 
-      "thought": "6. Assemble Facade", 
-      "do": "repeatLinear3d", 
-      "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, 
-      "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, 
-      "as": "front_even" 
-    },
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "ctx.slabDepth/2 - 0.1"] }, "as": "front_odd" },
-    
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["-(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_even" },
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_horz", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabWidth / ctx.panelsPerSide) * 2", "axis": "x", "centered": true }, "transform": { "position": ["(ctx.slabWidth/ctx.panelsPerSide)/2", 0, "-ctx.slabDepth/2 + 0.1"] }, "as": "back_odd" },
-
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-ctx.slabWidth/2 + 0.1", 0, "-(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "left_even" },
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["-ctx.slabWidth/2 + 0.1", 0, "(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "left_odd" },
-
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["ctx.slabWidth/2 - 0.1", 0, "-(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "right_even" },
-    { "do": "repeatLinear3d", "params": { "geometry": "panel_vert", "count": "ctx.panelsPerSide / 2", "spacing": "(ctx.slabDepth / ctx.panelsPerSide) * 2", "axis": "z", "centered": true }, "transform": { "position": ["ctx.slabWidth/2 - 0.1", 0, "(ctx.slabDepth/ctx.panelsPerSide)/2"] }, "as": "right_odd" },
-
-    // ----------------------------------------------------------------
-    // 6. STACKING
-    // ----------------------------------------------------------------
-    { 
-      "thought": "7. Stack Floors", 
-      "do": "loop", "var": "i", "from": 0, "to": "ctx.floors",
-      "controls": ["floors", "rotationPerFloor"],
-      "body": [
-         { "do": "clone", "params": {"id":"slab_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "floor_slab" },
-         { "do": "clone", "params": {"id":"core_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "core" },
-         { "do": "clone", "params": {"id":"cols_mesh"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "column" },
-         { "do": "clone", "params": {"id":"front_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
-         { "do": "clone", "params": {"id":"front_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
-         { "do": "clone", "params": {"id":"back_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
-         { "do": "clone", "params": {"id":"back_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
-         { "do": "clone", "params": {"id":"left_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
-         { "do": "clone", "params": {"id":"left_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" },
-         { "do": "clone", "params": {"id":"right_even"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'window' : 'wall'" },
-         { "do": "clone", "params": {"id":"right_odd"}, "transform": {"rotation": [0, "i * ctx.rotationPerFloor", 0], "position": [0, "i * ctx.floorHeight", 0]}, "material": "(i % 2 === 0) ? 'wall' : 'window'" }
-      ] 
-    }
-  ]
-},
+        "version": "4.9", "intent": "Logic Tower",
+        "globalParameters": {
+          "floors": { "value": 15, "type": "integer", "min": 3, "max": 30 },
+          "floorHeight": { "value": 3.5, "type": "number", "min": 2, "max": 5 },
+          "scale": { "value": 1.0, "type": "number", "min": 0.5, "max": 2.0 }
+        },
+        "actions": [
+          { "thought": "Create Slab", "do": "createBox", "params": { "width": 12, "height": 0.3, "depth": 12 }, "as": "slab" },
+          { "thought": "Create Core", "do": "createBox", "params": { "width": 6, "height": "ctx.floorHeight", "depth": 6 }, "as": "core" },
+          { "thought": "Stack Loop", "do": "loop", "var": "i", "from": 0, "to": "ctx.floors", "body": [
+            { "do": "clone", "params": { "id": "slab" }, "transform": { "position": [0, "i * ctx.floorHeight", 0] } },
+            { "do": "clone", "params": { "id": "core" }, "transform": { "position": [0, "i * ctx.floorHeight", 0] } }
+          ]}
+        ]
+      },
       schema2: {
-        "version": "4.9", "intent": "Noise Eroded Column",
-        "materials": { "concrete": { "color": "#8c8c8c" }, "inner_core": { "color": "#333333" } },
-        "globalParameters": {
-          "height": { "value": 12, "min": 5, "max": 20 },
-          "width": { "value": 3, "min": 1, "max": 6 },
-          "layerCount": { "value": 100, "type": "integer", "min": 20, "max": 200 },
-          "erosionScale": { "value": 0.8, "min": 0.1, "max": 2.0 },
-          "erosionDepth": { "value": 1.2, "min": 0, "max": 2.0 },
-          "chaos": { "value": 1.5, "min": 0, "max": 5.0 }
-        },
+        "version": "4.9", "intent": "Noise Column",
+        "globalParameters": { "layers": { "value": 50, "type": "integer", "min": 10, "max": 100 } },
         "actions": [
-          { "thought": "Define Base Geometry", "do": "createBox", "as": "slice_geo", "controls": ["width", "height", "layerCount"] },
-          { "thought": "Define Inner Core", "do": "createBox", "as": "core_geo" },
-          {
-            "thought": "Erode & Stack Loop",
-            "do": "loop", "var": "i", "from": 0, "to": "ctx.layerCount",
-            "controls": ["erosionScale", "erosionDepth", "chaos"],
-            "body": [
-              {
-                "do": "clone", "params": { "id": "slice_geo" },
-                "transform": {
-                  "position": [0, "i * (ctx.height / ctx.layerCount)", 0],
-                  "scale": [
-                    "1.0 - Math.max(0, (Math.sin(i * 0.1 * ctx.erosionScale) + Math.cos(i * 0.3 * ctx.chaos)) * ctx.erosionDepth * 0.5)", 
-                    1, 
-                    "1.0 - Math.max(0, (Math.cos(i * 0.1 * ctx.erosionScale) + Math.sin(i * 0.33 * ctx.chaos)) * ctx.erosionDepth * 0.5)"
-                  ],
-                  "rotation": [0, "i * 0.02", 0]
-                },
-                "material": "concrete"
-              },
-              {
-                "do": "clone", "params": { "id": "core_geo" },
-                "transform": { "position": [0, "i * (ctx.height / ctx.layerCount)", 0], "rotation": [0, "i * 0.02", 0] },
-                "material": "inner_core"
-              }
-            ]
-          }
+          { "thought": "Base Slice", "do": "createBox", "params": { "width": 4, "height": 0.2, "depth": 4 }, "as": "slice" },
+          { "thought": "Noise Loop", "do": "loop", "var": "i", "from": 0, "to": "ctx.layers", "body": [
+            { "do": "clone", "params": { "id": "slice" }, "transform": { "position": [0, "i*0.2", 0] } }
+          ]}
         ]
-      },
-      schema3: {
-        "version": "4.9", "intent": "Deformed Surface Monolith",
-        "materials": { "stone": { "color": "#e0e0e0" } },
-        "globalParameters": {
-          "width": { "value": 6, "min": 2, "max": 10 },
-          "height": { "value": 12, "min": 5, "max": 20 },
-          "resolution": { "value": 30, "type": "integer", "min": 10, "max": 100 },
-          "waveFreq": { "value": 0.8, "min": 0.1, "max": 2.0 },
-          "waveAmp": { "value": 1.5, "min": 0.0, "max": 3.0 },
-          "taper": { "value": 0.3, "min": -0.5, "max": 1.0 }
-        },
-        "actions": [
-          { "thought": "Create High-Res Mesh", "do": "createBox", "as": "base_mesh", "controls": ["width", "height", "resolution"] },
-          { "thought": "Apply Deformations", "do": "modifyGeometry", "params": {
-              "geometry": "base_mesh",
-              "operations": [
-                { "type": "displace", "expression": "v.x += Math.sin(v.y * ctx.waveFreq) * ctx.waveAmp; v.z += Math.cos(v.y * ctx.waveFreq) * ctx.waveAmp;" },
-                { "type": "scale", "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;" }
-              ]
-            },
-            "material": "stone",
-            "as": "final_mesh", "controls": ["waveFreq", "waveAmp", "taper"]
-          }
-        ]
-      }, 
-      schema4: {
-  "version": "4.9",
-  "type": "emergent_procedure",
-  "intent": "Column-Safe Voxel Monolith",
-  "materials": {
-    "stone": { "color": "#e0e0e0", "roughness": 0.9, "metalness": 0.1 }
-  },
-  "globalParameters": {
-    // DIMENSIONS (Works for Columns now)
-    "width": { "value": 4, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
-    "height": { "value": 14, "type": "number", "min": 5, "max": 20, "group": "Dimensions" },
-    "depth": { "value": 4, "type": "number", "min": 2, "max": 10, "group": "Dimensions" },
-    
-    // QUALITY
-    "resolution": { "value": 60, "type": "integer", "min": 20, "max": 120, "group": "Quality" },
-    
-    // VOXEL EROSION
-    "voxelSize": { "value": 0.5, "type": "number", "min": 0.1, "max": 2.0, "group": "Voxel Layer" },
-    "erosionThreshold": { "value": 0.4, "type": "number", "min": 0.0, "max": 0.9, "group": "Voxel Layer" },
-    "layerDepth": { "value": 1.0, "type": "number", "min": 0.5, "max": 5.0, "group": "Voxel Layer" },
-    
-    // BASE SHAPE
-    "taper": { "value": 0.2, "type": "number", "min": -0.5, "max": 1.0, "group": "Base Shape" }
-  },
-  "context": {},
-  "actions": [
-    // 1. Create Base Core
-    {
-      "thought": "1. Create Base Core",
-      "do": "createBox",
-      "params": {
-        "width": "ctx.width",
-        "height": "ctx.height",
-        "depth": "ctx.depth",
-        "widthSegments": "ctx.resolution",
-        "heightSegments": "ctx.resolution",
-        "depthSegments": "ctx.resolution"
-      },
-      "as": "base_mesh",
-      "controls": ["width", "height", "depth", "resolution"]
-    },
-    
-    // 2. Normalized Axis-Aligned Erosion
-    {
-      "thought": "2. Apply Aspect-Ratio Correct Erosion",
-      "do": "modifyGeometry",
-      "params": {
-        "geometry": "base_mesh",
-        "operations": [
-          // 1. Voxel Erosion (Normalized Logic)
-          {
-            "type": "displace",
-            "expression": `
-              // A. Voxel Quantization
-              var step = ctx.voxelSize;
-              var qx = Math.floor(v.x / step);
-              var qy = Math.floor(v.y / step);
-              var qz = Math.floor(v.z / step);
-
-              // B. Generate Hash
-              var dot = qx * 12.9898 + qy * 78.233 + qz * 37.719;
-              var hash = Math.sin(dot) * 43758.5453;
-              var noise = hash - Math.floor(hash);
-
-              // C. EXTRUDE
-              if (noise > ctx.erosionThreshold) {
-                  // NORMALIZE coordinates relative to box dimensions
-                  // This makes a 2x10x2 column "feel" like a 1x1x1 cube for logic purposes
-                  var nx = Math.abs(v.x / (ctx.width * 0.5));
-                  var ny = Math.abs(v.y / (ctx.height * 0.5));
-                  var nz = Math.abs(v.z / (ctx.depth * 0.5));
-
-                  var dx = 0.0;
-                  var dy = 0.0;
-                  var dz = 0.0;
-
-                  // Check which NORMALIZED face is closest
-                  if (nx >= ny && nx >= nz) {
-                      dx = (v.x > 0) ? 1.0 : -1.0;
-                  } else if (ny >= nx && ny >= nz) {
-                      dy = (v.y > 0) ? 1.0 : -1.0;
-                  } else {
-                      dz = (v.z > 0) ? 1.0 : -1.0;
-                  }
-
-                  // Push along that direction
-                  v.x += dx * ctx.layerDepth;
-                  v.y += dy * ctx.layerDepth;
-                  v.z += dz * ctx.layerDepth;
-              }
-            `
-          },
-          
-          // 2. Apply Taper (Must happen AFTER erosion)
-          {
-            "type": "scale",
-            "expression": "var s = 1.0 - (v.y / ctx.height) * ctx.taper; v.x *= s; v.z *= s;"
-          }
-        ]
-      },
-      "material": "stone",
-      "controls": ["voxelSize", "erosionThreshold", "layerDepth", "taper"]
-    }
-  ]
-}
-
+      }
     };
 
     let currentSchema = schemas.schema1;
+    let selectedStepIndex = -1;
+    let draggedItem = null;
     let currentMesh = null;
     const executor = new ProceduralExecutor();
 
-    // --- RENDER NARRATIVE (Sidebar) ---
-    function renderPipeline() {
-      const container = document.getElementById('pipeline');
-      container.innerHTML = '';
+    // --- BUILD TOOLBOX ---
+    function buildToolbox() {
+      const list = document.getElementById('tool-list');
+      list.innerHTML = '';
+      const categories = {};
 
-      // 1. Find "Orphan" Global Parameters (Not assigned to any step)
-      const assignedParams = new Set();
-      currentSchema.actions.forEach(a => {
-        if(a.controls) a.controls.forEach(c => assignedParams.add(c));
-      });
-      const globalParams = Object.keys(currentSchema.globalParameters).filter(k => !assignedParams.has(k));
-
-      // 2. Render Context Card (Orphans)
-      if (globalParams.length > 0) {
-        const contextCard = document.createElement('div');
-        contextCard.className = 'step-card context-card';
-
-        const dot = document.createElement('div');
-        dot.className = 'step-num';
-        dot.innerText = 'G';
-        contextCard.appendChild(dot);
-
-        const header = document.createElement('div');
-        header.className = 'step-header';
-        header.innerHTML = `<span class="step-title">Global Context</span>`;
-        contextCard.appendChild(header);
-
-        const body = document.createElement('div');
-        body.className = 'step-body';
-        globalParams.forEach(key => {
-          body.appendChild(createSlider(key, currentSchema.globalParameters[key]));
-        });
-        contextCard.appendChild(body);
-        container.appendChild(contextCard);
+      for (const [name, info] of Object.entries(helpers)) {
+        if (!categories[info.category]) categories[info.category] = [];
+        categories[info.category].push(name);
       }
 
-      // 3. Render Recipe Steps
-      currentSchema.actions.forEach((action, index) => {
-        const card = document.createElement('div');
-        card.className = 'step-card';
+      for (const [cat, items] of Object.entries(categories)) {
+        const catDiv = document.createElement('div');
+        catDiv.className = 'tool-category';
+        catDiv.innerHTML = `<div class="tool-category-title">${cat}</div>`;
 
-        const dot = document.createElement('div');
-        dot.className = 'step-num';
-        dot.innerText = index + 1;
-        card.appendChild(dot);
-
-        const header = document.createElement('div');
-        header.className = 'step-header';
-        header.innerHTML = `
-          <span class="step-title">${action.thought || 'Action'}</span>
-          <span class="step-action">${action.do}</span>
-        `;
-        card.appendChild(header);
-
-        const body = document.createElement('div');
-        body.className = 'step-body';
-
-        if (action.controls && action.controls.length > 0) {
-          action.controls.forEach(key => {
-            if (currentSchema.globalParameters[key]) {
-              body.appendChild(createSlider(key, currentSchema.globalParameters[key]));
-            }
-          });
-          card.appendChild(body);
+        for (const item of items) {
+          const tool = document.createElement('div');
+          tool.className = 'tool-item';
+          tool.draggable = true;
+          tool.ondragstart = (e) => { draggedItem = { type: 'tool', tool: item }; e.dataTransfer.effectAllowed = 'copy'; };
+          tool.innerHTML = `<div class="tool-icon"></div> ${item}`;
+          catDiv.appendChild(tool);
         }
+        list.appendChild(catDiv);
+      }
+    }
+
+    // --- RENDER TIMELINE ---
+    function renderTimeline() {
+      const container = document.getElementById('timeline');
+      container.innerHTML = '';
+
+      // Global Params (Summary)
+      const globalDiv = document.createElement('div');
+      globalDiv.innerHTML = '<div style="font-size:9px; font-weight:700; color:#555; margin-bottom:8px;">GLOBAL PARAMS</div>';
+      Object.keys(currentSchema.globalParameters).forEach(key => {
+        const param = currentSchema.globalParameters[key];
+        globalDiv.innerHTML += `<div style="font-size:9px; color:#666; margin-bottom:2px;">${key}: <span style="color:var(--accent);">${param.value}</span></div>`;
+      });
+      globalDiv.style.paddingBottom = '12px';
+      globalDiv.style.borderBottom = '1px solid #333';
+      globalDiv.style.marginBottom = '12px';
+      container.appendChild(globalDiv);
+
+      // Steps
+      currentSchema.actions.forEach((action, index) => {
+        const dropZone = document.createElement('div');
+        dropZone.className = 'drop-zone';
+        dropZone.ondragenter = (e) => e.target.classList.add('active');
+        dropZone.ondragleave = (e) => e.target.classList.remove('active');
+        dropZone.ondrop = (e) => handleDrop(e, index);
+        container.appendChild(dropZone);
+
+        const card = document.createElement('div');
+        card.className = `step-card ${selectedStepIndex === index ? 'selected' : ''}`;
+        card.draggable = true;
+        card.ondragstart = (e) => { draggedItem = { type: 'step', index }; };
+        card.onclick = () => selectStep(index);
+        card.innerHTML = `
+          <div class="step-num">${index + 1}</div>
+          <div class="step-header">
+            <div class="step-title">${action.thought}</div>
+            <div class="step-type">${action.do}</div>
+          </div>
+        `;
         container.appendChild(card);
       });
+
+      // Final drop
+      const lastDrop = document.createElement('div');
+      lastDrop.className = 'drop-zone';
+      lastDrop.ondragenter = (e) => e.target.classList.add('active');
+      lastDrop.ondragleave = (e) => e.target.classList.remove('active');
+      lastDrop.ondrop = (e) => handleDrop(e, currentSchema.actions.length);
+      container.appendChild(lastDrop);
     }
 
-    function createSlider(key, def) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'control';
+    // --- DRAG & DROP ---
+    window.dragOver = (e) => e.preventDefault();
+    window.drop = (e) => e.preventDefault();
+    window.handleDrop = (e, targetIndex) => {
+      e.preventDefault();
+      document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('active'));
+      if (!draggedItem) return;
 
-      const header = document.createElement('div');
-      header.className = 'control-header';
-      header.innerHTML = `
-        <span class="control-label">${key}</span>
-        <span class="control-val" id="val-${key}">${def.value}</span>
-      `;
-
-      const input = document.createElement('input');
-      input.type = 'range';
-      input.min = def.min;
-      input.max = def.max;
-      input.step = def.type === 'integer' ? 1 : 0.01;
-      input.value = def.value;
-      input.dataset.key = key; // identifier
-
-      input.oninput = (e) => {
-        const val = def.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
-        def.value = val;
-
-        // Update Visuals
-        document.querySelectorAll(`#val-${key}`).forEach(el => el.innerText = val);
-        document.querySelectorAll(`input`).forEach(el => {
-          if (el !== input && el.dataset.key === key) el.value = val;
-        });
-
-        // Update JSON View (Sync)
-        document.getElementById('json-input').value = JSON.stringify(currentSchema, null, 2);
-
-        // Re-run
-        run();
-      };
-
-      wrapper.appendChild(header);
-      wrapper.appendChild(input);
-      return wrapper;
-    }
-
-    // --- GLOBAL HANDLERS ---
-    window.loadSchema = (key) => {
-      currentSchema = schemas[key];
-      document.getElementById('json-input').value = JSON.stringify(currentSchema, null, 2);
-      renderPipeline();
+      const actions = currentSchema.actions;
+      if (draggedItem.type === 'step') {
+        const [item] = actions.splice(draggedItem.index, 1);
+        const newIdx = draggedItem.index < targetIndex ? targetIndex - 1 : targetIndex;
+        actions.splice(newIdx, 0, item);
+      } else {
+        const newAction = createDefaultAction(draggedItem.tool);
+        actions.splice(targetIndex, 0, newAction);
+      }
+      draggedItem = null;
+      selectedStepIndex = -1;
+      renderTimeline();
+      renderInspector();
       run();
     };
 
-    window.toggleEngine = () => {
-      const room = document.getElementById('engine-room');
-      const btn = document.querySelector('.code-toggle-btn');
-      room.classList.toggle('open');
-      btn.classList.toggle('active');
+    function createDefaultAction(tool) {
+      const helperInfo = helpers[tool];
+      return {
+        thought: `${tool}`,
+        do: tool,
+        params: { ...helperInfo.params },
+        as: `obj_${Date.now().toString().slice(-4)}`
+      };
+    }
+
+    // --- INSPECTOR ---
+    window.selectStep = (index) => {
+      selectedStepIndex = index;
+      renderTimeline();
+      renderInspector();
     };
 
-    window.updateFromJSON = () => {
-      try {
-        const json = document.getElementById('json-input').value;
-        currentSchema = JSON.parse(json);
-        renderPipeline(); // Rebuild sliders to match new JSON
+    function renderInspector() {
+      const container = document.getElementById('inspector-content');
+      container.innerHTML = '';
+
+      if (selectedStepIndex < 0 || selectedStepIndex >= currentSchema.actions.length) return;
+
+      const action = currentSchema.actions[selectedStepIndex];
+      const helperInfo = helpers[action.do];
+
+      container.appendChild(createInput('Thought', action.thought, (v) => { action.thought = v; renderTimeline(); }));
+      container.appendChild(createInput('Output Name (as)', action.as || '', (v) => { action.as = v; }));
+
+      if (helperInfo && helperInfo.params) {
+        const paramsHeader = document.createElement('div');
+        paramsHeader.style = 'margin-top: 12px; font-weight: 700; font-size: 10px; color: #fff; border-bottom: 1px solid #333; padding-bottom: 4px; margin-bottom: 8px;';
+        paramsHeader.innerText = `PARAMETERS (${action.do})`;
+        container.appendChild(paramsHeader);
+
+        const availableGeometries = currentSchema.actions.filter(a => a.as).map(a => a.as);
+        const availableGlobalParams = Object.keys(currentSchema.globalParameters);
+
+        for (const [paramKey, defaultVal] of Object.entries(helperInfo.params)) {
+          const currentVal = action.params?.[paramKey] !== undefined ? action.params[paramKey] : defaultVal;
+
+          // Special UI for geometry references
+          if (paramKey === 'geometry' || paramKey === 'geometries') {
+            const select = createSelect(paramKey, currentVal, availableGeometries, (v) => {
+              action.params[paramKey] = v;
+              run();
+            });
+            container.appendChild(select);
+          }
+          // For loop params
+          else if (paramKey === 'to' || paramKey === 'from' || paramKey === 'count') {
+            container.appendChild(createExpressionInput(paramKey, currentVal, availableGlobalParams, (v) => {
+              action.params[paramKey] = isNaN(v) ? v : parseFloat(v);
+              run();
+            }));
+          }
+          else if (typeof defaultVal === 'number') {
+            container.appendChild(createSlider(paramKey, currentVal, defaultVal, (v) => {
+              action.params[paramKey] = v;
+              run();
+            }));
+          }
+          else if (typeof defaultVal === 'string') {
+            container.appendChild(createExpressionInput(paramKey, currentVal, availableGlobalParams, (v) => {
+              action.params[paramKey] = v;
+              run();
+            }));
+          }
+        }
+      }
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-danger';
+      delBtn.innerText = 'Delete Step';
+      delBtn.onclick = () => {
+        currentSchema.actions.splice(selectedStepIndex, 1);
+        selectedStepIndex = -1;
+        renderTimeline();
+        renderInspector();
         run();
-      } catch(e) { alert("Invalid JSON"); }
+      };
+      container.appendChild(delBtn);
+    }
+
+    function createInput(label, val, onChange) {
+      const group = document.createElement('div');
+      group.className = 'prop-group';
+      const input = document.createElement('input');
+      input.className = 'prop-input';
+      input.value = val;
+      input.placeholder = label;
+      input.onchange = (e) => onChange(e.target.value);
+      group.innerHTML = `<label class="prop-label">${label}</label>`;
+      group.appendChild(input);
+      return group;
+    }
+
+    function createSlider(label, val, defaultVal, onChange) {
+      const group = document.createElement('div');
+      group.className = 'prop-group';
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = -100;
+      slider.max = 100;
+      slider.step = 0.1;
+      slider.value = val;
+      slider.oninput = (e) => { onChange(parseFloat(e.target.value)); valSpan.innerText = parseFloat(e.target.value).toFixed(2); };
+      const valSpan = document.createElement('span');
+      valSpan.className = 'prop-val';
+      valSpan.style = 'color: var(--accent); font-family: monospace; font-size: 9px;';
+      valSpan.innerText = parseFloat(val).toFixed(2);
+      group.innerHTML = `<label class="prop-label">${label}</label>`;
+      group.appendChild(slider);
+      group.appendChild(document.createElement('br'));
+      group.appendChild(valSpan);
+      return group;
+    }
+
+    function createExpressionInput(label, val, globalParams, onChange) {
+      const group = document.createElement('div');
+      group.className = 'prop-group';
+      const input = document.createElement('input');
+      input.className = 'prop-input';
+      input.value = val;
+      input.placeholder = `e.g. ctx.${globalParams[0] || 'param'} or 5`;
+      input.onchange = (e) => onChange(e.target.value);
+      group.innerHTML = `<label class="prop-label">${label}</label>`;
+      group.appendChild(input);
+      if (globalParams.length > 0) {
+        const hint = document.createElement('div');
+        hint.style = 'font-size: 9px; color: #666; margin-top: 2px;';
+        hint.innerText = `Available: ${globalParams.map(p => `ctx.${p}`).join(', ')}`;
+        group.appendChild(hint);
+      }
+      return group;
+    }
+
+    function createSelect(label, val, options, onChange) {
+      const group = document.createElement('div');
+      group.className = 'prop-group';
+      const select = document.createElement('select');
+      select.className = 'prop-input';
+      select.innerHTML = '<option value="">-- Select Object --</option>';
+      options.forEach(opt => {
+        const op = document.createElement('option');
+        op.value = opt;
+        op.innerText = opt;
+        op.selected = val === opt;
+        select.appendChild(op);
+      });
+      select.onchange = (e) => onChange(e.target.value);
+      group.innerHTML = `<label class="prop-label">${label}</label>`;
+      group.appendChild(select);
+      return group;
+    }
+
+    // --- GLOBAL ---
+    window.loadSchema = (k) => { currentSchema = schemas[k]; selectedStepIndex = -1; renderTimeline(); renderInspector(); run(); };
+    window.toggleJson = () => { document.getElementById('json-overlay').classList.toggle('open'); document.getElementById('json-input').value = JSON.stringify(currentSchema, null, 2); };
+    window.updateFromJSON = () => {
+      try { currentSchema = JSON.parse(document.getElementById('json-input').value); window.toggleJson(); renderTimeline(); run(); }
+      catch(e) { alert('Invalid JSON'); }
     };
 
-    // --- 3D ENGINE ---
+    // --- 3D ---
     const canvas = document.querySelector('#gl');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
     const controls = new OrbitControls(camera, canvas);
-
-    function setupScene() {
-      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-      camera.aspect = canvas.clientWidth / canvas.clientHeight;
-      camera.position.set(40, 40, 40);
-      camera.updateProjectionMatrix();
-      controls.enableDamping = true;
-      controls.target.set(0, 10, 0);
-      scene.background = new THREE.Color(0x09090b);
-      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-      dirLight.position.set(50, 100, 50);
-      scene.add(dirLight);
-      scene.add(new THREE.GridHelper(100, 20, 0x27272a, 0x18181b));
-    }
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    camera.position.set(30, 30, 30);
+    scene.background = new THREE.Color(0x09090b);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(50, 100, 50);
+    scene.add(dirLight);
+    scene.add(new THREE.GridHelper(100, 20, 0x27272a, 0x18181b));
 
     function run() {
-      if (currentMesh) {
-        scene.remove(currentMesh);
-        currentMesh.traverse(c => {
-           if (c.geometry) c.geometry.dispose();
-           if (c.material && !Array.isArray(c.material)) c.material.dispose();
-        });
-      }
-
+      if (currentMesh) scene.remove(currentMesh);
       const params = {};
       for (const [k, v] of Object.entries(currentSchema.globalParameters)) params[k] = v.value;
-
       try {
         currentMesh = executor.execute(currentSchema, params);
         scene.add(currentMesh);
-        let count = 0;
-        currentMesh.traverse(c => { if (c.isMesh) count++; });
-        document.getElementById('stats').innerText = `${currentSchema.intent} | Meshes: ${count}`;
-      } catch (e) { console.error(e); }
+      } catch(e) { console.error(e); }
     }
 
-    setupScene();
-    window.loadSchema('schema1');
-
-    function animate() {
-      requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    }
+    function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
     animate();
+
+    buildToolbox();
+    renderTimeline();
+    run();
 
     window.onresize = () => {
       renderer.setSize(canvas.clientWidth, canvas.clientHeight);
