@@ -264,7 +264,6 @@
           'depthSegments': { type: 'integer', default: 1, min: 1, max: 32 }
         }
       },
-
       'createSphere': {
         category: 'Basic Geometry',
         params: {
@@ -277,7 +276,6 @@
           'thetaLength': { type: 'number', default: 3.14, min: 0.1, max: 3.14 }
         }
       },
-
       'createCylinder': {
         category: 'Basic Geometry',
         params: {
@@ -291,7 +289,6 @@
           'thetaLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
         }
       },
-
       'createCone': {
         category: 'Basic Geometry',
         params: {
@@ -302,7 +299,6 @@
           'openEnded': { type: 'boolean', default: false }
         }
       },
-
       'createTorus': {
         category: 'Basic Geometry',
         params: {
@@ -313,7 +309,6 @@
           'arc': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
         }
       },
-
       'createPlane': {
         category: 'Basic Geometry',
         params: {
@@ -323,7 +318,6 @@
           'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 }
         }
       },
-
       'repeatLinear3d': {
         category: 'Distribution',
         params: {
@@ -335,7 +329,6 @@
           'autoMerge': { type: 'boolean', default: true }
         }
       },
-
       'repeatRadial3d': {
         category: 'Distribution',
         params: {
@@ -349,7 +342,6 @@
           'autoMerge': { type: 'boolean', default: true }
         }
       },
-
       'distributeOnGrid3d': {
         category: 'Distribution',
         params: {
@@ -361,16 +353,15 @@
           'autoMerge': { type: 'boolean', default: true }
         }
       },
-
       'twistGeometry': {
         category: 'Deformation',
         params: {
           'geometry': { type: 'reference', default: null },
           'angle': { type: 'number', default: 0.785, min: -6.28, max: 6.28 },
-          'axis': { type: 'array', default: [0, 1, 0] }
+          'axis': { type: 'array', default: [0, 1, 0] },
+          'height': { type: 'number', default: null }
         }
       },
-
       'taperGeometry': {
         category: 'Deformation',
         params: {
@@ -379,7 +370,6 @@
           'axis': { type: 'array', default: [0, 1, 0] }
         }
       },
-
       'bendGeometry': {
         category: 'Deformation',
         params: {
@@ -388,7 +378,6 @@
           'direction': { type: 'array', default: [1, 0, 0] }
         }
       },
-
       'deformByNoise': {
         category: 'Deformation',
         params: {
@@ -398,14 +387,12 @@
           'axis': { type: 'array', default: [0, 1, 0] }
         }
       },
-
       'mergeGeometries': {
         category: 'Utilities',
         params: {
           'geometries': { type: 'array', default: [] }
         }
       },
-
       'modifyGeometry': {
         category: 'Emergent',
         params: {
@@ -414,14 +401,12 @@
           'context': { type: 'object', default: {} }
         }
       },
-
       'clone': {
         category: 'Utilities',
         params: {
           'geometry': { type: 'reference', default: null }
         }
       },
-
       'transformMesh': {
         category: 'Utilities',
         params: {
@@ -431,7 +416,6 @@
           'position': { type: 'array', default: [0, 0, 0] }
         }
       },
-
       'loop': {
         category: 'Logic',
         params: {
@@ -458,6 +442,145 @@
         }
       }
       return params;
+    }
+
+    // Get available geometry outputs from previous steps
+    function getAvailableGeometries(currentIndex) {
+      const available = [];
+      for (let i = 0; i < currentIndex; i++) {
+        const step = schema.actions[i];
+        available.push({
+          name: `Step ${i + 1}: ${step.thought}`,
+          value: step.as
+        });
+      }
+      return available;
+    }
+
+    // Render appropriate input for a parameter based on its type
+    function renderParameterField(paramKey, paramValue, paramDef, stepIndex) {
+      const container = document.createElement('div');
+      container.className = 'field-group';
+
+      const label = document.createElement('label');
+      label.className = 'field-label';
+      label.innerText = paramKey;
+      container.appendChild(label);
+
+      // Handle reference parameters (geometry, etc)
+      if (paramDef.type === 'reference') {
+        const select = document.createElement('select');
+        select.className = 'helper-select';
+
+        // Add empty option
+        const emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.innerText = '-- None --';
+        select.appendChild(emptyOpt);
+
+        // Add available geometry steps
+        const available = getAvailableGeometries(stepIndex);
+        available.forEach(({ name, value }) => {
+          const opt = document.createElement('option');
+          opt.value = value;
+          opt.innerText = name;
+          if (paramValue === value) opt.selected = true;
+          select.appendChild(opt);
+        });
+
+        select.onchange = (e) => {
+          updateStepField(stepIndex, `param-${paramKey}`, e.target.value || null);
+        };
+        container.appendChild(select);
+      }
+
+      // Handle boolean parameters
+      else if (paramDef.type === 'boolean') {
+        const checkDiv = document.createElement('div');
+        checkDiv.style.display = 'flex';
+        checkDiv.style.alignItems = 'center';
+        checkDiv.style.gap = '8px';
+
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = paramValue === true;
+        input.style.width = '16px';
+        input.style.height = '16px';
+        input.style.cursor = 'pointer';
+        input.onchange = (e) => {
+          updateStepField(stepIndex, `param-${paramKey}`, e.target.checked);
+        };
+        checkDiv.appendChild(input);
+
+        const label2 = document.createElement('span');
+        label2.innerText = paramValue ? 'Yes' : 'No';
+        label2.style.color = 'var(--text-dim)';
+        label2.style.fontSize = '11px';
+        checkDiv.appendChild(label2);
+
+        container.appendChild(checkDiv);
+      }
+
+      // Handle array parameters
+      else if (paramDef.type === 'array') {
+        const textarea = document.createElement('textarea');
+        textarea.className = 'expr-input';
+        textarea.value = JSON.stringify(paramValue);
+        textarea.onchange = (e) => {
+          try {
+            updateStepField(stepIndex, `param-${paramKey}`, JSON.parse(e.target.value));
+          } catch (err) {
+            console.error('Invalid JSON:', err);
+          }
+        };
+        container.appendChild(textarea);
+      }
+
+      // Handle string parameters
+      else if (paramDef.type === 'string') {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'helper-select';
+        input.value = paramValue;
+        input.onchange = (e) => {
+          updateStepField(stepIndex, `param-${paramKey}`, e.target.value);
+        };
+        container.appendChild(input);
+      }
+
+      // Handle number/integer parameters
+      else if (paramDef.type === 'number' || paramDef.type === 'integer') {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'helper-select';
+        if (paramDef.type === 'integer') input.step = '1';
+        else input.step = '0.01';
+        if (paramDef.min !== undefined) input.min = paramDef.min;
+        if (paramDef.max !== undefined) input.max = paramDef.max;
+        input.value = paramValue;
+        input.onchange = (e) => {
+          const val = paramDef.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
+          updateStepField(stepIndex, `param-${paramKey}`, val);
+        };
+        container.appendChild(input);
+      }
+
+      // Default: show as JSON
+      else {
+        const textarea = document.createElement('textarea');
+        textarea.className = 'expr-input';
+        textarea.value = JSON.stringify(paramValue);
+        textarea.onchange = (e) => {
+          try {
+            updateStepField(stepIndex, `param-${paramKey}`, JSON.parse(e.target.value));
+          } catch (err) {
+            console.error('Invalid JSON:', err);
+          }
+        };
+        container.appendChild(textarea);
+      }
+
+      return container;
     }
 
     // --- SCHEMA STATE ---
@@ -595,16 +718,23 @@
     };
 
     window.addStepWithHelper = (helper, index) => {
+      const params = getHelperParams(helper);
+
+      // Auto-link geometry to previous step if available
+      if (params.hasOwnProperty('geometry') && index >= 0 && schema.actions[index]) {
+        params.geometry = schema.actions[index].as;
+      }
+
       const newStep = {
         "thought": `Use ${helper}`,
         "do": helper,
-        "params": getHelperParams(helper),  // ← FIX: Use actual helper params!
+        "params": params,
         "as": `${helper}_${Date.now()}`,
         "material": "default"
       };
 
       schema.actions.splice(index + 1, 0, newStep);
-      closeAddMenu();
+      closeAddMenu();  // ← FIXED: Close menu after selection
       renderTimeline();
       run();
     };
@@ -615,17 +745,18 @@
 
     window.updateStepField = (index, field, value) => {
       if (field === 'thought') schema.actions[index].thought = value;
-      else if (field === 'do') schema.actions[index].do = value;
+      else if (field === 'do') {
+        schema.actions[index].do = value;
+        // Reset params to helper defaults when helper changes
+        schema.actions[index].params = getHelperParams(value);
+      }
       else if (field === 'as') schema.actions[index].as = value;
       else if (field === 'material') schema.actions[index].material = value;
-      else if (field === 'params') {
-        try {
-          schema.actions[index].params = JSON.parse(value);
-        } catch (e) {
-          console.error('Invalid JSON params:', e);
-          return;
-        }
+      else if (field.startsWith('param-')) {
+        const paramKey = field.replace('param-', '');
+        schema.actions[index].params[paramKey] = value;
       }
+      renderTimeline();  // Re-render to show updated params
       run();
     };
 
@@ -637,45 +768,70 @@
         const card = document.createElement('div');
         card.className = 'step-card';
 
-        const header = `
-          <div class="step-header">
-            <div class="step-num">${i+1}</div>
-            <input class="step-title-input" value="${action.thought || ''}" onchange="updateStepField(${i}, 'thought', this.value)" placeholder="Step description" />
-            <div class="step-actions">
-              <button class="step-btn step-btn-add" onclick="openAddMenu(${i})" title="Add step after">+</button>
-              <button class="step-btn step-btn-remove" onclick="removeStep(${i})" title="Remove step">×</button>
-            </div>
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'step-header';
+        headerDiv.innerHTML = `
+          <div class="step-num">${i+1}</div>
+          <input class="step-title-input" value="${action.thought || ''}" onchange="updateStepField(${i}, 'thought', this.value)" placeholder="Step description" />
+          <div class="step-actions">
+            <button class="step-btn step-btn-add" onclick="openAddMenu(${i})" title="Add step after">+</button>
+            <button class="step-btn step-btn-remove" onclick="removeStep(${i})" title="Remove step">×</button>
           </div>
         `;
+        card.appendChild(headerDiv);
 
-        const bodyHtml = `
-          <div class="step-body">
-            <div class="field-group">
-              <label class="field-label">Helper (do)</label>
-              <select class="helper-select" value="${action.do}" onchange="updateStepField(${i}, 'do', this.value)">
-                <option value="">-- Select --</option>
-                ${HELPERS.map(h => `<option value="${h}" ${action.do === h ? 'selected' : ''}>${h}</option>`).join('')}
-              </select>
-            </div>
+        const bodyDiv = document.createElement('div');
+        bodyDiv.className = 'step-body';
 
-            <div class="field-group">
-              <label class="field-label">Output Name (as)</label>
-              <input type="text" value="${action.as || ''}" onchange="updateStepField(${i}, 'as', this.value)" placeholder="e.g., box_mesh" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--text); font-size: 11px;" />
-            </div>
-
-            <div class="field-group">
-              <label class="field-label">Parameters (JSON)</label>
-              <textarea class="expr-input" onchange="updateStepField(${i}, 'params', this.value)" placeholder='{"width": "ctx.width"}'>${JSON.stringify(action.params || {})}</textarea>
-            </div>
-
-            <div class="field-group">
-              <label class="field-label">Material</label>
-              <input type="text" value="${action.material || 'default'}" onchange="updateStepField(${i}, 'material', this.value)" placeholder="material name" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; color: var(--text); font-size: 11px;" />
-            </div>
-          </div>
+        // Helper selector
+        const helperGroup = document.createElement('div');
+        helperGroup.className = 'field-group';
+        helperGroup.innerHTML = `
+          <label class="field-label">Helper (do)</label>
+          <select class="helper-select" value="${action.do}" onchange="updateStepField(${i}, 'do', this.value)">
+            <option value="">-- Select --</option>
+            ${HELPERS.map(h => `<option value="${h}" ${action.do === h ? 'selected' : ''}>${h}</option>`).join('')}
+          </select>
         `;
+        bodyDiv.appendChild(helperGroup);
 
-        card.innerHTML = header + bodyHtml;
+        // Output name
+        const asGroup = document.createElement('div');
+        asGroup.className = 'field-group';
+        const asInput = document.createElement('input');
+        asInput.type = 'text';
+        asInput.className = 'helper-select';
+        asInput.value = action.as || '';
+        asInput.placeholder = 'e.g., box_mesh';
+        asInput.onchange = (e) => updateStepField(i, 'as', e.target.value);
+        asGroup.innerHTML = '<label class="field-label">Output Name (as)</label>';
+        asGroup.appendChild(asInput);
+        bodyDiv.appendChild(asGroup);
+
+        // Parameters (dynamic based on helper type)
+        const helperDef = HELPER_REGISTRY[action.do];
+        if (helperDef) {
+          for (const [key, def] of Object.entries(helperDef.params)) {
+            const value = action.params[key];
+            const field = renderParameterField(key, value, def, i);
+            bodyDiv.appendChild(field);
+          }
+        }
+
+        // Material
+        const matGroup = document.createElement('div');
+        matGroup.className = 'field-group';
+        const matInput = document.createElement('input');
+        matInput.type = 'text';
+        matInput.value = action.material || 'default';
+        matInput.placeholder = 'material name';
+        matInput.className = 'helper-select';
+        matInput.onchange = (e) => updateStepField(i, 'material', e.target.value);
+        matGroup.innerHTML = '<label class="field-label">Material</label>';
+        matGroup.appendChild(matInput);
+        bodyDiv.appendChild(matGroup);
+
+        card.appendChild(bodyDiv);
         container.appendChild(card);
       });
     }
