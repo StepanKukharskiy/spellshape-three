@@ -194,12 +194,6 @@
       background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 4px;
       pointer-events: none;
     }
-
-    /* HELPER REFERENCE */
-    .helpers-list {
-      font-size: 10px; line-height: 1.6; color: var(--text-dim);
-    }
-    .helpers-list strong { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -214,7 +208,6 @@
         <div class="tab active" onclick="setTab('globals')">Globals</div>
         <div class="tab" onclick="setTab('timeline')">Timeline</div>
         <div class="tab" onclick="setTab('json')">JSON</div>
-        <div class="tab" onclick="setTab('helpers')">Helpers</div>
       </div>
 
       <!-- TAB 1: GLOBALS -->
@@ -239,17 +232,6 @@
           </div>
         </div>
       </div>
-
-      <!-- TAB 4: HELPERS -->
-      <div id="tab-helpers" class="content">
-        <div class="helpers-list">
-          <strong>Available Helpers:</strong>
-          <br/>createBox, createSphere, createCylinder, createPlane, createCone, createTorus
-          <br/>clone, repeatLinear3d, distributeOnGrid3d, loop, modifyGeometry, transformMesh
-          <br/><strong>Context Variables:</strong> ctx.paramName
-          <br/><strong>Example:</strong> "ctx.width * 0.5"
-        </div>
-      </div>
     </div>
 
     <div class="viewport">
@@ -267,6 +249,217 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
 
+    // ============================================================================
+    // HELPER REGISTRY - Maps helpers to their ACTUAL parameters with defaults
+    // ============================================================================
+    const HELPER_REGISTRY = {
+      'createBox': {
+        category: 'Basic Geometry',
+        params: {
+          'width': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'height': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'depth': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'widthSegments': { type: 'integer', default: 1, min: 1, max: 32 },
+          'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 },
+          'depthSegments': { type: 'integer', default: 1, min: 1, max: 32 }
+        }
+      },
+
+      'createSphere': {
+        category: 'Basic Geometry',
+        params: {
+          'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'widthSegments': { type: 'integer', default: 32, min: 3, max: 128 },
+          'heightSegments': { type: 'integer', default: 16, min: 2, max: 64 },
+          'phiStart': { type: 'number', default: 0, min: 0, max: 6.28 },
+          'phiLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 },
+          'thetaStart': { type: 'number', default: 0, min: 0, max: 3.14 },
+          'thetaLength': { type: 'number', default: 3.14, min: 0.1, max: 3.14 }
+        }
+      },
+
+      'createCylinder': {
+        category: 'Basic Geometry',
+        params: {
+          'radiusTop': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'radiusBottom': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'height': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'radialSegments': { type: 'integer', default: 32, min: 3, max: 128 },
+          'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 },
+          'openEnded': { type: 'boolean', default: false },
+          'thetaStart': { type: 'number', default: 0, min: 0, max: 6.28 },
+          'thetaLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
+        }
+      },
+
+      'createCone': {
+        category: 'Basic Geometry',
+        params: {
+          'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'height': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'radialSegments': { type: 'integer', default: 32, min: 3, max: 128 },
+          'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 },
+          'openEnded': { type: 'boolean', default: false }
+        }
+      },
+
+      'createTorus': {
+        category: 'Basic Geometry',
+        params: {
+          'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'tube': { type: 'number', default: 0.4, min: 0.1, max: 10 },
+          'radialSegments': { type: 'integer', default: 16, min: 3, max: 64 },
+          'tubularSegments': { type: 'integer', default: 100, min: 8, max: 256 },
+          'arc': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
+        }
+      },
+
+      'createPlane': {
+        category: 'Basic Geometry',
+        params: {
+          'width': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'height': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'widthSegments': { type: 'integer', default: 1, min: 1, max: 32 },
+          'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 }
+        }
+      },
+
+      'repeatLinear3d': {
+        category: 'Distribution',
+        params: {
+          'geometry': { type: 'reference', default: null },
+          'count': { type: 'integer', default: 3, min: 1, max: 50 },
+          'spacing': { type: 'number', default: 1, min: 0.1, max: 50 },
+          'axis': { type: 'string', default: 'x' },
+          'centered': { type: 'boolean', default: false },
+          'autoMerge': { type: 'boolean', default: true }
+        }
+      },
+
+      'repeatRadial3d': {
+        category: 'Distribution',
+        params: {
+          'geometry': { type: 'reference', default: null },
+          'count': { type: 'integer', default: 8, min: 1, max: 50 },
+          'radius': { type: 'number', default: 5, min: 0.1, max: 100 },
+          'startAngle': { type: 'number', default: 0, min: 0, max: 6.28 },
+          'endAngle': { type: 'number', default: 6.28, min: 0.1, max: 6.28 },
+          'axis': { type: 'string', default: 'y' },
+          'faceCenter': { type: 'boolean', default: true },
+          'autoMerge': { type: 'boolean', default: true }
+        }
+      },
+
+      'distributeOnGrid3d': {
+        category: 'Distribution',
+        params: {
+          'geometry': { type: 'reference', default: null },
+          'rows': { type: 'integer', default: 3, min: 1, max: 50 },
+          'cols': { type: 'integer', default: 3, min: 1, max: 50 },
+          'spacing': { type: 'array', default: [2, 0, 2] },
+          'centered': { type: 'boolean', default: true },
+          'autoMerge': { type: 'boolean', default: true }
+        }
+      },
+
+      'twistGeometry': {
+        category: 'Deformation',
+        params: {
+          'geometry': { type: 'reference', default: null },
+          'angle': { type: 'number', default: 0.785, min: -6.28, max: 6.28 },
+          'axis': { type: 'array', default: [0, 1, 0] }
+        }
+      },
+
+      'taperGeometry': {
+        category: 'Deformation',
+        params: {
+          'geometry': { type: 'reference', default: null },
+          'topScale': { type: 'array', default: [0.5, 0.5] },
+          'axis': { type: 'array', default: [0, 1, 0] }
+        }
+      },
+
+      'bendGeometry': {
+        category: 'Deformation',
+        params: {
+          'geometry': { type: 'reference', default: null },
+          'angle': { type: 'number', default: 0.785, min: -6.28, max: 6.28 },
+          'direction': { type: 'array', default: [1, 0, 0] }
+        }
+      },
+
+      'deformByNoise': {
+        category: 'Deformation',
+        params: {
+          'geometry': { type: 'reference', default: null },
+          'amount': { type: 'number', default: 0.2, min: 0, max: 10 },
+          'frequency': { type: 'number', default: 1.0, min: 0.1, max: 10 },
+          'axis': { type: 'array', default: [0, 1, 0] }
+        }
+      },
+
+      'mergeGeometries': {
+        category: 'Utilities',
+        params: {
+          'geometries': { type: 'array', default: [] }
+        }
+      },
+
+      'modifyGeometry': {
+        category: 'Emergent',
+        params: {
+          'geometry': { type: 'reference', default: null },
+          'operations': { type: 'array', default: [] },
+          'context': { type: 'object', default: {} }
+        }
+      },
+
+      'clone': {
+        category: 'Utilities',
+        params: {
+          'geometry': { type: 'reference', default: null }
+        }
+      },
+
+      'transformMesh': {
+        category: 'Utilities',
+        params: {
+          'geometry': { type: 'reference', default: null },
+          'scale': { type: 'array', default: [1, 1, 1] },
+          'rotation': { type: 'array', default: [0, 0, 0] },
+          'position': { type: 'array', default: [0, 0, 0] }
+        }
+      },
+
+      'loop': {
+        category: 'Logic',
+        params: {
+          'var': { type: 'string', default: 'i' },
+          'from': { type: 'number', default: 0 },
+          'to': { type: 'number', default: 10 },
+          'body': { type: 'array', default: [] }
+        }
+      }
+    };
+
+    // Generate params for a helper
+    function getHelperParams(helperName) {
+      const helperDef = HELPER_REGISTRY[helperName];
+      if (!helperDef) {
+        console.warn('Unknown helper:', helperName);
+        return {};
+      }
+
+      const params = {};
+      for (const [key, def] of Object.entries(helperDef.params)) {
+        if (def.default !== null && def.default !== undefined) {
+          params[key] = def.default;
+        }
+      }
+      return params;
+    }
+
     // --- SCHEMA STATE ---
     let schema = {
       "version": "5.0",
@@ -283,10 +476,7 @@
       "actions": []
     };
 
-    const HELPERS = [
-      "createBox", "createSphere", "createCylinder", "createPlane", "createCone", "createTorus",
-      "clone", "repeatLinear3d", "distributeOnGrid3d", "loop", "modifyGeometry", "transformMesh"
-    ];
+    const HELPERS = Object.keys(HELPER_REGISTRY);
 
     // --- UI LOGIC ---
     window.setTab = (name) => {
@@ -372,7 +562,7 @@
       const newStep = {
         "thought": "New Step",
         "do": "createBox",
-        "params": { "width": "ctx.width", "height": "ctx.height", "depth": "ctx.width" },
+        "params": getHelperParams('createBox'),
         "transform": { "position": [0, 0, 0] },
         "as": `step_${Date.now()}`,
         "material": "default"
@@ -408,7 +598,7 @@
       const newStep = {
         "thought": `Use ${helper}`,
         "do": helper,
-        "params": helper === "loop" ? { "var": "i", "from": 0, "to": 10, "body": [] } : { "width": "ctx.width" },
+        "params": getHelperParams(helper),  // ← FIX: Use actual helper params!
         "as": `${helper}_${Date.now()}`,
         "material": "default"
       };
