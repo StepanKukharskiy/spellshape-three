@@ -530,147 +530,575 @@
 
     // HELPER REGISTRY
     const HELPER_REGISTRY = {
-      'createBox': {
-        category: 'Basic Geometry',
-        params: {
-          'width': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'height': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'depth': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'widthSegments': { type: 'integer', default: 1, min: 1, max: 32 },
-          'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 },
-          'depthSegments': { type: 'integer', default: 1, min: 1, max: 32 }
-        }
-      },
-      'createSphere': {
-        category: 'Basic Geometry',
-        params: {
-          'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'widthSegments': { type: 'integer', default: 32, min: 3, max: 128 },
-          'heightSegments': { type: 'integer', default: 16, min: 2, max: 64 },
-          'phiStart': { type: 'number', default: 0, min: 0, max: 6.28 },
-          'phiLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 },
-          'thetaStart': { type: 'number', default: 0, min: 0, max: 3.14 },
-          'thetaLength': { type: 'number', default: 3.14, min: 0.1, max: 3.14 }
-        }
-      },
-      'createCylinder': {
-        category: 'Basic Geometry',
-        params: {
-          'radiusTop': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'radiusBottom': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'height': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'radialSegments': { type: 'integer', default: 32, min: 3, max: 128 },
-          'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 },
-          'openEnded': { type: 'boolean', default: false },
-          'thetaStart': { type: 'number', default: 0, min: 0, max: 6.28 },
-          'thetaLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
-        }
-      },
-      'createCone': {
-        category: 'Basic Geometry',
-        params: {
-          'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'height': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'radialSegments': { type: 'integer', default: 32, min: 3, max: 128 },
-          'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 },
-          'openEnded': { type: 'boolean', default: false }
-        }
-      },
-      'createTorus': {
-        category: 'Basic Geometry',
-        params: {
-          'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'tube': { type: 'number', default: 0.4, min: 0.1, max: 10 },
-          'radialSegments': { type: 'integer', default: 16, min: 3, max: 64 },
-          'tubularSegments': { type: 'integer', default: 100, min: 8, max: 256 },
-          'arc': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
-        }
-      },
-      'createPlane': {
-        category: 'Basic Geometry',
-        params: {
-          'width': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'height': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'widthSegments': { type: 'integer', default: 1, min: 1, max: 32 },
-          'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 }
-        }
-      },
-      'repeatLinear3d': {
-        category: 'Distribution',
-        params: {
-          'geometry': { type: 'reference', default: null },
-          'count': { type: 'integer', default: 3, min: 1, max: 50 },
-          'spacing': { type: 'number', default: 1, min: 0.1, max: 50 },
-          'axis': { type: 'string', default: 'x' },
-          'centered': { type: 'boolean', default: false },
-          'autoMerge': { type: 'boolean', default: true }
-        }
-      },
-      'repeatRadial3d': {
-        category: 'Distribution',
-        params: {
-          'geometry': { type: 'reference', default: null },
-          'count': { type: 'integer', default: 8, min: 1, max: 50 },
-          'radius': { type: 'number', default: 5, min: 0.1, max: 100 },
-          'startAngle': { type: 'number', default: 0, min: 0, max: 6.28 },
-          'endAngle': { type: 'number', default: 6.28, min: 0.1, max: 6.28 },
-          'axis': { type: 'string', default: 'y' },
-          'faceCenter': { type: 'boolean', default: true },
-          'autoMerge': { type: 'boolean', default: true }
-        }
-      },
-      'distributeOnGrid3d': {
-        category: 'Distribution',
-        params: {
-          'geometry': { type: 'reference', default: null },
-          'rows': { type: 'integer', default: 3, min: 1, max: 50 },
-          'cols': { type: 'integer', default: 3, min: 1, max: 50 },
-          'spacing': { type: 'array', default: [2, 0, 2] },
-          'centered': { type: 'boolean', default: true },
-          'autoMerge': { type: 'boolean', default: true }
-        }
-      },
-      'twistGeometry': {
-        category: 'Deformation',
-        params: {
-          'geometry': { type: 'reference', default: null },
-          'angle': { type: 'number', default: 0.785, min: -6.28, max: 6.28 },
-          'axis': { type: 'array', default: [0, 1, 0] },
-          'height': { type: 'number', default: null }
-        }
-      },
-      'taperGeometry': {
-        category: 'Deformation',
-        params: {
-          'geometry': { type: 'reference', default: null },
-          'topScale': { type: 'array', default: [0.5, 0.5] },
-          'axis': { type: 'array', default: [0, 1, 0] }
-        }
-      },
-      'bendGeometry': {
-        category: 'Deformation',
-        params: {
-          'geometry': { type: 'reference', default: null },
-          'angle': { type: 'number', default: 0.785, min: -6.28, max: 6.28 },
-          'direction': { type: 'array', default: [1, 0, 0] }
-        }
-      },
-      'deformByNoise': {
-        category: 'Deformation',
-        params: {
-          'geometry': { type: 'reference', default: null },
-          'amount': { type: 'number', default: 0.2, min: 0, max: 10 },
-          'frequency': { type: 'number', default: 1.0, min: 0.1, max: 10 },
-          'axis': { type: 'array', default: [0, 1, 0] }
-        }
-      },
-      'clone': {
-        category: 'Utilities',
-        params: {
-          'geometry': { type: 'reference', default: null }
-        }
-      }
-    };
+  // ============================================================================
+  // 1. BASIC GEOMETRY (14 helpers)
+  // ============================================================================
+  'createBox': {
+    category: 'Basic Geometry',
+    params: {
+      'width': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'height': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'depth': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'widthSegments': { type: 'integer', default: 1, min: 1, max: 32 },
+      'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 },
+      'depthSegments': { type: 'integer', default: 1, min: 1, max: 32 }
+    }
+  },
+  'createSphere': {
+    category: 'Basic Geometry',
+    params: {
+      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'widthSegments': { type: 'integer', default: 32, min: 3, max: 128 },
+      'heightSegments': { type: 'integer', default: 16, min: 2, max: 64 },
+      'phiStart': { type: 'number', default: 0, min: 0, max: 6.28 },
+      'phiLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 },
+      'thetaStart': { type: 'number', default: 0, min: 0, max: 3.14 },
+      'thetaLength': { type: 'number', default: 3.14, min: 0.1, max: 3.14 }
+    }
+  },
+  'createCylinder': {
+    category: 'Basic Geometry',
+    params: {
+      'radiusTop': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'radiusBottom': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'height': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'radialSegments': { type: 'integer', default: 32, min: 3, max: 128 },
+      'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 },
+      'openEnded': { type: 'boolean', default: false },
+      'thetaStart': { type: 'number', default: 0, min: 0, max: 6.28 },
+      'thetaLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
+    }
+  },
+  'createCone': {
+    category: 'Basic Geometry',
+    params: {
+      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'height': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'radialSegments': { type: 'integer', default: 32, min: 3, max: 128 },
+      'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 },
+      'openEnded': { type: 'boolean', default: false }
+    }
+  },
+  'createTorus': {
+    category: 'Basic Geometry',
+    params: {
+      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'tube': { type: 'number', default: 0.4, min: 0.1, max: 10 },
+      'radialSegments': { type: 'integer', default: 16, min: 3, max: 64 },
+      'tubularSegments': { type: 'integer', default: 100, min: 8, max: 256 },
+      'arc': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
+    }
+  },
+  'createTorusKnot': {
+    category: 'Basic Geometry',
+    params: {
+      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'tube': { type: 'number', default: 0.4, min: 0.1, max: 10 },
+      'tubularSegments': { type: 'integer', default: 64, min: 8, max: 256 },
+      'radialSegments': { type: 'integer', default: 8, min: 3, max: 32 },
+      'p': { type: 'integer', default: 2, min: 1, max: 10 },
+      'q': { type: 'integer', default: 3, min: 1, max: 10 }
+    }
+  },
+  'createPlane': {
+    category: 'Basic Geometry',
+    params: {
+      'width': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'height': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'widthSegments': { type: 'integer', default: 1, min: 1, max: 32 },
+      'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 }
+    }
+  },
+  'createCircle': {
+    category: 'Basic Geometry',
+    params: {
+      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'segments': { type: 'integer', default: 32, min: 3, max: 128 },
+      'thetaStart': { type: 'number', default: 0, min: 0, max: 6.28 },
+      'thetaLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
+    }
+  },
+  'createRing': {
+    category: 'Basic Geometry',
+    params: {
+      'innerRadius': { type: 'number', default: 0.5, min: 0.1, max: 50 },
+      'outerRadius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'thetaSegments': { type: 'integer', default: 32, min: 3, max: 128 },
+      'phiSegments': { type: 'integer', default: 1, min: 1, max: 32 },
+      'thetaStart': { type: 'number', default: 0, min: 0, max: 6.28 },
+      'thetaLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
+    }
+  },
+  'createIcosahedron': {
+    category: 'Basic Geometry',
+    params: {
+      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'detail': { type: 'integer', default: 0, min: 0, max: 10 }
+    }
+  },
+  'createOctahedron': {
+    category: 'Basic Geometry',
+    params: {
+      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'detail': { type: 'integer', default: 0, min: 0, max: 10 }
+    }
+  },
+  'createTetrahedron': {
+    category: 'Basic Geometry',
+    params: {
+      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'detail': { type: 'integer', default: 0, min: 0, max: 10 }
+    }
+  },
+  'createDodecahedron': {
+    category: 'Basic Geometry',
+    params: {
+      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'detail': { type: 'integer', default: 0, min: 0, max: 10 }
+    }
+  },
+  'createPolyhedron': {
+    category: 'Basic Geometry',
+    params: {
+      'vertices': { type: 'array', default: [] },
+      'indices': { type: 'array', default: [] },
+      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'detail': { type: 'integer', default: 0, min: 0, max: 10 }
+    }
+  },
+
+  // ============================================================================
+  // 2. ADVANCED GEOMETRY (6 helpers)
+  // ============================================================================
+  'createExtrude': {
+    category: 'Advanced Geometry',
+    params: {
+      'profile': { type: 'object', default: null },
+      'depth': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'bevelEnabled': { type: 'boolean', default: false },
+      'bevelThickness': { type: 'number', default: 0.2, min: 0, max: 5 },
+      'bevelSize': { type: 'number', default: 0.1, min: 0, max: 5 },
+      'bevelSegments': { type: 'integer', default: 3, min: 1, max: 20 },
+      'steps': { type: 'integer', default: 1, min: 1, max: 50 },
+      'curveSegments': { type: 'integer', default: 12, min: 1, max: 100 }
+    }
+  },
+  'createLoft': {
+    category: 'Advanced Geometry',
+    params: {
+      'profiles': { type: 'array', default: [] },
+      'heights': { type: 'array', default: null },
+      'segments': { type: 'integer', default: 32, min: 3, max: 128 },
+      'closed': { type: 'boolean', default: false }
+    }
+  },
+  'createLathe': {
+    category: 'Advanced Geometry',
+    params: {
+      'points': { type: 'array', default: [] },
+      'segments': { type: 'integer', default: 12, min: 3, max: 128 },
+      'phiStart': { type: 'number', default: 0, min: 0, max: 6.28 },
+      'phiLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
+    }
+  },
+  'createConvexHull': {
+    category: 'Advanced Geometry',
+    params: {
+      'points': { type: 'array', default: [] }
+    }
+  },
+  'createParametricSurface': {
+    category: 'Advanced Geometry',
+    params: {
+      'func': { type: 'object', default: null },
+      'slices': { type: 'integer', default: 32, min: 2, max: 128 },
+      'stacks': { type: 'integer', default: 32, min: 2, max: 128 }
+    }
+  },
+  'createText3D': {
+    category: 'Advanced Geometry',
+    params: {
+      'text': { type: 'string', default: 'Hello' },
+      'font': { type: 'object', default: null },
+      'size': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'depth': { type: 'number', default: 0.2, min: 0, max: 10 }
+    }
+  },
+
+  // ============================================================================
+  // 3. CURVES & PATHS (6 helpers)
+  // ============================================================================
+  'createLinePath': {
+    category: 'Curves & Paths',
+    params: {
+      'points': { type: 'array', default: [] }
+    }
+  },
+  'createSplinePath': {
+    category: 'Curves & Paths',
+    params: {
+      'points': { type: 'array', default: [] },
+      'tension': { type: 'number', default: 0.5, min: 0, max: 1 }
+    }
+  },
+  'createArcPath': {
+    category: 'Curves & Paths',
+    params: {
+      'center': { type: 'array', default: [0, 0, 0] },
+      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'startAngle': { type: 'number', default: 0, min: 0, max: 6.28 },
+      'endAngle': { type: 'number', default: 3.14, min: 0, max: 6.28 },
+      'segments': { type: 'integer', default: 32, min: 3, max: 128 }
+    }
+  },
+  'createHelixPath': {
+    category: 'Curves & Paths',
+    params: {
+      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'height': { type: 'number', default: 3, min: 0.1, max: 100 },
+      'turns': { type: 'integer', default: 3, min: 1, max: 50 },
+      'segments': { type: 'integer', default: 128, min: 8, max: 512 }
+    }
+  },
+  'createBezierPath': {
+    category: 'Curves & Paths',
+    params: {
+      'start': { type: 'array', default: [0, 0, 0] },
+      'control1': { type: 'array', default: [1, 1, 0] },
+      'control2': { type: 'array', default: [2, 1, 0] },
+      'end': { type: 'array', default: [3, 0, 0] }
+    }
+  },
+  'createPipe': {
+    category: 'Curves & Paths',
+    params: {
+      'path': { type: 'object', default: null },
+      'radius': { type: 'number', default: 0.2, min: 0.01, max: 10 },
+      'tubularSegments': { type: 'integer', default: 64, min: 3, max: 256 },
+      'radialSegments': { type: 'integer', default: 8, min: 3, max: 32 },
+      'closed': { type: 'boolean', default: false }
+    }
+  },
+
+  // ============================================================================
+  // 4. DEFORMATIONS (5 helpers)
+  // ============================================================================
+  'twistGeometry': {
+    category: 'Deformation',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'angle': { type: 'number', default: 0.785, min: -6.28, max: 6.28 },
+      'axis': { type: 'array', default: [0, 1, 0] },
+      'height': { type: 'number', default: null }
+    }
+  },
+  'taperGeometry': {
+    category: 'Deformation',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'topScale': { type: 'array', default: [0.5, 0.5] },
+      'axis': { type: 'array', default: [0, 1, 0] },
+      'height': { type: 'number', default: null }
+    }
+  },
+  'bendGeometry': {
+    category: 'Deformation',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'angle': { type: 'number', default: 0.785, min: -6.28, max: 6.28 },
+      'direction': { type: 'array', default: [1, 0, 0] }
+    }
+  },
+  'deformByNoise': {
+    category: 'Deformation',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'amount': { type: 'number', default: 0.2, min: 0, max: 10 },
+      'frequency': { type: 'number', default: 1.0, min: 0.1, max: 10 },
+      'axis': { type: 'array', default: [0, 1, 0] }
+    }
+  },
+  'deformByVectorField': {
+    category: 'Deformation',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'vectorField': { type: 'object', default: null },
+      'amount': { type: 'number', default: 1.0, min: 0, max: 10 }
+    }
+  },
+
+  // ============================================================================
+  // 5. BOOLEAN OPERATIONS & UTILITIES (4 helpers)
+  // ============================================================================
+  'mergeGeometries': {
+    category: 'Utilities',
+    params: {
+      'geometries': { type: 'array', default: [] }
+    }
+  },
+  'unionGeometry': {
+    category: 'Utilities',
+    params: {
+      'geometryA': { type: 'reference', default: null },
+      'geometryB': { type: 'reference', default: null }
+    }
+  },
+  'subtractGeometry': {
+    category: 'Utilities',
+    params: {
+      'geometryA': { type: 'reference', default: null },
+      'geometryB': { type: 'reference', default: null }
+    }
+  },
+  'intersectGeometry': {
+    category: 'Utilities',
+    params: {
+      'geometryA': { type: 'reference', default: null },
+      'geometryB': { type: 'reference', default: null }
+    }
+  },
+
+  // ============================================================================
+  // 6. DISTRIBUTION (5 helpers)
+  // ============================================================================
+  'repeatLinear3d': {
+    category: 'Distribution',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'count': { type: 'integer', default: 3, min: 1, max: 50 },
+      'spacing': { type: 'number', default: 1, min: 0.1, max: 50 },
+      'axis': { type: 'string', default: 'x' },
+      'centered': { type: 'boolean', default: false },
+      'autoMerge': { type: 'boolean', default: true }
+    }
+  },
+  'repeatRadial3d': {
+    category: 'Distribution',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'count': { type: 'integer', default: 8, min: 1, max: 50 },
+      'radius': { type: 'number', default: 5, min: 0.1, max: 100 },
+      'startAngle': { type: 'number', default: 0, min: 0, max: 6.28 },
+      'endAngle': { type: 'number', default: 6.28, min: 0.1, max: 6.28 },
+      'axis': { type: 'string', default: 'y' },
+      'faceCenter': { type: 'boolean', default: true },
+      'autoMerge': { type: 'boolean', default: true }
+    }
+  },
+  'repeatAlongCurve3d': {
+    category: 'Distribution',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'curve': { type: 'object', default: null },
+      'count': { type: 'integer', default: 10, min: 1, max: 100 },
+      'align': { type: 'boolean', default: true },
+      'autoMerge': { type: 'boolean', default: true }
+    }
+  },
+  'distributeOnGrid3d': {
+    category: 'Distribution',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'rows': { type: 'integer', default: 3, min: 1, max: 50 },
+      'cols': { type: 'integer', default: 3, min: 1, max: 50 },
+      'spacing': { type: 'array', default: [2, 0, 2] },
+      'centered': { type: 'boolean', default: true },
+      'autoMerge': { type: 'boolean', default: true }
+    }
+  },
+  'distributeRandom3d': {
+    category: 'Distribution',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'bounds': { type: 'array', default: [[0,0,0], [1,1,1]] },
+      'count': { type: 'integer', default: 50, min: 1, max: 500 },
+      'seed': { type: 'integer', default: 42, min: 0, max: 10000 },
+      'autoMerge': { type: 'boolean', default: true }
+    }
+  },
+
+  // ============================================================================
+  // 7. FIELDS & ATTRACTORS (2 helpers)
+  // ============================================================================
+  'createVectorField': {
+    category: 'Fields',
+    params: {
+      'type': { type: 'string', default: 'attractor' },
+      'center': { type: 'array', default: [0, 0, 0] },
+      'strength': { type: 'number', default: 1.0, min: 0, max: 10 }
+    }
+  },
+  'flowField': {
+    category: 'Fields',
+    params: {
+      'type': { type: 'string', default: 'attractor' },
+      'center': { type: 'array', default: [0, 0, 0] },
+      'strength': { type: 'number', default: 1.0, min: 0, max: 10 }
+    }
+  },
+
+  // ============================================================================
+  // 8. PROCEDURAL PATTERNS (2 helpers)
+  // ============================================================================
+  'cellularAutomata': {
+    category: 'Procedural',
+    params: {
+      'gridSize': { type: 'integer', default: 10, min: 2, max: 50 },
+      'iterations': { type: 'integer', default: 10, min: 1, max: 100 },
+      'rules': { type: 'object', default: { survive: [2, 3], born: [3] } }
+    }
+  },
+  'reactionDiffusion': {
+    category: 'Procedural',
+    params: {
+      'gridSize': { type: 'integer', default: 10, min: 2, max: 50 },
+      'iterations': { type: 'integer', default: 5, min: 1, max: 50 }
+    }
+  },
+
+  // ============================================================================
+  // 9. EMERGENT FEATURES (2 helpers)
+  // ============================================================================
+  'modifyGeometry': {
+    category: 'Emergent',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'operations': { type: 'array', default: [] },
+      'expression': { type: 'string', default: '' },
+      'context': { type: 'object', default: {} }
+    }
+  },
+  'meshFromMarchingCubes': {
+    category: 'Emergent',
+    params: {
+      'resolution': { type: 'integer', default: 32, min: 8, max: 128 },
+      'isovalue': { type: 'number', default: 0.5, min: 0, max: 1 },
+      'bounds': { type: 'number', default: 10, min: 1, max: 100 },
+      'expression': { type: 'string', default: '' },
+      'context': { type: 'object', default: {} }
+    }
+  },
+
+  // ============================================================================
+  // 10. COMPLEX ALGORITHMS (11 helpers)
+  // ============================================================================
+  'lSystemGeometry': {
+    category: 'Complex',
+    params: {
+      'axiom': { type: 'string', default: 'F' },
+      'rules': { type: 'object', default: { 'F': 'FF+[+F-F-F]-[-F+F+F]' } },
+      'iterations': { type: 'integer', default: 3, min: 1, max: 10 },
+      'angle': { type: 'number', default: 25, min: 0, max: 90 },
+      'length': { type: 'number', default: 1, min: 0.1, max: 10 },
+      'thickness': { type: 'number', default: 0.1, min: 0.01, max: 1 }
+    }
+  },
+  'differentialGrowth': {
+    category: 'Complex',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'iterations': { type: 'integer', default: 10, min: 1, max: 100 },
+      'maxEdgeLength': { type: 'number', default: 0.5, min: 0.1, max: 5 },
+      'repulsionRadius': { type: 'number', default: 0.3, min: 0.1, max: 2 },
+      'repulsionStrength': { type: 'number', default: 0.1, min: 0, max: 1 },
+      'attractionStrength': { type: 'number', default: 0.05, min: 0, max: 1 }
+    }
+  },
+  'meshFromVoxelGrid': {
+    category: 'Complex',
+    params: {
+      'grid': { type: 'array', default: [] },
+      'voxelSize': { type: 'number', default: 1, min: 0.1, max: 10 }
+    }
+  },
+  'pointSetCentroid': {
+    category: 'Complex',
+    params: {
+      'points': { type: 'array', default: [] }
+    }
+  },
+  'pointSetBoundingBox': {
+    category: 'Complex',
+    params: {
+      'points': { type: 'array', default: [] }
+    }
+  },
+  'closestPointOnCurve': {
+    category: 'Complex',
+    params: {
+      'curve': { type: 'object', default: null },
+      'point': { type: 'array', default: [0, 0, 0] },
+      'samples': { type: 'integer', default: 100, min: 10, max: 1000 }
+    }
+  },
+  'signedDistanceToMesh': {
+    category: 'Complex',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'point': { type: 'array', default: [0, 0, 0] }
+    }
+  },
+  'measureVolume': {
+    category: 'Complex',
+    params: {
+      'geometry': { type: 'reference', default: null }
+    }
+  },
+  'measureArea': {
+    category: 'Complex',
+    params: {
+      'geometry': { type: 'reference', default: null }
+    }
+  },
+  'subdivisionSurface': {
+    category: 'Complex',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'iterations': { type: 'integer', default: 1, min: 1, max: 5 }
+    }
+  },
+  'voronoiDivision': {
+    category: 'Complex',
+    params: {
+      'points': { type: 'array', default: [] },
+      'bounds': { type: 'array', default: [[0,0,0], [10,10,10]] }
+    }
+  },
+  'convexHullGeometry': {
+    category: 'Complex',
+    params: {
+      'points': { type: 'array', default: [] }
+    }
+  },
+
+  // ============================================================================
+  // UTILITY HELPERS
+  // ============================================================================
+  'clone': {
+    category: 'Utilities',
+    params: {
+      'geometry': { type: 'reference', default: null }
+    }
+  },
+  'transformMesh': {
+    category: 'Utilities',
+    params: {
+      'geometry': { type: 'reference', default: null },
+      'scale': { type: 'array', default: [1, 1, 1] },
+      'rotation': { type: 'array', default: [0, 0, 0] },
+      'position': { type: 'array', default: [0, 0, 0] }
+    }
+  },
+  'loop': {
+    category: 'Logic',
+    params: {
+      'var': { type: 'string', default: 'i' },
+      'from': { type: 'number', default: 0 },
+      'to': { type: 'number', default: 10 },
+      'body': { type: 'array', default: [] }
+    }
+  }
+};
 
     function getHelperParams(helperName) {
       const helperDef = HELPER_REGISTRY[helperName];
