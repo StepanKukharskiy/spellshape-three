@@ -108,6 +108,7 @@
       padding: 12px; position: relative; transition: all 0.2s;
     }
     .step-card:hover { background: var(--card-hover); border-color: var(--accent); }
+    .step-card.hidden { opacity: 0.5; border-color: #555; }
 
     .step-header {
       display: flex; align-items: center; gap: 10px; margin-bottom: 10px; justify-content: space-between;
@@ -122,8 +123,9 @@
 
     .step-actions { display: flex; gap: 6px; }
     .step-btn { width: 22px; height: 22px; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-    .step-btn-add { background: rgba(100, 108, 255, 0.2); color: var(--accent); }
-    .step-btn-add:hover { background: rgba(100, 108, 255, 0.4); }
+    .step-btn-visibility { background: rgba(100, 200, 255, 0.2); color: #64c8ff; }
+    .step-btn-visibility:hover { background: rgba(100, 200, 255, 0.4); }
+    .step-btn-visibility.hidden { background: rgba(100, 100, 100, 0.2); color: #666; opacity: 0.5; }
     .step-btn-remove { background: rgba(255, 100, 100, 0.2); color: var(--error); }
     .step-btn-remove:hover { background: rgba(255, 100, 100, 0.4); }
 
@@ -138,6 +140,7 @@
     }
     .helper-select:hover { border-color: var(--accent); }
     .helper-select:focus { outline: none; border-color: var(--accent); }
+    .helper-select:disabled { opacity: 0.5; cursor: not-allowed; background: rgba(255,255,255,0.02); }
 
     textarea.expr-input {
       background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 4px;
@@ -671,7 +674,7 @@
       const key = `param_${Date.now()}`;
       schema.globalParameters[key] = { value: 5, type: "number", min: 0, max: 100, group: "Custom" };
       renderGlobals();
-      renderTimeline();  // Re-render to show updated hints
+      renderTimeline();
       run();
     };
 
@@ -892,7 +895,8 @@
         "params": getHelperParams('createBox'),
         "transform": { "position": [0, 0, 0] },
         "as": `step_${Date.now()}`,
-        "material": "default"
+        "material": "default",
+        "visible": true
       };
 
       if (afterIndex >= 0) schema.actions.splice(afterIndex + 1, 0, newStep);
@@ -904,6 +908,12 @@
 
     window.removeStep = (index) => {
       schema.actions.splice(index, 1);
+      renderTimeline();
+      run();
+    };
+
+    window.toggleStepVisibility = (index) => {
+      schema.actions[index].visible = !schema.actions[index].visible;
       renderTimeline();
       run();
     };
@@ -933,7 +943,8 @@
         "do": helper,
         "params": params,
         "as": `${helper}_${Date.now()}`,
-        "material": "default"
+        "material": "default",
+        "visible": true
       };
 
       schema.actions.splice(index + 1, 0, newStep);
@@ -969,6 +980,7 @@
       schema.actions.forEach((action, i) => {
         const card = document.createElement('div');
         card.className = 'step-card';
+        if (!action.visible) card.classList.add('hidden');
 
         const headerDiv = document.createElement('div');
         headerDiv.className = 'step-header';
@@ -976,7 +988,7 @@
           <div class="step-num">${i+1}</div>
           <input class="step-title-input" value="${action.thought || ''}" onchange="updateStepField(${i}, 'thought', this.value)" placeholder="Step description" />
           <div class="step-actions">
-            <button class="step-btn step-btn-add" onclick="openAddMenu(${i})" title="Add step after">+</button>
+            <button class="step-btn step-btn-visibility${!action.visible ? ' hidden' : ''}" onclick="toggleStepVisibility(${i})" title="Toggle visibility">👁️</button>
             <button class="step-btn step-btn-remove" onclick="removeStep(${i})" title="Remove step">×</button>
           </div>
         `;
@@ -1020,21 +1032,31 @@
           }
         }
 
-        // Material selector
+        // Material selector (disabled when hidden)
         const matGroup = document.createElement('div');
         matGroup.className = 'field-group';
         matGroup.innerHTML = '<label class="field-label">Material</label>';
         const matSelect = document.createElement('select');
         matSelect.className = 'helper-select';
-        matSelect.value = action.material || 'default';
-        for (const matName of Object.keys(schema.materials)) {
-          const opt = document.createElement('option');
-          opt.value = matName;
-          opt.innerText = matName;
-          if (action.material === matName) opt.selected = true;
-          matSelect.appendChild(opt);
+        matSelect.disabled = !action.visible;
+
+        if (!action.visible) {
+          const hiddenOpt = document.createElement('option');
+          hiddenOpt.value = '';
+          hiddenOpt.innerText = '(hidden)';
+          hiddenOpt.selected = true;
+          matSelect.appendChild(hiddenOpt);
+        } else {
+          matSelect.value = action.material || 'default';
+          for (const matName of Object.keys(schema.materials)) {
+            const opt = document.createElement('option');
+            opt.value = matName;
+            opt.innerText = matName;
+            if (action.material === matName) opt.selected = true;
+            matSelect.appendChild(opt);
+          }
+          matSelect.onchange = (e) => updateStepField(i, 'material', e.target.value);
         }
-        matSelect.onchange = (e) => updateStepField(i, 'material', e.target.value);
         matGroup.appendChild(matSelect);
         bodyDiv.appendChild(matGroup);
 
@@ -1100,8 +1122,17 @@
       const params = {};
       for (const [k, v] of Object.entries(schema.globalParameters)) params[k] = v.value;
 
+      // Filter actions by visibility and set material to null if hidden
+      const visibleSchema = {
+        ...schema,
+        actions: schema.actions.map(action => ({
+          ...action,
+          material: action.visible ? action.material : null
+        }))
+      };
+
       try {
-        currentMesh = executor.execute(schema, params);
+        currentMesh = executor.execute(visibleSchema, params);
         scene.add(currentMesh);
         let count = 0;
         currentMesh.traverse(c => { if (c.isMesh) count++; });
