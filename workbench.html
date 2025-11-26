@@ -46,8 +46,37 @@
       padding: 16px 20px;
       border-bottom: 1px solid var(--border);
       background: var(--bg);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    .header h1 { margin: 0; font-size: 14px; font-weight: 700; }
+    .header h1 { margin: 0; font-size: 14px; font-weight: 700; flex: 1; }
+
+    .view-controls {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .view-btn {
+      width: 24px;
+      height: 24px;
+      background: rgba(100, 108, 255, 0.2);
+      border: 1px solid transparent;
+      border-radius: 3px;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .view-btn.active {
+      background: rgba(100, 108, 255, 0.4);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .view-btn:hover { background: rgba(100, 108, 255, 0.3); }
 
     .tabs { display: flex; padding: 0 20px; border-bottom: 1px solid var(--border); gap: 12px; overflow-x: auto; }
     .tab {
@@ -74,7 +103,6 @@
     .global-item {
       display: flex; gap: 8px; margin-bottom: 8px; align-items: center;
     }
-    .global-item:last-child { margin-bottom: 0; }
 
     .global-slider-group {
       display: flex; flex-direction: column; gap: 4px; margin-top: 8px;
@@ -101,35 +129,178 @@
       width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer;
     }
 
-    .timeline { display: flex; flex-direction: column; gap: 12px; }
+    /* TIMELINE WITH COLLAPSIBLE SUPPORT */
+    .timeline-controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .timeline-btn {
+      padding: 6px 12px;
+      background: rgba(100, 108, 255, 0.2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .timeline-btn:hover { background: rgba(100, 108, 255, 0.4); }
+
+    .timeline { display: flex; flex-direction: column; gap: 8px; }
 
     .step-card {
       background: var(--card); border: 1px solid var(--border); border-radius: 6px;
-      padding: 12px; position: relative; transition: all 0.2s;
+      overflow: hidden; transition: all 0.2s;
     }
     .step-card:hover { background: var(--card-hover); border-color: var(--accent); }
     .step-card.hidden { opacity: 0.5; border-color: #555; }
+    .step-card.collapsed { padding: 0; }
 
+    /* STEP HEADER (always visible) */
     .step-header {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 10px; justify-content: space-between;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: var(--card);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
     }
-    .step-num { width: 16px; height: 16px; background: #333; border-radius: 50%; font-size: 9px; font-weight: bold; color: #888; display: flex; align-items: center; justify-content: center; }
+    .step-header:hover { background: var(--card-hover); }
+    .step-card.collapsed .step-header:hover { background: var(--card-hover); }
+
+    .step-collapse-toggle {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--text-dim);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+    .step-card.collapsed .step-collapse-toggle {
+      transform: rotate(0deg);
+    }
+    .step-card:not(.collapsed) .step-collapse-toggle {
+      transform: rotate(90deg);
+    }
+
+    .step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      font-size: 10px;
+      font-weight: bold;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .step-header-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
     .step-title-input {
-      flex: 1; background: transparent; border: 1px solid transparent; padding: 4px 8px;
-      color: var(--text); font-size: 12px; font-weight: 600; border-radius: 3px;
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 0;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 3px;
+      flex: 1;
+      min-width: 0;
     }
     .step-title-input:hover { border-color: var(--border); }
     .step-title-input:focus { outline: none; border-color: var(--accent); background: rgba(100, 108, 255, 0.1); }
 
-    .step-actions { display: flex; gap: 6px; }
-    .step-btn { width: 22px; height: 22px; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-    .step-btn-visibility { background: rgba(100, 200, 255, 0.2); color: #64c8ff; }
+    .step-helper-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: rgba(100, 108, 255, 0.15);
+      border: 1px solid rgba(100, 108, 255, 0.3);
+      border-radius: 12px;
+      font-size: 9px;
+      color: var(--accent);
+      font-weight: 600;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .step-material-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .step-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .step-btn {
+      width: 22px;
+      height: 22px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .step-btn-visibility {
+      background: rgba(100, 200, 255, 0.2);
+      color: #64c8ff;
+    }
     .step-btn-visibility:hover { background: rgba(100, 200, 255, 0.4); }
-    .step-btn-visibility.hidden { background: rgba(100, 100, 100, 0.2); color: #666; opacity: 0.5; }
-    .step-btn-remove { background: rgba(255, 100, 100, 0.2); color: var(--error); }
+    .step-btn-visibility.hidden {
+      background: rgba(100, 100, 100, 0.2);
+      color: #666;
+      opacity: 0.5;
+    }
+    .step-btn-remove {
+      background: rgba(255, 100, 100, 0.2);
+      color: var(--error);
+    }
     .step-btn-remove:hover { background: rgba(255, 100, 100, 0.4); }
 
-    .step-body { display: flex; flex-direction: column; gap: 8px; }
+    /* STEP BODY (collapsible) */
+    .step-body {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid var(--border);
+      max-height: 2000px;
+      overflow: hidden;
+      transition: max-height 0.3s ease, opacity 0.3s ease;
+      opacity: 1;
+    }
+    .step-card.collapsed .step-body {
+      max-height: 0;
+      padding: 0 12px;
+      opacity: 0;
+      pointer-events: none;
+    }
 
     .field-group { display: flex; flex-direction: column; gap: 4px; }
     .field-label { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); }
@@ -176,7 +347,6 @@
     .material-item:hover { background: var(--card-hover); }
 
     .material-header { display: flex; justify-content: space-between; align-items: center; }
-    .material-name { font-weight: 600; color: var(--text); font-size: 11px; }
     .material-actions { display: flex; gap: 6px; }
     .material-btn { padding: 4px 8px; background: rgba(100, 108, 255, 0.2); border: none; border-radius: 3px; color: var(--accent); cursor: pointer; font-size: 10px; }
     .material-btn:hover { background: rgba(100, 108, 255, 0.4); }
@@ -224,6 +394,11 @@
       border-radius: 3px;
       border-left: 2px solid var(--accent);
     }
+
+    /* View mode styles */
+    .timeline.outline-view .step-card { padding: 0; }
+    .timeline.outline-view .step-body { display: none; }
+    .timeline.outline-view .step-helper-badge { display: none; }
   </style>
 </head>
 <body>
@@ -231,7 +406,11 @@
   <div class="app">
     <div class="sidebar">
       <div class="header">
-        <h1>Spellshape - Procedural Editor</h1>
+        <h1>Spellshape</h1>
+        <div class="view-controls">
+          <button class="view-btn active" onclick="setViewMode('list')" title="List view">≡</button>
+          <button class="view-btn" onclick="setViewMode('outline')" title="Outline view">◄</button>
+        </div>
       </div>
 
       <div class="tabs">
@@ -249,6 +428,10 @@
 
       <!-- TAB 2: TIMELINE -->
       <div id="tab-timeline" class="content">
+        <div class="timeline-controls">
+          <button class="timeline-btn" onclick="expandAllSteps()" title="Expand all steps">▼ Expand All</button>
+          <button class="timeline-btn" onclick="collapseAllSteps()" title="Collapse all steps">▶ Collapse All</button>
+        </div>
         <div class="timeline" id="timeline-container"></div>
         <button onclick="addStep()" style="width: 100%; padding: 10px; background: rgba(100, 108, 255, 0.2); border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); cursor: pointer; font-weight: 600; margin-top: 12px;">+ Add Step</button>
       </div>
@@ -285,6 +468,65 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
+
+    // View mode state
+    let viewMode = 'list';
+    window.setViewMode = (mode) => {
+      viewMode = mode;
+      document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector(`.view-btn[onclick="setViewMode('${mode}')"]`).classList.add('active');
+
+      const timeline = document.getElementById('timeline-container');
+      timeline.classList.remove('outline-view');
+      if (mode === 'outline') {
+        timeline.classList.add('outline-view');
+      }
+
+      localStorage.setItem('viewMode', mode);
+    };
+
+    // Collapse state tracking
+    const collapseState = {};
+    window.toggleStepCollapse = (index) => {
+      collapseState[index] = !collapseState[index];
+      renderTimeline();
+      localStorage.setItem('collapseState', JSON.stringify(collapseState));
+    };
+
+    window.expandAllSteps = () => {
+      for (let i = 0; i < schema.actions.length; i++) {
+        collapseState[i] = false;
+      }
+      renderTimeline();
+      localStorage.setItem('collapseState', JSON.stringify(collapseState));
+    };
+
+    window.collapseAllSteps = () => {
+      for (let i = 0; i < schema.actions.length; i++) {
+        collapseState[i] = true;
+      }
+      renderTimeline();
+      localStorage.setItem('collapseState', JSON.stringify(collapseState));
+    };
+
+    // Load saved state
+    function loadSavedState() {
+      const saved = localStorage.getItem('collapseState');
+      if (saved) Object.assign(collapseState, JSON.parse(saved));
+
+      const savedMode = localStorage.getItem('viewMode');
+      if (savedMode && savedMode !== 'list') {
+        setTimeout(() => setViewMode(savedMode), 100);
+      }
+    }
+
+    // Material color to hex
+    function getMaterialColor(materialName) {
+      if (schema.materials[materialName]) {
+        return schema.materials[materialName].color;
+      }
+      return '#888888';
+    }
 
     // HELPER REGISTRY
     const HELPER_REGISTRY = {
@@ -542,26 +784,24 @@
         container.appendChild(input);
       }
 
-      // NUMBER/INTEGER PARAMETERS (with expression support!)
+      // NUMBER/INTEGER PARAMETERS
       else if (paramDef.type === 'number' || paramDef.type === 'integer') {
         const div = document.createElement('div');
         div.style.display = 'flex';
         div.style.flexDirection = 'column';
         div.style.gap = '4px';
 
-        // Detect if expression or number
         const isExpression = typeof paramValue === 'string' && (paramValue.includes('ctx.') || paramValue.includes('+') || paramValue.includes('-') || paramValue.includes('*') || paramValue.includes('/'));
 
         let useExpression = isExpression;
 
-        // Mode toggle button
         const modeBtn = document.createElement('button');
         modeBtn.className = 'mode-btn';
         modeBtn.style.cursor = 'pointer';
         modeBtn.style.marginBottom = '4px';
 
         const updateModeBtn = () => {
-          modeBtn.innerText = useExpression ? '📝 Expression Mode' : '# Value Mode';
+          modeBtn.innerText = useExpression ? '📝 Expression' : '# Value';
           numberInput.style.display = useExpression ? 'none' : 'block';
           exprInputDiv.style.display = useExpression ? 'block' : 'none';
         };
@@ -572,7 +812,6 @@
         };
         div.appendChild(modeBtn);
 
-        // Number input
         const numberInput = document.createElement('input');
         numberInput.type = 'number';
         numberInput.className = 'helper-select';
@@ -587,17 +826,14 @@
         };
         div.appendChild(numberInput);
 
-        // Expression input
         const exprInputDiv = document.createElement('div');
         exprInputDiv.style.display = 'none';
-        exprInputDiv.style.display = 'flex';
         exprInputDiv.style.flexDirection = 'column';
         exprInputDiv.style.gap = '4px';
 
         const exprInput = document.createElement('textarea');
         exprInput.className = 'expr-input';
         exprInput.style.minHeight = '30px';
-        exprInput.style.maxHeight = '60px';
         exprInput.value = isExpression ? paramValue : '';
         exprInput.placeholder = 'e.g., ctx.width * 2';
         exprInput.onchange = (e) => {
@@ -605,11 +841,10 @@
         };
         exprInputDiv.appendChild(exprInput);
 
-        // Show hint with available globals
         const globalsHint = document.createElement('div');
         globalsHint.className = 'globals-hint';
         const globalNames = Object.keys(schema.globalParameters).join(', ');
-        globalsHint.innerText = '💡 Available globals: ' + (globalNames || 'none yet');
+        globalsHint.innerText = '💡 ' + (globalNames || 'No globals yet');
         exprInputDiv.appendChild(globalsHint);
 
         div.appendChild(exprInputDiv);
@@ -618,7 +853,6 @@
         container.appendChild(div);
       }
 
-      // DEFAULT
       else {
         const textarea = document.createElement('textarea');
         textarea.className = 'expr-input';
@@ -722,7 +956,7 @@
               <span class="slider-value">${param.value}</span>
             </div>
             <input type="range" min="${param.min}" max="${param.max}" step="0.1" value="${param.value}" 
-              oninput="updateGlobalParam('${key}', 'value', this.value); document.querySelector('[id^=val-${key}]').innerText = this.value;" />
+              oninput="updateGlobalParam('${key}', 'value', this.value)" />
           </div>
           <div class="global-item">
             <label style="font-size: 10px; min-width: 40px;">Min:</label>
@@ -757,6 +991,7 @@
     window.updateMaterial = (name, prop, value) => {
       schema.materials[name][prop] = value;
       renderMaterials();
+      renderTimeline();  // Update material dots
     };
 
     function renderMaterials() {
@@ -787,13 +1022,14 @@
             schema.materials[newName] = schema.materials[name];
             delete schema.materials[name];
             renderMaterials();
+            renderTimeline();
           }
         };
         headerDiv.appendChild(nameInput);
 
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'material-btn material-delete';
-        deleteBtn.innerText = '🗑️ Delete';
+        deleteBtn.innerText = '🗑️';
         deleteBtn.onclick = () => removeMaterial(name);
         headerDiv.appendChild(deleteBtn);
 
@@ -842,7 +1078,7 @@
         roughLabel.style.justifyContent = 'space-between';
         roughLabel.style.fontSize = '10px';
         roughLabel.style.marginBottom = '4px';
-        roughLabel.innerHTML = `<span style="color: var(--text-dim);">Roughness</span><span style="color: var(--accent); font-family: monospace;">${material.roughness.toFixed(2)}</span>`;
+        roughLabel.innerHTML = `<span>Roughness</span><span style="color: var(--accent); font-family: monospace;">${material.roughness.toFixed(2)}</span>`;
         roughDiv.appendChild(roughLabel);
 
         const roughSlider = document.createElement('input');
@@ -866,7 +1102,7 @@
         metalLabel.style.justifyContent = 'space-between';
         metalLabel.style.fontSize = '10px';
         metalLabel.style.marginBottom = '4px';
-        metalLabel.innerHTML = `<span style="color: var(--text-dim);">Metalness</span><span style="color: var(--accent); font-family: monospace;">${material.metalness.toFixed(2)}</span>`;
+        metalLabel.innerHTML = `<span>Metalness</span><span style="color: var(--accent); font-family: monospace;">${material.metalness.toFixed(2)}</span>`;
         metalDiv.appendChild(metalLabel);
 
         const metalSlider = document.createElement('input');
@@ -893,21 +1129,19 @@
         "thought": "New Step",
         "do": "createBox",
         "params": getHelperParams('createBox'),
-        "transform": { "position": [0, 0, 0] },
         "as": `step_${Date.now()}`,
         "material": "default",
         "visible": true
       };
-
       if (afterIndex >= 0) schema.actions.splice(afterIndex + 1, 0, newStep);
       else schema.actions.push(newStep);
-
       renderTimeline();
       run();
     };
 
     window.removeStep = (index) => {
       schema.actions.splice(index, 1);
+      delete collapseState[index];
       renderTimeline();
       run();
     };
@@ -922,9 +1156,7 @@
       const overlay = document.getElementById('menu-overlay');
       const popup = document.getElementById('menu-popup');
       overlay.classList.add('active');
-
       popup.innerHTML = HELPERS.map(h => `<div class="menu-item" onclick="addStepWithHelper('${h}', ${index})">${h}</div>`).join('');
-
       const btn = event.target;
       const rect = btn.getBoundingClientRect();
       popup.style.top = rect.bottom + 'px';
@@ -933,11 +1165,9 @@
 
     window.addStepWithHelper = (helper, index) => {
       const params = getHelperParams(helper);
-
       if (params.hasOwnProperty('geometry') && index >= 0 && schema.actions[index]) {
         params.geometry = schema.actions[index].as;
       }
-
       const newStep = {
         "thought": `Use ${helper}`,
         "do": helper,
@@ -946,7 +1176,6 @@
         "material": "default",
         "visible": true
       };
-
       schema.actions.splice(index + 1, 0, newStep);
       closeAddMenu();
       renderTimeline();
@@ -981,48 +1210,92 @@
         const card = document.createElement('div');
         card.className = 'step-card';
         if (!action.visible) card.classList.add('hidden');
+        if (collapseState[i]) card.classList.add('collapsed');
 
+        // HEADER
         const headerDiv = document.createElement('div');
         headerDiv.className = 'step-header';
-        headerDiv.innerHTML = `
-          <div class="step-num">${i+1}</div>
-          <input class="step-title-input" value="${action.thought || ''}" onchange="updateStepField(${i}, 'thought', this.value)" placeholder="Step description" />
-          <div class="step-actions">
-            <button class="step-btn step-btn-visibility${!action.visible ? ' hidden' : ''}" onclick="toggleStepVisibility(${i})" title="Toggle visibility">👁️</button>
-            <button class="step-btn step-btn-remove" onclick="removeStep(${i})" title="Remove step">×</button>
-          </div>
-        `;
+        headerDiv.onclick = () => toggleStepCollapse(i);
+
+        const toggleIcon = document.createElement('div');
+        toggleIcon.className = 'step-collapse-toggle';
+        toggleIcon.innerText = '▶';
+        headerDiv.appendChild(toggleIcon);
+
+        const stepNum = document.createElement('div');
+        stepNum.className = 'step-num';
+        stepNum.style.backgroundColor = getMaterialColor(action.material);
+        stepNum.innerText = i + 1;
+        headerDiv.appendChild(stepNum);
+
+        const headerContent = document.createElement('div');
+        headerContent.className = 'step-header-content';
+
+        const titleInput = document.createElement('input');
+        titleInput.className = 'step-title-input';
+        titleInput.type = 'text';
+        titleInput.value = action.thought || '';
+        titleInput.placeholder = 'Step description';
+        titleInput.onclick = (e) => e.stopPropagation();
+        titleInput.onchange = (e) => updateStepField(i, 'thought', e.target.value);
+        headerContent.appendChild(titleInput);
+
+        const helperBadge = document.createElement('div');
+        helperBadge.className = 'step-helper-badge';
+        helperBadge.innerText = action.do || 'None';
+        headerContent.appendChild(helperBadge);
+
+        headerDiv.appendChild(headerContent);
+
+        const actions = document.createElement('div');
+        actions.className = 'step-actions';
+
+        const visBtn = document.createElement('button');
+        visBtn.className = `step-btn step-btn-visibility${!action.visible ? ' hidden' : ''}`;
+        visBtn.innerText = '👁️';
+        visBtn.onclick = (e) => {
+          e.stopPropagation();
+          toggleStepVisibility(i);
+        };
+        actions.appendChild(visBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'step-btn step-btn-remove';
+        delBtn.innerText = '×';
+        delBtn.onclick = (e) => {
+          e.stopPropagation();
+          removeStep(i);
+        };
+        actions.appendChild(delBtn);
+
+        headerDiv.appendChild(actions);
         card.appendChild(headerDiv);
 
+        // BODY (collapsible)
         const bodyDiv = document.createElement('div');
         bodyDiv.className = 'step-body';
 
-        // Helper selector
         const helperGroup = document.createElement('div');
         helperGroup.className = 'field-group';
-        helperGroup.innerHTML = `
-          <label class="field-label">Helper (do)</label>
+        helperGroup.innerHTML = `<label class="field-label">Helper</label>
           <select class="helper-select" value="${action.do}" onchange="updateStepField(${i}, 'do', this.value)">
             <option value="">-- Select --</option>
             ${HELPERS.map(h => `<option value="${h}" ${action.do === h ? 'selected' : ''}>${h}</option>`).join('')}
-          </select>
-        `;
+          </select>`;
         bodyDiv.appendChild(helperGroup);
 
-        // Output name
         const asGroup = document.createElement('div');
         asGroup.className = 'field-group';
         const asInput = document.createElement('input');
         asInput.type = 'text';
         asInput.className = 'helper-select';
         asInput.value = action.as || '';
-        asInput.placeholder = 'e.g., box_mesh';
+        asInput.placeholder = 'Output name';
         asInput.onchange = (e) => updateStepField(i, 'as', e.target.value);
-        asGroup.innerHTML = '<label class="field-label">Output Name (as)</label>';
+        asGroup.innerHTML = '<label class="field-label">Output (as)</label>';
         asGroup.appendChild(asInput);
         bodyDiv.appendChild(asGroup);
 
-        // Parameters
         const helperDef = HELPER_REGISTRY[action.do];
         if (helperDef) {
           for (const [key, def] of Object.entries(helperDef.params)) {
@@ -1032,19 +1305,16 @@
           }
         }
 
-        // Material selector (disabled when hidden)
         const matGroup = document.createElement('div');
         matGroup.className = 'field-group';
         matGroup.innerHTML = '<label class="field-label">Material</label>';
         const matSelect = document.createElement('select');
         matSelect.className = 'helper-select';
         matSelect.disabled = !action.visible;
-
         if (!action.visible) {
           const hiddenOpt = document.createElement('option');
           hiddenOpt.value = '';
           hiddenOpt.innerText = '(hidden)';
-          hiddenOpt.selected = true;
           matSelect.appendChild(hiddenOpt);
         } else {
           matSelect.value = action.material || 'default';
@@ -1067,20 +1337,18 @@
 
     // JSON
     window.exportJSON = () => {
-      const jsonInput = document.getElementById('json-input');
-      jsonInput.value = JSON.stringify(schema, null, 2);
+      document.getElementById('json-input').value = JSON.stringify(schema, null, 2);
     };
 
     window.importJSON = () => {
-      const jsonInput = document.getElementById('json-input');
       try {
-        schema = JSON.parse(jsonInput.value);
+        schema = JSON.parse(document.getElementById('json-input').value);
         setTab('globals');
         renderGlobals();
         renderTimeline();
         renderMaterials();
         run();
-        alert('Schema imported successfully!');
+        alert('Schema imported!');
       } catch (e) {
         alert('Invalid JSON: ' + e.message);
       }
@@ -1122,7 +1390,6 @@
       const params = {};
       for (const [k, v] of Object.entries(schema.globalParameters)) params[k] = v.value;
 
-      // Filter actions by visibility and set material to null if hidden
       const visibleSchema = {
         ...schema,
         actions: schema.actions.map(action => ({
@@ -1136,7 +1403,7 @@
         scene.add(currentMesh);
         let count = 0;
         currentMesh.traverse(c => { if (c.isMesh) count++; });
-        document.getElementById('stats').innerText = `Meshes: ${count} | Globals: ${Object.keys(schema.globalParameters).join(', ')}`;
+        document.getElementById('stats').innerText = `Meshes: ${count}`;
       } catch (e) {
         document.getElementById('stats').innerText = `Error: ${e.message.substring(0, 30)}`;
         console.error(e);
@@ -1145,6 +1412,7 @@
 
     // INIT
     setupScene();
+    loadSavedState();
     renderGlobals();
     renderTimeline();
     renderMaterials();
