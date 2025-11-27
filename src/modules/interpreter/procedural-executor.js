@@ -107,6 +107,14 @@ export class ProceduralExecutor {
             return;
         }
 
+      if (geometry.isBufferGeometry) {
+    // BufferGeometry needs to be wrapped in a mesh
+    const mat = this.getMaterial(materialName);
+    const mesh = new THREE.Mesh(geometry, mat);
+    mesh.visible = visible !== false;
+    group.add(mesh);
+}
+
         // ========== PARAMETER EVALUATION ==========
         const evalParams = this.evaluateParamsCarefully(params);
 
