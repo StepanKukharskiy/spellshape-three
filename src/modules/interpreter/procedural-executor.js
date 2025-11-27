@@ -88,7 +88,10 @@ export class ProceduralExecutor {
         if (helperName === 'clone') return this._executeClone(action, group);
 
         // Get helper function
-        const helperFn = helpers[helperName] || (helpers.default && helpers.default[helperName]);
+        let helperFn = helpers[helperName];
+if (!helperFn && helpers.default && typeof helpers.default === 'object') {
+  helperFn = helpers.default[helperName];
+}
 
         if (!helperFn) {
             console.warn(`⚠️ Helper not found: ${helperName}`);
