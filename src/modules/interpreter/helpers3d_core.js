@@ -246,9 +246,53 @@ export function createLoft(params = {}) {
 }
 
 export function createLathe(params = {}) {
-    const { points, segments = 12, phiStart = 0, phiLength = Math.PI * 2 } = params;
-    const curve = points.map(([x, y]) => new THREE.Vector2(x, y));
-    return new THREE.LatheGeometry(curve, segments, phiStart, phiLength);
+  // IMPORTANT: Ensure points is an array, not a string
+  let { points = [], segments = 12, phiStart = 0, phiLength = Math.PI * 2 } = params;
+
+  // DEBUG: Check what we received
+  console.log('createLathe received:', {
+    pointsType: typeof points,
+    pointsIsArray: Array.isArray(points),
+    pointsValue: points,
+    segmentsType: typeof segments
+  });
+
+  // CRITICAL FIX: If points is a string, parse it
+  if (typeof points === 'string') {
+    try {
+      points = JSON.parse(points);
+      console.log('Parsed points from string:', points);
+    } catch (e) {
+      console.error('Failed to parse points string:', e);
+      return new THREE.BufferGeometry();
+    }
+  }
+
+  // Validate points is array
+  if (!Array.isArray(points) || points.length === 0) {
+    console.warn('createLathe: Invalid points', points);
+    return new THREE.BufferGeometry();
+  }
+
+  // Map points to THREE.Vector2
+  const curve = points.map(([x, y]) => {
+    if (typeof x !== 'number' || typeof y !== 'number') {
+      console.warn('Invalid point pair:', [x, y]);
+      return new THREE.Vector2(0, 0);
+    }
+    return new THREE.Vector2(x, y);
+  });
+
+  console.log('createLathe curve points:', curve);
+
+  try {
+    const geom = new THREE.LatheGeometry(curve, segments, phiStart, phiLength);
+    console.log('✅ createLathe success:', { segments, pointCount: points.length });
+    return geom;
+  } catch (e) {
+    console.error('LatheGeometry creation failed:', e);
+    return new THREE.BufferGeometry();
+  }
 }
 
 export function createConvexHull(params = {}) {
