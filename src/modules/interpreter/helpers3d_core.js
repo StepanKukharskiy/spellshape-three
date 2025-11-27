@@ -1,8 +1,8 @@
 // ============================================================================
-// helpers3d_core.js - COMPLETE EMERGENT VERSION
+// helpers3d_core.js - COMPLETE EMERGENT VERSION WITH RESOLVER INTEGRATION
 // ============================================================================
 // Philosophy: Small core of flexible primitives + AI-driven logic via modifyGeometry
-// No redundant helpers. Only irreplaceable complex algorithms included.
+// Now with centralized resolver layer for seamless composition
 // ============================================================================
 
 import {
@@ -12,11 +12,25 @@ import {
     ellipse2d
 } from './helpers2d.js';
 
-// Core Three.js
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
+
+// ✅ NEW: Import resolvers for seamless input handling
+import {
+    resolveCurve,
+    resolvePoints,
+    resolvePoints2D,
+    resolveField,
+    resolveVoxelGrid,
+    wrapCurveAsLine,
+    wrapFieldAsObject,
+    wrapGridAsObject,
+    sampleCurveAt,
+    getCurveTangentAt,
+    evaluateFieldAt
+} from './resolvers.js';
 
 // ============================================================================
 // 0. INTERNAL NOISE IMPLEMENTATION (Simplex Noise - No External Dependencies)
@@ -27,15 +41,19 @@ const _grad3 = [
     [1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],
     [0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]
 ];
+
 const _p = new Uint8Array(256);
 for(let i=0; i<256; i++) _p[i] = Math.floor(Math.random()*256);
+
 const _perm = new Uint8Array(512);
 const _permMod12 = new Uint8Array(512);
 for(let i=0; i<512; i++) {
     _perm[i] = _p[i & 255];
     _permMod12[i] = _perm[i] % 12;
 }
+
 function dot(g, x, y, z) { return g[0]*x + g[1]*y + g[2]*z; }
+
 function simplex3(xin, yin, zin) {
     let n0, n1, n2, n3;
     const F3 = 1.0/3.0;
@@ -64,21 +82,17 @@ function simplex3(xin, yin, zin) {
     const gi2 = _permMod12[ii+i2+_perm[jj+j2+_perm[kk+k2]]];
     const gi3 = _permMod12[ii+1+_perm[jj+1+_perm[kk+1]]];
     let t0 = 0.6 - x0*x0 - y0*y0 - z0*z0;
-    if(t0<0) n0 = 0.0;
-    else { t0 *= t0; n0 = t0 * t0 * dot(_grad3[gi0], x0, y0, z0); }
+    n0 = t0<0 ? 0.0 : (t0*=t0)*t0*dot(_grad3[gi0], x0, y0, z0);
     let t1 = 0.6 - x1*x1 - y1*y1 - z1*z1;
-    if(t1<0) n1 = 0.0;
-    else { t1 *= t1; n1 = t1 * t1 * dot(_grad3[gi1], x1, y1, z1); }
+    n1 = t1<0 ? 0.0 : (t1*=t1)*t1*dot(_grad3[gi1], x1, y1, z1);
     let t2 = 0.6 - x2*x2 - y2*y2 - z2*z2;
-    if(t2<0) n2 = 0.0;
-    else { t2 *= t2; n2 = t2 * t2 * dot(_grad3[gi2], x2, y2, z2); }
+    n2 = t2<0 ? 0.0 : (t2*=t2)*t2*dot(_grad3[gi2], x2, y2, z2);
     let t3 = 0.6 - x3*x3 - y3*y3 - z3*z3;
-    if(t3<0) n3 = 0.0;
-    else { t3 *= t3; n3 = t3 * t3 * dot(_grad3[gi3], x3, y3, z3); }
-    return 32.0*(n0 + n1 + n2 + n3);
+    n3 = t3<0 ? 0.0 : (t3*=t3)*t3*dot(_grad3[gi3], x3, y3, z3);
+    return 70.0 * (n0 + n1 + n2 + n3);
 }
 
-const noise = { 
+const noise = {
     noise: simplex3,
     seed: (s) => {
         for(let i=0; i<256; i++) _p[i] = Math.floor((Math.sin(s + i) * 43758.5453) % 1 * 256);
@@ -245,62 +259,39 @@ export function createLoft(params = {}) {
     return geometry;
 }
 
+// ✅ UPDATED: createLathe now accepts curves via resolver
 export function createLathe(params = {}) {
-  // IMPORTANT: Ensure points is an array, not a string
-  let { points = [], segments = 12, phiStart = 0, phiLength = Math.PI * 2 } = params;
+    let { points = [], segments = 12, phiStart = 0, phiLength = Math.PI * 2 } = params;
 
-  // DEBUG: Check what we received
-  console.log('createLathe received:', {
-    pointsType: typeof points,
-    pointsIsArray: Array.isArray(points),
-    pointsValue: points,
-    segmentsType: typeof segments
-  });
+    // ✅ RESOLVER: Handles array, curve, or wrapped object
+    const resolvedPoints2D = resolvePoints2D(points, segments);
 
-  // CRITICAL FIX: If points is a string, parse it
-  if (typeof points === 'string') {
+    if (resolvedPoints2D.length === 0) {
+        console.warn('createLathe: No valid points resolved');
+        return new THREE.BufferGeometry();
+    }
+
+    // Convert to THREE.Vector2 if needed
+    const lathePoints = resolvedPoints2D.map(p => 
+        p instanceof THREE.Vector2 ? p : new THREE.Vector2(p.x || p[0], p.y || p[1])
+    );
+
     try {
-      points = JSON.parse(points);
-      console.log('Parsed points from string:', points);
+        return new THREE.LatheGeometry(lathePoints, segments, phiStart, phiLength);
     } catch (e) {
-      console.error('Failed to parse points string:', e);
-      return new THREE.BufferGeometry();
+        console.error('LatheGeometry creation failed:', e);
+        return new THREE.BufferGeometry();
     }
-  }
-
-  // Validate points is array
-  if (!Array.isArray(points) || points.length === 0) {
-    console.warn('createLathe: Invalid points', points);
-    return new THREE.BufferGeometry();
-  }
-
-  // Map points to THREE.Vector2
-  const curve = points.map(([x, y]) => {
-    if (typeof x !== 'number' || typeof y !== 'number') {
-      console.warn('Invalid point pair:', [x, y]);
-      return new THREE.Vector2(0, 0);
-    }
-    return new THREE.Vector2(x, y);
-  });
-
-  console.log('createLathe curve points:', curve);
-
-  try {
-    const geom = new THREE.LatheGeometry(curve, segments, phiStart, phiLength);
-    console.log('✅ createLathe success:', { segments, pointCount: points.length });
-    return geom;
-  } catch (e) {
-    console.error('LatheGeometry creation failed:', e);
-    return new THREE.BufferGeometry();
-  }
 }
 
 export function createConvexHull(params = {}) {
     const { points } = params;
+
     if (!points || points.length < 4) {
         console.warn('createConvexHull: Need at least 4 points');
         return new THREE.BufferGeometry();
     }
+
     const vectors = points.map(p => Array.isArray(p) ? new THREE.Vector3(...p) : p);
     return new ConvexGeometry(vectors);
 }
@@ -316,36 +307,61 @@ export function createText3D(params = {}) {
 }
 
 // ============================================================================
-// 3. CURVES & PATHS (6 helpers)
+// 3. CURVES & PATHS (6 helpers) - NOW WITH WRAPPER PROTOCOL
 // ============================================================================
 
 export function createLinePath(params = {}) {
     const { points } = params;
+
+    if (!points || points.length < 2) {
+        console.warn('createLinePath: Need at least 2 points');
+        return new THREE.BufferGeometry();
+    }
+
     const vectors = points.map(p => Array.isArray(p) ? new THREE.Vector3(...p) : p);
-    return new THREE.LineCurve3(vectors[0], vectors[1]);
+    const curve = new THREE.LineCurve3(vectors[0], vectors[1]);
+
+    // ✅ WRAPPED: Return visual with math object attached
+    return wrapCurveAsLine(curve, 32);
 }
 
 export function createSplinePath(params = {}) {
     const { points, tension = 0.5 } = params;
+
+    if (!points || points.length < 2) {
+        console.warn('createSplinePath: Need at least 2 points');
+        return new THREE.BufferGeometry();
+    }
+
     const vectors = points.map(p => Array.isArray(p) ? new THREE.Vector3(...p) : p);
-    return new THREE.CatmullRomCurve3(vectors, false, 'catmullrom', tension);
+    const curve = new THREE.CatmullRomCurve3(vectors, false, 'catmullrom', tension);
+
+    // ✅ WRAPPED: Return visual with math object attached
+    return wrapCurveAsLine(curve, 64);
 }
 
+// ✅ UPDATED: createArcPath now wraps output
 export function createArcPath(params = {}) {
     const { center = [0, 0, 0], radius = 1, startAngle = 0, endAngle = Math.PI, segments = 32 } = params;
     const points = [];
+
     for (let i = 0; i <= segments; i++) {
         const theta = startAngle + (endAngle - startAngle) * i / segments;
         const x = center[0] + radius * Math.cos(theta);
         const y = center[1] + radius * Math.sin(theta);
         points.push(new THREE.Vector3(x, y, center[2]));
     }
-    return new THREE.CatmullRomCurve3(points, false);
+
+    const curve = new THREE.CatmullRomCurve3(points, false);
+
+    // ✅ WRAPPED: Return visual with math object attached
+    return wrapCurveAsLine(curve, segments);
 }
 
 export function createHelixPath(params = {}) {
     const { radius = 1, height = 3, turns = 3, segments = 128 } = params;
     const points = [];
+
     for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const theta = 2 * Math.PI * turns * t;
@@ -354,22 +370,38 @@ export function createHelixPath(params = {}) {
         const z = radius * Math.sin(theta);
         points.push(new THREE.Vector3(x, y, z));
     }
-    return new THREE.CatmullRomCurve3(points, false);
+
+    const curve = new THREE.CatmullRomCurve3(points, false);
+
+    // ✅ WRAPPED: Return visual with math object attached
+    return wrapCurveAsLine(curve, segments);
 }
 
 export function createBezierPath(params = {}) {
     const { start, control1, control2, end } = params;
-    return new THREE.CubicBezierCurve3(
+
+    const curve = new THREE.CubicBezierCurve3(
         new THREE.Vector3(...start),
         new THREE.Vector3(...control1),
         new THREE.Vector3(...control2),
         new THREE.Vector3(...end)
     );
+
+    // ✅ WRAPPED: Return visual with math object attached
+    return wrapCurveAsLine(curve, 64);
 }
 
 export function createPipe(params = {}) {
     const { path, radius = 0.2, tubularSegments = 64, radialSegments = 8, closed = false } = params;
-    return new THREE.TubeGeometry(path, tubularSegments, radius, radialSegments, closed);
+
+    // ✅ RESOLVER: Handle wrapped curves
+    const curve = resolveCurve(path);
+    if (!curve) {
+        console.warn('createPipe: No valid curve');
+        return new THREE.BufferGeometry();
+    }
+
+    return new THREE.TubeGeometry(curve, tubularSegments, radius, radialSegments, closed);
 }
 
 // ============================================================================
@@ -378,13 +410,17 @@ export function createPipe(params = {}) {
 
 export function twistGeometry(params = {}) {
     const { geometry, angle = Math.PI / 4, axis = [0, 1, 0], height = null } = params;
+
     const geom = geometry.clone();
     const positions = geom.attributes.position;
     const count = positions.count;
+
     geom.computeBoundingBox();
     const bbox = geom.boundingBox;
+
     const axisNorm = new THREE.Vector3(...axis).normalize();
     const isYAxis = Math.abs(axisNorm.y) > 0.99;
+
     const minH = isYAxis ? bbox.min.y : bbox.min.z;
     const maxH = isYAxis ? bbox.max.y : bbox.max.z;
     const range = height || (maxH - minH);
@@ -415,13 +451,17 @@ export function twistGeometry(params = {}) {
 
 export function taperGeometry(params = {}) {
     const { geometry, topScale = [0.5, 0.5], axis = [0, 1, 0], height = null } = params;
+
     const geom = geometry.clone();
     const positions = geom.attributes.position;
     const count = positions.count;
+
     geom.computeBoundingBox();
     const bbox = geom.boundingBox;
+
     const axisNorm = new THREE.Vector3(...axis).normalize();
     const isYAxis = Math.abs(axisNorm.y) > 0.99;
+
     const minH = isYAxis ? bbox.min.y : bbox.min.z;
     const maxH = isYAxis ? bbox.max.y : bbox.max.z;
     const range = height || (maxH - minH);
@@ -434,6 +474,7 @@ export function taperGeometry(params = {}) {
         const t = (h - minH) / (range || 1);
         const scaleX = 1.0 + (topScale[0] - 1.0) * t;
         const scaleZ = 1.0 + (topScale[1] - 1.0) * t;
+
         positions.setXYZ(i, x * scaleX, y, z * scaleZ);
     }
 
@@ -444,8 +485,10 @@ export function taperGeometry(params = {}) {
 
 export function bendGeometry(params = {}) {
     const { geometry, angle = Math.PI / 4, direction = [1, 0, 0] } = params;
+
     const geom = geometry.clone();
     const positions = geom.attributes.position;
+
     geom.computeBoundingBox();
     const bbox = geom.boundingBox;
     const range = bbox.max.x - bbox.min.x;
@@ -459,6 +502,7 @@ export function bendGeometry(params = {}) {
         const radius = range / angle;
         const newX = Math.sin(theta) * radius;
         const newZ = z + radius - Math.cos(theta) * radius;
+
         positions.setXYZ(i, newX, y, newZ);
     }
 
@@ -469,6 +513,7 @@ export function bendGeometry(params = {}) {
 
 export function deformByNoise(params = {}) {
     const { geometry, amount = 0.2, frequency = 1.0, axis = [0, 1, 0] } = params;
+
     const geom = geometry.clone();
     const positions = geom.attributes.position;
     const axisVec = new THREE.Vector3(...axis).normalize();
@@ -479,6 +524,7 @@ export function deformByNoise(params = {}) {
         const z = positions.getZ(i);
         const noiseVal = noise.noise(x * frequency, y * frequency, z * frequency);
         const offset = axisVec.clone().multiplyScalar(noiseVal * amount);
+
         positions.setXYZ(i, x + offset.x, y + offset.y, z + offset.z);
     }
 
@@ -488,7 +534,11 @@ export function deformByNoise(params = {}) {
 }
 
 export function deformByVectorField(params = {}) {
-    const { geometry, vectorField, amount = 1.0 } = params;
+    const { geometry, field, amount = 1.0 } = params;
+
+    // ✅ RESOLVER: Handle wrapped fields
+    const fieldFn = resolveField(field);
+
     const geom = geometry.clone();
     const positions = geom.attributes.position;
 
@@ -496,7 +546,8 @@ export function deformByVectorField(params = {}) {
         const x = positions.getX(i);
         const y = positions.getY(i);
         const z = positions.getZ(i);
-        const vec = vectorField(x, y, z);
+        const vec = fieldFn(x, y, z);
+
         positions.setXYZ(i, x + vec.x * amount, y + vec.y * amount, z + vec.z * amount);
     }
 
@@ -512,6 +563,7 @@ export function deformByVectorField(params = {}) {
 export function mergeGeometries(params = {}) {
     const { geometries = [] } = params;
     const validGeoms = geometries.filter(g => g && g.isBufferGeometry);
+
     if (validGeoms.length === 0) return new THREE.BufferGeometry();
     return BufferGeometryUtils.mergeGeometries(validGeoms, false);
 }
@@ -532,15 +584,16 @@ export function intersectGeometry(params = {}) {
 }
 
 // ============================================================================
-// 6. DISTRIBUTION (5 helpers) - UPDATED WITH AUTO-MERGE
+// 6. DISTRIBUTION (5 helpers) - WITH RESOLVER INTEGRATION
 // ============================================================================
 
 export function repeatLinear3d(params = {}) {
     const { geometry, count = 3, spacing = 1, axis = 'x', centered = false, autoMerge = true } = params;
+
     if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];
 
     const results = [];
-    const axisVec = axis === 'y' ? new THREE.Vector3(0, 1, 0) : 
+    const axisVec = axis === 'y' ? new THREE.Vector3(0, 1, 0) :
                     (axis === 'z' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0));
     const offset = centered ? -spacing * (count - 1) / 2 : 0;
 
@@ -554,16 +607,15 @@ export function repeatLinear3d(params = {}) {
         results.push(clone);
     }
 
-    // Auto-merge by default for backward compatibility
     return autoMerge ? mergeGeometries({ geometries: results }) : results;
 }
 
 export function repeatRadial3d(params = {}) {
     const { geometry, count = 8, radius = 5, startAngle = 0, endAngle = Math.PI * 2, axis = 'y', faceCenter = true, autoMerge = true } = params;
+
     if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];
 
     const results = [];
-
     for (let i = 0; i < count; i++) {
         const t = count === 1 ? 0 : i / (count - 1);
         const angle = startAngle + (endAngle - startAngle) * t;
@@ -575,32 +627,42 @@ export function repeatRadial3d(params = {}) {
             clone.translate(x, 0, z);
             if (faceCenter) clone.rotateY(angle + Math.PI / 2);
         }
+
         results.push(clone);
     }
 
     return autoMerge ? mergeGeometries({ geometries: results }) : results;
 }
 
+// ✅ UPDATED: repeatAlongCurve now accepts wrapped curves
 export function repeatAlongCurve3d(params = {}) {
     const { geometry, curve, count = 10, align = true, autoMerge = true } = params;
-    if (!geometry || !curve) return autoMerge ? new THREE.BufferGeometry() : [];
+
+    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];
+
+    // ✅ RESOLVER: Unwraps wrapped curves automatically
+    const resolvedCurve = resolveCurve(curve);
+    if (!resolvedCurve) {
+        console.warn('repeatAlongCurve3d: No valid curve');
+        return autoMerge ? new THREE.BufferGeometry() : [];
+    }
 
     const results = [];
-
     for (let i = 0; i < count; i++) {
         const t = count === 1 ? 0.5 : i / (count - 1);
-        const pos = curve.getPoint(t);
+        const pos = resolvedCurve.getPoint(t);
         const clone = geometry.clone();
         clone.translate(pos.x, pos.y, pos.z);
 
         if (align) {
-            const tangent = curve.getTangent(t).normalize();
+            const tangent = resolvedCurve.getTangent(t).normalize();
             const up = new THREE.Vector3(0, 1, 0);
             const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
             const orthogonalUp = new THREE.Vector3().crossVectors(normal, tangent).normalize();
             const rotMatrix = new THREE.Matrix4().makeBasis(tangent, orthogonalUp, normal);
             clone.applyMatrix4(rotMatrix);
         }
+
         results.push(clone);
     }
 
@@ -609,13 +671,14 @@ export function repeatAlongCurve3d(params = {}) {
 
 export function distributeOnGrid3d(params = {}) {
     const { geometry, rows = 3, cols = 3, spacing = [2, 0, 2], centered = true, autoMerge = true } = params;
+
     if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];
 
     const [spacingX, spacingY, spacingZ] = Array.isArray(spacing) ? spacing : [spacing, 0, spacing];
     const offsetX = centered ? -spacingX * (cols - 1) / 2 : 0;
     const offsetZ = centered ? -spacingZ * (rows - 1) / 2 : 0;
-    const results = [];
 
+    const results = [];
     for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
             const clone = geometry.clone();
@@ -629,14 +692,15 @@ export function distributeOnGrid3d(params = {}) {
 
 export function distributeRandom3d(params = {}) {
     const { geometry, bounds = [[0, 0, 0], [1, 1, 1]], count = 50, seed = 42, autoMerge = true } = params;
-    const random = (() => { 
-        let a = seed; 
-        return () => { 
-            let t = a += 0x6D2B79F5; 
-            t = Math.imul(t ^ t >>> 15, t | 1); 
-            t ^= t + Math.imul(t ^ t >>> 7, t | 61); 
-            return ((t ^ t >>> 14) >>> 0) / 4294967296; 
-        } 
+
+    const random = (() => {
+        let a = seed;
+        return () => {
+            let t = a += 0x6D2B79F5;
+            t = Math.imul(t ^ t >>> 15, t | 1);
+            t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        };
     })();
 
     const [min, max] = bounds;
@@ -655,36 +719,42 @@ export function distributeRandom3d(params = {}) {
 }
 
 // ============================================================================
-// 7. FIELDS & ATTRACTORS (2 helpers)
+// 7. FIELDS & ATTRACTORS (2 helpers) - NOW WITH WRAPPER PROTOCOL
 // ============================================================================
 
+// ✅ UPDATED: createVectorField now wraps output
 export function createVectorField(params = {}) {
     const { type = 'attractor', center = [0, 0, 0], strength = 1.0 } = params;
     const centerVec = new THREE.Vector3(...center);
 
+    let fieldFn;
     if (type === 'attractor') {
-        return (x, y, z) => {
+        fieldFn = (x, y, z) => {
             const pos = new THREE.Vector3(x, y, z);
             const dir = centerVec.clone().sub(pos);
             const dist = dir.length();
             return dir.normalize().multiplyScalar(strength / (1 + dist));
         };
     } else if (type === 'repeller') {
-        return (x, y, z) => {
+        fieldFn = (x, y, z) => {
             const pos = new THREE.Vector3(x, y, z);
             const dir = pos.clone().sub(centerVec);
             const dist = dir.length();
             return dir.normalize().multiplyScalar(strength / (1 + dist));
         };
     } else if (type === 'vortex') {
-        return (x, y, z) => {
+        fieldFn = (x, y, z) => {
             const pos = new THREE.Vector3(x, y, z);
             const dir = pos.clone().sub(centerVec);
             const tangent = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
             return tangent.multiplyScalar(strength);
         };
+    } else {
+        fieldFn = () => new THREE.Vector3(0, 0, 0);
     }
-    return () => new THREE.Vector3(0, 0, 0);
+
+    // ✅ WRAPPED OUTPUT with field attached
+    return wrapFieldAsObject(fieldFn, `${type} field at [${center}]`);
 }
 
 export function flowField(params = {}) {
@@ -692,11 +762,112 @@ export function flowField(params = {}) {
 }
 
 // ============================================================================
-// 8. PROCEDURAL PATTERNS (2 helpers)
+// 8. FLOW VISUALIZATION (NEW) - Visualizes flow fields as streamlines/pipes
 // ============================================================================
 
+// ✅ NEW: createStreamlines visualizes vector fields
+export function createStreamlines(params = {}) {
+    const { 
+        field,              // Function or wrapped field
+        box = [-5, -5, -5, 5, 5, 5],
+        count = 50,
+        steps = 50,
+        stepSize = 0.1
+    } = params;
+
+    // ✅ RESOLVER: Unwraps field automatically
+    const fieldFn = resolveField(field);
+
+    if (typeof fieldFn !== 'function') {
+        console.warn('createStreamlines: No valid field');
+        return new THREE.BufferGeometry();
+    }
+
+    const [minX, minY, minZ, maxX, maxY, maxZ] = box;
+    const lines = [];
+
+    for (let i = 0; i < count; i++) {
+        let pos = new THREE.Vector3(
+            minX + Math.random() * (maxX - minX),
+            minY + Math.random() * (maxY - minY),
+            minZ + Math.random() * (maxZ - minZ)
+        );
+
+        const points = [pos.clone()];
+
+        for (let j = 0; j < steps; j++) {
+            const dir = fieldFn(pos.x, pos.y, pos.z);
+            if (!dir || dir.length() < 0.001) break;
+
+            pos.add(dir.clone().multiplyScalar(stepSize));
+            points.push(pos.clone());
+        }
+
+        if (points.length > 1) {
+            const geom = new THREE.BufferGeometry().setFromPoints(points);
+            lines.push(geom);
+        }
+    }
+
+    return lines.length > 0 ? mergeGeometries({ geometries: lines }) : new THREE.BufferGeometry();
+}
+
+// ✅ NEW: createFlowPipes - Same as streamlines but as pipes/tubes
+export function createFlowPipes(params = {}) {
+    const { 
+        field,
+        box = [-5, -5, -5, 5, 5, 5],
+        count = 20,
+        steps = 40,
+        stepSize = 0.1,
+        radius = 0.1
+    } = params;
+
+    const fieldFn = resolveField(field);
+
+    if (typeof fieldFn !== 'function') {
+        console.warn('createFlowPipes: No valid field');
+        return new THREE.BufferGeometry();
+    }
+
+    const [minX, minY, minZ, maxX, maxY, maxZ] = box;
+    const pipes = [];
+
+    for (let i = 0; i < count; i++) {
+        let pos = new THREE.Vector3(
+            minX + Math.random() * (maxX - minX),
+            minY + Math.random() * (maxY - minY),
+            minZ + Math.random() * (maxZ - minZ)
+        );
+
+        const points = [pos.clone()];
+
+        for (let j = 0; j < steps; j++) {
+            const dir = fieldFn(pos.x, pos.y, pos.z);
+            if (!dir || dir.length() < 0.001) break;
+
+            pos.add(dir.clone().multiplyScalar(stepSize));
+            points.push(pos.clone());
+        }
+
+        if (points.length > 2) {
+            const curve = new THREE.CatmullRomCurve3(points, false);
+            const tubeGeom = new THREE.TubeGeometry(curve, 8, radius, 4, false);
+            pipes.push(tubeGeom);
+        }
+    }
+
+    return pipes.length > 0 ? mergeGeometries({ geometries: pipes }) : new THREE.BufferGeometry();
+}
+
+// ============================================================================
+// 9. PROCEDURAL PATTERNS (3 helpers) - WITH RESOLVER INTEGRATION
+// ============================================================================
+
+// ✅ UPDATED: cellularAutomata now returns wrapped grid (data only)
 export function cellularAutomata(params = {}) {
     const { gridSize = 10, iterations = 10, rules = { survive: [2, 3], born: [3] } } = params;
+
     const grid = new Array(gridSize);
     for (let x = 0; x < gridSize; x++) {
         grid[x] = new Array(gridSize);
@@ -710,10 +881,12 @@ export function cellularAutomata(params = {}) {
 
     for (let iter = 0; iter < iterations; iter++) {
         const newGrid = JSON.parse(JSON.stringify(grid));
+
         for (let x = 0; x < gridSize; x++) {
             for (let y = 0; y < gridSize; y++) {
                 for (let z = 0; z < gridSize; z++) {
                     let neighbors = 0;
+
                     for (let dx = -1; dx <= 1; dx++) {
                         for (let dy = -1; dy <= 1; dy++) {
                             for (let dz = -1; dz <= 1; dz++) {
@@ -725,6 +898,7 @@ export function cellularAutomata(params = {}) {
                             }
                         }
                     }
+
                     if (grid[x][y][z] === 1) {
                         newGrid[x][y][z] = rules.survive.includes(neighbors) ? 1 : 0;
                     } else {
@@ -733,23 +907,12 @@ export function cellularAutomata(params = {}) {
                 }
             }
         }
+
         Object.assign(grid, newGrid);
     }
 
-    const geometries = [];
-    const boxGeom = new THREE.BoxGeometry(1, 1, 1);
-    for (let x = 0; x < gridSize; x++) {
-        for (let y = 0; y < gridSize; y++) {
-            for (let z = 0; z < gridSize; z++) {
-                if (grid[x][y][z] === 1) {
-                    const clone = boxGeom.clone();
-                    clone.translate(x - gridSize/2, y - gridSize/2, z - gridSize/2);
-                    geometries.push(clone);
-                }
-            }
-        }
-    }
-    return geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
+    // ✅ WRAPPED OUTPUT: Returns data object, not geometry
+    return wrapGridAsObject(grid, gridSize, { iterations, rules });
 }
 
 export function reactionDiffusion(params = {}) {
@@ -758,40 +921,37 @@ export function reactionDiffusion(params = {}) {
 }
 
 // ============================================================================
-// 9. EMERGENT FEATURES (The AI Brain) - 2 helpers
+// 10. EMERGENT FEATURES (The AI Brain) - 2 helpers
 // ============================================================================
 
 export function modifyGeometry(params) {
     console.log('modifyGeometry', params);
-    
-    // 1. Handle both "operations" (Array) and legacy "expression" (String)
+
     let { geometry, operations = [], expression, context = {} } = params;
-    
+
     if (expression) {
         operations.push({ expression }); // Convert legacy single expression to array
     }
 
-    if (!geometry) { 
-        console.warn("modifyGeometry: No geometry"); 
-        return null; 
+    if (!geometry) {
+        console.warn("modifyGeometry: No geometry");
+        return null;
     }
 
     const geom = geometry.clone();
     const positionAttribute = geom.attributes.position;
     const normalAttribute = geom.attributes.normal;
-    
+
     if (!positionAttribute) return geom;
-    
+
     const count = positionAttribute.count;
     const p = new THREE.Vector3();
     const n = new THREE.Vector3();
     const utils = Math;
 
-    // 2. Pre-compile all operation functions
-    // We inject 'v' as an argument so your schema's "v.x" code works.
+    // Pre-compile all operation functions
     const funcs = operations.map(op => {
         try {
-            // Arguments: position, normal, index, context, utils, vertexAlias
             return new Function('p', 'n', 'i', 'ctx', 'utils', 'v', op.expression);
         } catch (e) {
             console.error("modifyGeometry: Failed to compile expression", op.expression, e);
@@ -799,7 +959,7 @@ export function modifyGeometry(params) {
         }
     });
 
-    // 3. Iterate Vertices
+    // Iterate Vertices
     for (let i = 0; i < count; i++) {
         p.fromBufferAttribute(positionAttribute, i);
         if (normalAttribute) n.fromBufferAttribute(normalAttribute, i);
@@ -807,8 +967,6 @@ export function modifyGeometry(params) {
         // Run the pipeline
         funcs.forEach(fn => {
             if (fn) {
-                // We pass 'p' twice: once as 'p' and once as 'v' (for convenience)
-                // Modifying 'v' inside the script modifies 'p' because it's a reference.
                 fn(p, n, i, context, utils, p);
             }
         });
@@ -818,13 +976,12 @@ export function modifyGeometry(params) {
 
     geom.computeVertexNormals();
     positionAttribute.needsUpdate = true;
-    
     return geom;
 }
 
-
 export function meshFromMarchingCubes(params = {}) {
     const { resolution = 32, isovalue = 0.5, bounds = 10, expression, context = {} } = params;
+
     const effect = new MarchingCubes(resolution, null, true, true, 100000);
 
     let fieldFn;
@@ -835,6 +992,7 @@ export function meshFromMarchingCubes(params = {}) {
             fieldFn = (x, y, z) => userFn(x, y, z, context, noiseFn, Math);
         } catch(e) { console.error(e); }
     }
+
     if (!fieldFn) fieldFn = (x, y, z) => noise.noise(x*0.1, y*0.1, z*0.1) + 0.5;
 
     const scaleFactor = 2 * bounds / resolution;
@@ -851,17 +1009,19 @@ export function meshFromMarchingCubes(params = {}) {
             }
         }
     }
+
     effect.update();
     if (effect.geometry) {
         const exportedGeom = effect.geometry.clone();
         effect.geometry.dispose();
         return exportedGeom;
     }
+
     return new THREE.BufferGeometry();
 }
 
 // ============================================================================
-// 10. COMPLEX ALGORITHMS (Irreplaceable by modifyGeometry) - 11 helpers
+// 11. COMPLEX ALGORITHMS (Irreplaceable by modifyGeometry) - 11 helpers
 // ============================================================================
 
 export function lSystemGeometry(params = {}) {
@@ -916,7 +1076,6 @@ export function differentialGrowth(params = {}) {
     console.warn('differentialGrowth: Complex mesh topology modification - simplified version');
 
     let geom = geometry.clone();
-
     for (let iter = 0; iter < iterations; iter++) {
         const positions = geom.attributes.position;
         const count = positions.count;
@@ -924,10 +1083,12 @@ export function differentialGrowth(params = {}) {
 
         for (let i = 0; i < count; i++) {
             const pi = new THREE.Vector3(positions.getX(i), positions.getY(i), positions.getZ(i));
+
             for (let j = i + 1; j < count; j++) {
                 const pj = new THREE.Vector3(positions.getX(j), positions.getY(j), positions.getZ(j));
                 const diff = pi.clone().sub(pj);
                 const dist = diff.length();
+
                 if (dist < repulsionRadius && dist > 0.001) {
                     const force = diff.normalize().multiplyScalar(repulsionStrength / dist);
                     forces[i].add(force);
@@ -942,6 +1103,7 @@ export function differentialGrowth(params = {}) {
             const z = positions.getZ(i) + forces[i].z;
             positions.setXYZ(i, x, y, z);
         }
+
         positions.needsUpdate = true;
         geom.computeVertexNormals();
     }
@@ -949,11 +1111,21 @@ export function differentialGrowth(params = {}) {
     return geom;
 }
 
+// ✅ UPDATED: meshFromVoxelGrid now accepts wrapped grids
 export function meshFromVoxelGrid(params = {}) {
-    const { grid, voxelSize = 1 } = params;
+    let { grid, voxelSize = 1 } = params;
+
+    // ✅ RESOLVER: Unwraps if it's a wrapped grid
+    if (grid && grid.userData && grid.userData.grid) {
+        grid = grid.userData.grid;
+        voxelSize = grid.userData?.voxelSize || voxelSize;
+    }
+
+    // ✅ RESOLVER: Also handles raw array
+    grid = resolveVoxelGrid(grid);
 
     if (!grid || !Array.isArray(grid)) {
-        console.warn('meshFromVoxelGrid: No grid provided');
+        console.warn('meshFromVoxelGrid: No valid grid');
         return new THREE.BufferGeometry();
     }
 
@@ -981,6 +1153,7 @@ export function meshFromVoxelGrid(params = {}) {
 
 export function pointSetCentroid(params = {}) {
     const { points } = params;
+
     if (!points || points.length === 0) return new THREE.Vector3();
 
     const centroid = new THREE.Vector3();
@@ -988,12 +1161,14 @@ export function pointSetCentroid(params = {}) {
         const vec = Array.isArray(p) ? new THREE.Vector3(...p) : p;
         centroid.add(vec);
     }
+
     centroid.divideScalar(points.length);
     return centroid;
 }
 
 export function pointSetBoundingBox(params = {}) {
     const { points } = params;
+
     if (!points || points.length === 0) return new THREE.Box3();
 
     const box = new THREE.Box3();
@@ -1001,36 +1176,44 @@ export function pointSetBoundingBox(params = {}) {
         const vec = Array.isArray(p) ? new THREE.Vector3(...p) : p;
         box.expandByPoint(vec);
     }
+
     return box;
 }
 
 export function closestPointOnCurve(params = {}) {
     const { curve, point, samples = 100 } = params;
+
     if (!curve || !point) return new THREE.Vector3();
 
+    // ✅ RESOLVER: Handle wrapped curves
+    const resolvedCurve = resolveCurve(curve);
+    if (!resolvedCurve) return new THREE.Vector3();
+
     const targetPoint = Array.isArray(point) ? new THREE.Vector3(...point) : point;
-    let closestPoint = curve.getPoint(0);
+    let closestPoint = resolvedCurve.getPoint(0);
     let minDist = closestPoint.distanceTo(targetPoint);
 
     for (let i = 1; i <= samples; i++) {
         const t = i / samples;
-        const p = curve.getPoint(t);
+        const p = resolvedCurve.getPoint(t);
         const dist = p.distanceTo(targetPoint);
+
         if (dist < minDist) {
             minDist = dist;
             closestPoint = p;
         }
     }
+
     return closestPoint;
 }
 
 export function signedDistanceToMesh(params = {}) {
     const { geometry, point } = params;
+
     if (!geometry || !point) return 0;
 
     const targetPoint = Array.isArray(point) ? new THREE.Vector3(...point) : point;
     const raycaster = new THREE.Raycaster(targetPoint, new THREE.Vector3(1, 0, 0));
-
     const tempMesh = new THREE.Mesh(geometry);
     const intersects = raycaster.intersectObject(tempMesh);
 
@@ -1042,6 +1225,7 @@ export function signedDistanceToMesh(params = {}) {
 
 export function measureVolume(params = {}) {
     const { geometry } = params;
+
     if (!geometry) return 0;
 
     let volume = 0;
@@ -1057,11 +1241,13 @@ export function measureVolume(params = {}) {
             volume += v1.dot(new THREE.Vector3().crossVectors(v2, v3)) / 6;
         }
     }
+
     return Math.abs(volume);
 }
 
 export function measureArea(params = {}) {
     const { geometry } = params;
+
     if (!geometry) return 0;
 
     let area = 0;
@@ -1079,6 +1265,7 @@ export function measureArea(params = {}) {
             area += edge1.cross(edge2).length() / 2;
         }
     }
+
     return area;
 }
 
@@ -1109,7 +1296,7 @@ export default {
     // Advanced geometry (6)
     createExtrude, createLoft, createLathe, createConvexHull, createParametricSurface, createText3D,
 
-    // Curves & paths (6)
+    // Curves & paths (6) - Now wrapped
     createLinePath, createSplinePath, createArcPath, createHelixPath, createBezierPath, createPipe,
 
     // Deformations (5)
@@ -1118,13 +1305,16 @@ export default {
     // Boolean & utilities (4)
     mergeGeometries, unionGeometry, subtractGeometry, intersectGeometry,
 
-    // Distribution (5) - NOW WITH AUTO-MERGE
+    // Distribution (5) - Now with resolver
     repeatLinear3d, repeatRadial3d, repeatAlongCurve3d, distributeOnGrid3d, distributeRandom3d,
 
-    // Fields & attractors (2)
+    // Fields & attractors (2) - Now wrapped
     createVectorField, flowField,
 
-    // Procedural patterns (2)
+    // Flow visualization (2 - NEW)
+    createStreamlines, createFlowPipes,
+
+    // Procedural patterns (3)
     cellularAutomata, reactionDiffusion,
 
     // Emergent features (2)
