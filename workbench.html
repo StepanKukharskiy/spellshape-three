@@ -2094,38 +2094,47 @@
         }
 
         function run() {
-            if (currentMesh) scene.remove(currentMesh);
+    // FIXED: Check if currentMesh exists BEFORE traversing
+    if (currentMesh) {
+        scene.remove(currentMesh);
+        currentMesh.traverse(c => {
+            if (c.geometry) c.geometry.dispose();
+            if (c.material && !Array.isArray(c.material)) c.material.dispose();
+        });
+    }
+
+    const params = {};
+    for (const [k, v] of Object.entries(schema.globalParameters)) {
+        params[k] = v.value;
+    }
+
+    const visibleSchema = {
+        ...schema,
+        actions: schema.actions.map(action => ({
+            ...action,
+            material: action.visible ? action.material : null
+        }))
+    };
+
+    try {
+        currentMesh = executor.execute(visibleSchema, params);
+        // FIXED: Check if executor returned valid geometry
+        if (currentMesh) {
+            scene.add(currentMesh);
+            let count = 0;
             currentMesh.traverse(c => {
-                if (c.geometry) c.geometry.dispose();
-                if (c.material && !Array.isArray(c.material)) c.material.dispose();
+                if (c.isMesh) count++;
             });
-
-            const params = {};
-            for (const [k, v] of Object.entries(schema.globalParameters)) {
-                params[k] = v.value;
-            }
-
-            const visibleSchema = {
-                ...schema,
-                actions: schema.actions.map(action => ({
-                    ...action,
-                    material: action.visible ? action.material : null
-                }))
-            };
-
-            try {
-                currentMesh = executor.execute(visibleSchema, params);
-                scene.add(currentMesh);
-                let count = 0;
-                currentMesh.traverse(c => {
-                    if (c.isMesh) count++;
-                });
-                document.getElementById('stats').innerText = `Meshes: ${count}`;
-            } catch (e) {
-                document.getElementById('stats').innerText = 'Error: ' + e.message.substring(0, 30);
-                console.error(e);
-            }
+            document.getElementById('stats').innerText = `Meshes: ${count}`;
+        } else {
+            document.getElementById('stats').innerText = 'No geometry generated';
         }
+    } catch (e) {
+        document.getElementById('stats').innerText = 'Error: ' + e.message.substring(0, 30);
+        console.error(e);
+    }
+}
+
 
         function animate() {
             requestAnimationFrame(animate);
