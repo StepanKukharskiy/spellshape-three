@@ -1,1863 +1,2152 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spellshape - Procedural Timeline Editor</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spellshape - Procedural Timeline Editor</title>
+   
 
-  <script type="importmap">
+    <script type="importmap">
     {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-      }
-    }
-  </script>
-
-  <style>
-    :root {
-      --bg: #121214;
-      --panel: #1c1c21;
-      --card: #25252b;
-      --card-hover: #2d2d33;
-      --border: #333;
-      --accent: #646cff;
-      --text: #ececec;
-      --text-dim: #888;
-      --success: #4ade80;
-      --error: #ff6464;
-    }
-
-    * { box-sizing: border-box; }
-    body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', system-ui, sans-serif; color: var(--text); }
-    .app { display: flex; height: 100vh; width: 100vw; }
-
-    .sidebar {
-      flex: 0 0 500px;
-      width: 500px;
-      background: var(--panel);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      z-index: 10;
-    }
-
-    .header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .header h1 { margin: 0; font-size: 14px; font-weight: 700; flex: 1; }
-
-    .view-controls {
-      display: flex;
-      gap: 4px;
-      align-items: center;
-    }
-    .view-btn {
-      width: 24px;
-      height: 24px;
-      background: rgba(100, 108, 255, 0.2);
-      border: 1px solid transparent;
-      border-radius: 3px;
-      color: var(--text-dim);
-      cursor: pointer;
-      font-size: 11px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-    }
-    .view-btn.active {
-      background: rgba(100, 108, 255, 0.4);
-      color: var(--accent);
-      border-color: var(--accent);
-    }
-    .view-btn:hover { background: rgba(100, 108, 255, 0.3); }
-
-    .tabs { display: flex; padding: 0 20px; border-bottom: 1px solid var(--border); gap: 12px; overflow-x: auto; }
-    .tab {
-      padding: 10px 0;
-      font-size: 10px; font-weight: 600; color: var(--text-dim);
-      cursor: pointer; border-bottom: 2px solid transparent;
-      transition: all 0.2s; white-space: nowrap;
-    }
-    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .tab:hover { color: #fff; }
-
-    .content { flex: 1; overflow-y: auto; padding: 16px; display: none; }
-    .content.active { display: block; }
-
-    .globals-container { display: flex; flex-direction: column; gap: 12px; }
-    .global-group { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
-    .global-header {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
-      font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-dim);
-    }
-    .btn-add-global { width: 20px; height: 20px; background: rgba(100, 108, 255, 0.2); border: none; border-radius: 3px; color: var(--accent); cursor: pointer; font-weight: bold; }
-    .btn-add-global:hover { background: rgba(100, 108, 255, 0.4); }
-
-    .global-item {
-      display: flex; gap: 8px; margin-bottom: 8px; align-items: center;
-    }
-
-    .global-slider-group {
-      display: flex; flex-direction: column; gap: 4px; margin-top: 8px;
-    }
-    .slider-header { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); }
-    .slider-value { color: var(--accent); font-family: monospace; font-weight: bold; }
-
-    input[type="text"], input[type="number"], input[type="range"] {
-      background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px;
-      padding: 6px 10px; color: var(--text); font-size: 11px;
-    }
-    input[type="text"]:focus, input[type="number"]:focus {
-      outline: none; border-color: var(--accent);
-    }
-
-    input[type="range"] {
-      padding: 0; height: 4px; cursor: pointer;
-    }
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none; appearance: none; width: 14px; height: 14px;
-      border-radius: 50%; background: var(--accent); cursor: pointer;
-    }
-    input[type="range"]::-moz-range-thumb {
-      width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer;
-    }
-
-    /* TIMELINE WITH COLLAPSIBLE SUPPORT */
-    .timeline-controls {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    .timeline-btn {
-      padding: 6px 12px;
-      background: rgba(100, 108, 255, 0.2);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--accent);
-      cursor: pointer;
-      font-size: 10px;
-      font-weight: 600;
-      transition: all 0.2s;
-    }
-    .timeline-btn:hover { background: rgba(100, 108, 255, 0.4); }
-
-    .timeline { display: flex; flex-direction: column; gap: 8px; }
-
-    .step-card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 6px;
-      overflow: hidden; transition: all 0.2s;
-    }
-    .step-card:hover { background: var(--card-hover); border-color: var(--accent); }
-    .step-card.hidden { opacity: 0.5; border-color: #555; }
-    .step-card.collapsed { padding: 0; }
-
-    /* STEP HEADER (always visible) */
-    .step-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px;
-      background: var(--card);
-      cursor: pointer;
-      user-select: none;
-      transition: background 0.2s;
-    }
-    .step-header:hover { background: var(--card-hover); }
-    .step-card.collapsed .step-header:hover { background: var(--card-hover); }
-
-    .step-collapse-toggle {
-      width: 16px;
-      height: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      color: var(--text-dim);
-      transition: transform 0.2s;
-      flex-shrink: 0;
-    }
-    .step-card.collapsed .step-collapse-toggle {
-      transform: rotate(0deg);
-    }
-    .step-card:not(.collapsed) .step-collapse-toggle {
-      transform: rotate(90deg);
-    }
-
-    .step-num {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      font-size: 10px;
-      font-weight: bold;
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--accent);
-      flex-shrink: 0;
-    }
-
-    .step-header-content {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-width: 0;
-    }
-
-    .step-title-input {
-      background: transparent;
-      border: 1px solid transparent;
-      padding: 0;
-      color: var(--text);
-      font-size: 12px;
-      font-weight: 600;
-      border-radius: 3px;
-      flex: 1;
-      min-width: 0;
-    }
-    .step-title-input:hover { border-color: var(--border); }
-    .step-title-input:focus { outline: none; border-color: var(--accent); background: rgba(100, 108, 255, 0.1); }
-
-    .step-helper-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      background: rgba(100, 108, 255, 0.15);
-      border: 1px solid rgba(100, 108, 255, 0.3);
-      border-radius: 12px;
-      font-size: 9px;
-      color: var(--accent);
-      font-weight: 600;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .step-material-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      border: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-
-    .step-actions {
-      display: flex;
-      gap: 6px;
-      flex-shrink: 0;
-    }
-    .step-btn {
-      width: 22px;
-      height: 22px;
-      border: none;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 11px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-    }
-    .step-btn-visibility {
-      background: rgba(100, 200, 255, 0.2);
-      color: #64c8ff;
-    }
-    .step-btn-visibility:hover { background: rgba(100, 200, 255, 0.4); }
-    .step-btn-visibility.hidden {
-      background: rgba(100, 100, 100, 0.2);
-      color: #666;
-      opacity: 0.5;
-    }
-    .step-btn-remove {
-      background: rgba(255, 100, 100, 0.2);
-      color: var(--error);
-    }
-    .step-btn-remove:hover { background: rgba(255, 100, 100, 0.4); }
-
-    /* STEP BODY (collapsible) */
-    .step-body {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 12px;
-      border-top: 1px solid var(--border);
-      max-height: 2000px;
-      overflow: hidden;
-      transition: max-height 0.3s ease, opacity 0.3s ease;
-      opacity: 1;
-    }
-    .step-card.collapsed .step-body {
-      max-height: 0;
-      padding: 0 12px;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .field-group { display: flex; flex-direction: column; gap: 4px; }
-    .field-label { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text-dim); }
-
-    .helper-select {
-      background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px;
-      padding: 6px 10px; color: var(--text); font-size: 11px; cursor: pointer;
-    }
-    .helper-select:hover { border-color: var(--accent); }
-    .helper-select:focus { outline: none; border-color: var(--accent); }
-    .helper-select:disabled { opacity: 0.5; cursor: not-allowed; background: rgba(255,255,255,0.02); }
-
-    textarea.expr-input {
-      background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 4px;
-      padding: 6px 10px; color: var(--text); font-size: 10px; font-family: 'Courier New', monospace;
-      resize: vertical; min-height: 40px; max-height: 80px;
-    }
-    textarea.expr-input:focus { outline: none; border-color: var(--accent); }
-
-    .menu-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; z-index: 1000;
-    }
-    .menu-overlay.active { display: block; }
-
-    .menu-popup {
-      position: fixed; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-      min-width: 200px; max-height: 400px; overflow-y: auto; z-index: 1001;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    }
-
-    .menu-item {
-      padding: 10px 16px; cursor: pointer; font-size: 11px; border-bottom: 1px solid rgba(255,255,255,0.05);
-      transition: all 0.2s;
-    }
-    .menu-item:hover { background: rgba(100, 108, 255, 0.2); color: var(--accent); }
-    .menu-item:last-child { border-bottom: none; }
-
-    /* MATERIALS TAB */
-    .materials-container { display: flex; flex-direction: column; gap: 12px; }
-    .material-item {
-      background: var(--card); border: 1px solid var(--border); border-radius: 6px;
-      padding: 12px; display: flex; flex-direction: column; gap: 8px;
-    }
-    .material-item:hover { background: var(--card-hover); }
-
-    .material-header { display: flex; justify-content: space-between; align-items: center; }
-    .material-actions { display: flex; gap: 6px; }
-    .material-btn { padding: 4px 8px; background: rgba(100, 108, 255, 0.2); border: none; border-radius: 3px; color: var(--accent); cursor: pointer; font-size: 10px; }
-    .material-btn:hover { background: rgba(100, 108, 255, 0.4); }
-    .material-delete { background: rgba(255, 100, 100, 0.2); color: var(--error); }
-    .material-delete:hover { background: rgba(255, 100, 100, 0.4); }
-
-    /* JSON TAB */
-    .json-container { display: flex; flex-direction: column; height: 100%; gap: 10px; }
-    textarea.json-input {
-      flex: 1; background: #111; border: 1px solid var(--border); border-radius: 4px;
-      padding: 10px; color: #0f0; font-family: monospace; font-size: 10px; resize: none;
-    }
-    textarea.json-input:focus { outline: none; border-color: var(--accent); }
-    .json-buttons { display: flex; gap: 8px; }
-    .json-btn { flex: 1; padding: 8px; background: rgba(100, 108, 255, 0.2); border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); cursor: pointer; font-weight: 600; }
-    .json-btn:hover { background: rgba(100, 108, 255, 0.4); }
-
-    .viewport { flex: 1; position: relative; background: radial-gradient(circle at center, #222 0%, #111 100%); }
-    canvas { display: block; width: 100%; height: 100%; outline: none; }
-
-    .stats {
-      position: absolute; bottom: 20px; right: 20px;
-      font-family: monospace; font-size: 10px; color: #666;
-      background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 4px;
-      pointer-events: none;
-    }
-
-    .mode-btn { 
-      font-size: 9px; padding: 4px 8px;
-      background: rgba(100, 108, 255, 0.2);
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      color: var(--accent);
-      cursor: pointer;
-      font-weight: 600;
-    }
-    .mode-btn:hover { background: rgba(100, 108, 255, 0.4); }
-
-    .globals-hint {
-      font-size: 9px;
-      color: var(--text-dim);
-      margin-top: 2px;
-      padding: 4px 6px;
-      background: rgba(100, 108, 255, 0.1);
-      border-radius: 3px;
-      border-left: 2px solid var(--accent);
-    }
-
-    /* View mode styles */
-    .timeline.outline-view .step-card { padding: 0; }
-    .timeline.outline-view .step-body { display: none; }
-    .timeline.outline-view .step-helper-badge { display: none; }
-  </style>
-</head>
-<body>
-
-  <div class="app">
-    <div class="sidebar">
-      <div class="header">
-        <h1>Spellshape</h1>
-        <div class="view-controls">
-          <button class="view-btn active" onclick="setViewMode('list')" title="List view">≡</button>
-          <button class="view-btn" onclick="setViewMode('outline')" title="Outline view">◄</button>
-        </div>
-      </div>
-
-      <div class="tabs">
-        <div class="tab active" onclick="setTab('globals')">Globals</div>
-        <div class="tab" onclick="setTab('timeline')">Timeline</div>
-        <div class="tab" onclick="setTab('materials')">Materials</div>
-        <div class="tab" onclick="setTab('json')">JSON</div>
-      </div>
-
-      <!-- TAB 1: GLOBALS -->
-      <div id="tab-globals" class="content active">
-        <div class="globals-container" id="globals-container"></div>
-        <button onclick="addGlobalParam()" style="width: 100%; padding: 10px; background: rgba(100, 108, 255, 0.2); border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); cursor: pointer; font-weight: 600; margin-top: 12px;">+ Add Global Parameter</button>
-      </div>
-
-      <!-- TAB 2: TIMELINE -->
-      <div id="tab-timeline" class="content">
-        <div class="timeline-controls">
-          <button class="timeline-btn" onclick="expandAllSteps()" title="Expand all steps">▼ Expand All</button>
-          <button class="timeline-btn" onclick="collapseAllSteps()" title="Collapse all steps">▶ Collapse All</button>
-        </div>
-        <div class="timeline" id="timeline-container"></div>
-        <button onclick="addStep()" style="width: 100%; padding: 10px; background: rgba(100, 108, 255, 0.2); border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); cursor: pointer; font-weight: 600; margin-top: 12px;">+ Add Step</button>
-      </div>
-
-      <!-- TAB 3: MATERIALS -->
-      <div id="tab-materials" class="content">
-        <div class="materials-container" id="materials-container"></div>
-        <button onclick="addMaterial()" style="width: 100%; padding: 10px; background: rgba(100, 108, 255, 0.2); border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); cursor: pointer; font-weight: 600; margin-top: 12px;">+ Add Material</button>
-      </div>
-
-      <!-- TAB 4: JSON -->
-      <div id="tab-json" class="content">
-        <div class="json-container">
-          <textarea class="json-input" id="json-input" spellcheck="false"></textarea>
-          <div class="json-buttons">
-            <button class="json-btn" onclick="importJSON()">Import</button>
-            <button class="json-btn" onclick="exportJSON()">Export</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="viewport">
-      <canvas id="gl"></canvas>
-      <div class="stats" id="stats">Ready</div>
-    </div>
-  </div>
-
-  <!-- Add Step Menu -->
-  <div class="menu-overlay" id="menu-overlay" onclick="closeAddMenu()"></div>
-  <div class="menu-popup" id="menu-popup"></div>
-
-  <script type="module">
-    import * as THREE from 'three';
-    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
-
-    // View mode state
-    let viewMode = 'list';
-    window.setViewMode = (mode) => {
-      viewMode = mode;
-      document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-      document.querySelector(`.view-btn[onclick="setViewMode('${mode}')"]`).classList.add('active');
-
-      const timeline = document.getElementById('timeline-container');
-      timeline.classList.remove('outline-view');
-      if (mode === 'outline') {
-        timeline.classList.add('outline-view');
-      }
-
-      localStorage.setItem('viewMode', mode);
-    };
-
-    // Collapse state tracking
-    const collapseState = {};
-    window.toggleStepCollapse = (index) => {
-      collapseState[index] = !collapseState[index];
-      renderTimeline();
-      localStorage.setItem('collapseState', JSON.stringify(collapseState));
-    };
-
-    window.expandAllSteps = () => {
-      for (let i = 0; i < schema.actions.length; i++) {
-        collapseState[i] = false;
-      }
-      renderTimeline();
-      localStorage.setItem('collapseState', JSON.stringify(collapseState));
-    };
-
-    window.collapseAllSteps = () => {
-      for (let i = 0; i < schema.actions.length; i++) {
-        collapseState[i] = true;
-      }
-      renderTimeline();
-      localStorage.setItem('collapseState', JSON.stringify(collapseState));
-    };
-
-    // Load saved state
-    function loadSavedState() {
-      const saved = localStorage.getItem('collapseState');
-      if (saved) Object.assign(collapseState, JSON.parse(saved));
-
-      const savedMode = localStorage.getItem('viewMode');
-      if (savedMode && savedMode !== 'list') {
-        setTimeout(() => setViewMode(savedMode), 100);
-      }
-    }
-
-    // Material color to hex
-    function getMaterialColor(materialName) {
-      if (schema.materials[materialName]) {
-        return schema.materials[materialName].color;
-      }
-      return '#888888';
-    }
-
-    // HELPER REGISTRY
-    const HELPER_REGISTRY = {
-  // ============================================================================
-  // 1. BASIC GEOMETRY (14 helpers)
-  // ============================================================================
-  'createBox': {
-    category: 'Basic Geometry',
-    params: {
-      'width': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'height': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'depth': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'widthSegments': { type: 'integer', default: 1, min: 1, max: 32 },
-      'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 },
-      'depthSegments': { type: 'integer', default: 1, min: 1, max: 32 }
-    }
-  },
-  'createSphere': {
-    category: 'Basic Geometry',
-    params: {
-      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'widthSegments': { type: 'integer', default: 32, min: 3, max: 128 },
-      'heightSegments': { type: 'integer', default: 16, min: 2, max: 64 },
-      'phiStart': { type: 'number', default: 0, min: 0, max: 6.28 },
-      'phiLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 },
-      'thetaStart': { type: 'number', default: 0, min: 0, max: 3.14 },
-      'thetaLength': { type: 'number', default: 3.14, min: 0.1, max: 3.14 }
-    }
-  },
-  'createCylinder': {
-    category: 'Basic Geometry',
-    params: {
-      'radiusTop': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'radiusBottom': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'height': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'radialSegments': { type: 'integer', default: 32, min: 3, max: 128 },
-      'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 },
-      'openEnded': { type: 'boolean', default: false },
-      'thetaStart': { type: 'number', default: 0, min: 0, max: 6.28 },
-      'thetaLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
-    }
-  },
-  'createCone': {
-    category: 'Basic Geometry',
-    params: {
-      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'height': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'radialSegments': { type: 'integer', default: 32, min: 3, max: 128 },
-      'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 },
-      'openEnded': { type: 'boolean', default: false }
-    }
-  },
-  'createTorus': {
-    category: 'Basic Geometry',
-    params: {
-      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'tube': { type: 'number', default: 0.4, min: 0.1, max: 10 },
-      'radialSegments': { type: 'integer', default: 16, min: 3, max: 64 },
-      'tubularSegments': { type: 'integer', default: 100, min: 8, max: 256 },
-      'arc': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
-    }
-  },
-  'createTorusKnot': {
-    category: 'Basic Geometry',
-    params: {
-      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'tube': { type: 'number', default: 0.4, min: 0.1, max: 10 },
-      'tubularSegments': { type: 'integer', default: 64, min: 8, max: 256 },
-      'radialSegments': { type: 'integer', default: 8, min: 3, max: 32 },
-      'p': { type: 'integer', default: 2, min: 1, max: 10 },
-      'q': { type: 'integer', default: 3, min: 1, max: 10 }
-    }
-  },
-  'createPlane': {
-    category: 'Basic Geometry',
-    params: {
-      'width': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'height': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'widthSegments': { type: 'integer', default: 1, min: 1, max: 32 },
-      'heightSegments': { type: 'integer', default: 1, min: 1, max: 32 }
-    }
-  },
-  'createCircle': {
-    category: 'Basic Geometry',
-    params: {
-      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'segments': { type: 'integer', default: 32, min: 3, max: 128 },
-      'thetaStart': { type: 'number', default: 0, min: 0, max: 6.28 },
-      'thetaLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
-    }
-  },
-  'createRing': {
-    category: 'Basic Geometry',
-    params: {
-      'innerRadius': { type: 'number', default: 0.5, min: 0.1, max: 50 },
-      'outerRadius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'thetaSegments': { type: 'integer', default: 32, min: 3, max: 128 },
-      'phiSegments': { type: 'integer', default: 1, min: 1, max: 32 },
-      'thetaStart': { type: 'number', default: 0, min: 0, max: 6.28 },
-      'thetaLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
-    }
-  },
-  'createIcosahedron': {
-    category: 'Basic Geometry',
-    params: {
-      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'detail': { type: 'integer', default: 0, min: 0, max: 10 }
-    }
-  },
-  'createOctahedron': {
-    category: 'Basic Geometry',
-    params: {
-      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'detail': { type: 'integer', default: 0, min: 0, max: 10 }
-    }
-  },
-  'createTetrahedron': {
-    category: 'Basic Geometry',
-    params: {
-      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'detail': { type: 'integer', default: 0, min: 0, max: 10 }
-    }
-  },
-  'createDodecahedron': {
-    category: 'Basic Geometry',
-    params: {
-      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'detail': { type: 'integer', default: 0, min: 0, max: 10 }
-    }
-  },
-  'createPolyhedron': {
-    category: 'Basic Geometry',
-    params: {
-      'vertices': { type: 'array', default: [] },
-      'indices': { type: 'array', default: [] },
-      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'detail': { type: 'integer', default: 0, min: 0, max: 10 }
-    }
-  },
-
-  // ============================================================================
-  // 2. ADVANCED GEOMETRY (6 helpers)
-  // ============================================================================
-  'createExtrude': {
-    category: 'Advanced Geometry',
-    params: {
-      'profile': { type: 'object', default: null },
-      'depth': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'bevelEnabled': { type: 'boolean', default: false },
-      'bevelThickness': { type: 'number', default: 0.2, min: 0, max: 5 },
-      'bevelSize': { type: 'number', default: 0.1, min: 0, max: 5 },
-      'bevelSegments': { type: 'integer', default: 3, min: 1, max: 20 },
-      'steps': { type: 'integer', default: 1, min: 1, max: 50 },
-      'curveSegments': { type: 'integer', default: 12, min: 1, max: 100 }
-    }
-  },
-  'createLoft': {
-    category: 'Advanced Geometry',
-    params: {
-      'profiles': { type: 'array', default: [] },
-      'heights': { type: 'array', default: null },
-      'segments': { type: 'integer', default: 32, min: 3, max: 128 },
-      'closed': { type: 'boolean', default: false }
-    }
-  },
-  'createLathe': {
-    category: 'Advanced Geometry',
-    params: {
-      'points': { type: 'array', default: [] },
-      'segments': { type: 'integer', default: 12, min: 3, max: 128 },
-      'phiStart': { type: 'number', default: 0, min: 0, max: 6.28 },
-      'phiLength': { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
-    }
-  },
-  'createConvexHull': {
-    category: 'Advanced Geometry',
-    params: {
-      'points': { type: 'array', default: [] }
-    }
-  },
-  'createParametricSurface': {
-    category: 'Advanced Geometry',
-    params: {
-      'func': { type: 'object', default: null },
-      'slices': { type: 'integer', default: 32, min: 2, max: 128 },
-      'stacks': { type: 'integer', default: 32, min: 2, max: 128 }
-    }
-  },
-  'createText3D': {
-    category: 'Advanced Geometry',
-    params: {
-      'text': { type: 'string', default: 'Hello' },
-      'font': { type: 'object', default: null },
-      'size': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'depth': { type: 'number', default: 0.2, min: 0, max: 10 }
-    }
-  },
-
-  // ============================================================================
-  // 3. CURVES & PATHS (6 helpers)
-  // ============================================================================
-  'createLinePath': {
-    category: 'Curves & Paths',
-    params: {
-      'points': { type: 'array', default: [] }
-    }
-  },
-  'createSplinePath': {
-    category: 'Curves & Paths',
-    params: {
-      'points': { type: 'array', default: [] },
-      'tension': { type: 'number', default: 0.5, min: 0, max: 1 }
-    }
-  },
-  'createArcPath': {
-    category: 'Curves & Paths',
-    params: {
-      'center': { type: 'array', default: [0, 0, 0] },
-      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'startAngle': { type: 'number', default: 0, min: 0, max: 6.28 },
-      'endAngle': { type: 'number', default: 3.14, min: 0, max: 6.28 },
-      'segments': { type: 'integer', default: 32, min: 3, max: 128 }
-    }
-  },
-  'createHelixPath': {
-    category: 'Curves & Paths',
-    params: {
-      'radius': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'height': { type: 'number', default: 3, min: 0.1, max: 100 },
-      'turns': { type: 'integer', default: 3, min: 1, max: 50 },
-      'segments': { type: 'integer', default: 128, min: 8, max: 512 }
-    }
-  },
-  'createBezierPath': {
-    category: 'Curves & Paths',
-    params: {
-      'start': { type: 'array', default: [0, 0, 0] },
-      'control1': { type: 'array', default: [1, 1, 0] },
-      'control2': { type: 'array', default: [2, 1, 0] },
-      'end': { type: 'array', default: [3, 0, 0] }
-    }
-  },
-  'createPipe': {
-    category: 'Curves & Paths',
-    params: {
-      'path': { type: 'object', default: null },
-      'radius': { type: 'number', default: 0.2, min: 0.01, max: 10 },
-      'tubularSegments': { type: 'integer', default: 64, min: 3, max: 256 },
-      'radialSegments': { type: 'integer', default: 8, min: 3, max: 32 },
-      'closed': { type: 'boolean', default: false }
-    }
-  },
-
-  // ============================================================================
-  // 4. DEFORMATIONS (5 helpers)
-  // ============================================================================
-  'twistGeometry': {
-    category: 'Deformation',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'angle': { type: 'number', default: 0.785, min: -6.28, max: 6.28 },
-      'axis': { type: 'array', default: [0, 1, 0] },
-      'height': { type: 'number', default: null }
-    }
-  },
-  'taperGeometry': {
-    category: 'Deformation',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'topScale': { type: 'array', default: [0.5, 0.5] },
-      'axis': { type: 'array', default: [0, 1, 0] },
-      'height': { type: 'number', default: null }
-    }
-  },
-  'bendGeometry': {
-    category: 'Deformation',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'angle': { type: 'number', default: 0.785, min: -6.28, max: 6.28 },
-      'direction': { type: 'array', default: [1, 0, 0] }
-    }
-  },
-  'deformByNoise': {
-    category: 'Deformation',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'amount': { type: 'number', default: 0.2, min: 0, max: 10 },
-      'frequency': { type: 'number', default: 1.0, min: 0.1, max: 10 },
-      'axis': { type: 'array', default: [0, 1, 0] }
-    }
-  },
-  'deformByVectorField': {
-    category: 'Deformation',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'vectorField': { type: 'object', default: null },
-      'amount': { type: 'number', default: 1.0, min: 0, max: 10 }
-    }
-  },
-
-  // ============================================================================
-  // 5. BOOLEAN OPERATIONS & UTILITIES (4 helpers)
-  // ============================================================================
-  'mergeGeometries': {
-    category: 'Utilities',
-    params: {
-      'geometries': { type: 'array', default: [] }
-    }
-  },
-  'unionGeometry': {
-    category: 'Utilities',
-    params: {
-      'geometryA': { type: 'reference', default: null },
-      'geometryB': { type: 'reference', default: null }
-    }
-  },
-  'subtractGeometry': {
-    category: 'Utilities',
-    params: {
-      'geometryA': { type: 'reference', default: null },
-      'geometryB': { type: 'reference', default: null }
-    }
-  },
-  'intersectGeometry': {
-    category: 'Utilities',
-    params: {
-      'geometryA': { type: 'reference', default: null },
-      'geometryB': { type: 'reference', default: null }
-    }
-  },
-
-  // ============================================================================
-  // 6. DISTRIBUTION (5 helpers)
-  // ============================================================================
-  'repeatLinear3d': {
-    category: 'Distribution',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'count': { type: 'integer', default: 3, min: 1, max: 50 },
-      'spacing': { type: 'number', default: 1, min: 0.1, max: 50 },
-      'axis': { type: 'string', default: 'x' },
-      'centered': { type: 'boolean', default: false },
-      'autoMerge': { type: 'boolean', default: true }
-    }
-  },
-  'repeatRadial3d': {
-    category: 'Distribution',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'count': { type: 'integer', default: 8, min: 1, max: 50 },
-      'radius': { type: 'number', default: 5, min: 0.1, max: 100 },
-      'startAngle': { type: 'number', default: 0, min: 0, max: 6.28 },
-      'endAngle': { type: 'number', default: 6.28, min: 0.1, max: 6.28 },
-      'axis': { type: 'string', default: 'y' },
-      'faceCenter': { type: 'boolean', default: true },
-      'autoMerge': { type: 'boolean', default: true }
-    }
-  },
-  'repeatAlongCurve3d': {
-    category: 'Distribution',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'curve': { type: 'object', default: null },
-      'count': { type: 'integer', default: 10, min: 1, max: 100 },
-      'align': { type: 'boolean', default: true },
-      'autoMerge': { type: 'boolean', default: true }
-    }
-  },
-  'distributeOnGrid3d': {
-    category: 'Distribution',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'rows': { type: 'integer', default: 3, min: 1, max: 50 },
-      'cols': { type: 'integer', default: 3, min: 1, max: 50 },
-      'spacing': { type: 'array', default: [2, 0, 2] },
-      'centered': { type: 'boolean', default: true },
-      'autoMerge': { type: 'boolean', default: true }
-    }
-  },
-  'distributeRandom3d': {
-    category: 'Distribution',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'bounds': { type: 'array', default: [[0,0,0], [1,1,1]] },
-      'count': { type: 'integer', default: 50, min: 1, max: 500 },
-      'seed': { type: 'integer', default: 42, min: 0, max: 10000 },
-      'autoMerge': { type: 'boolean', default: true }
-    }
-  },
-
-  // ============================================================================
-  // 7. FIELDS & ATTRACTORS (2 helpers)
-  // ============================================================================
-  'createVectorField': {
-    category: 'Fields',
-    params: {
-      'type': { type: 'string', default: 'attractor' },
-      'center': { type: 'array', default: [0, 0, 0] },
-      'strength': { type: 'number', default: 1.0, min: 0, max: 10 }
-    }
-  },
-  'flowField': {
-    category: 'Fields',
-    params: {
-      'type': { type: 'string', default: 'attractor' },
-      'center': { type: 'array', default: [0, 0, 0] },
-      'strength': { type: 'number', default: 1.0, min: 0, max: 10 }
-    }
-  },
-
-  // ============================================================================
-  // 8. PROCEDURAL PATTERNS (2 helpers)
-  // ============================================================================
-  'cellularAutomata': {
-    category: 'Procedural',
-    params: {
-      'gridSize': { type: 'integer', default: 10, min: 2, max: 50 },
-      'iterations': { type: 'integer', default: 10, min: 1, max: 100 },
-      'rules': { type: 'object', default: { survive: [2, 3], born: [3] } }
-    }
-  },
-  'reactionDiffusion': {
-    category: 'Procedural',
-    params: {
-      'gridSize': { type: 'integer', default: 10, min: 2, max: 50 },
-      'iterations': { type: 'integer', default: 5, min: 1, max: 50 }
-    }
-  },
-
-  // ============================================================================
-  // 9. EMERGENT FEATURES (2 helpers)
-  // ============================================================================
-  'modifyGeometry': {
-    category: 'Emergent',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'operations': { type: 'array', default: [] },
-      'expression': { type: 'string', default: '' },
-      'context': { type: 'object', default: {} }
-    }
-  },
-  'meshFromMarchingCubes': {
-    category: 'Emergent',
-    params: {
-      'resolution': { type: 'integer', default: 32, min: 8, max: 128 },
-      'isovalue': { type: 'number', default: 0.5, min: 0, max: 1 },
-      'bounds': { type: 'number', default: 10, min: 1, max: 100 },
-      'expression': { type: 'string', default: '' },
-      'context': { type: 'object', default: {} }
-    }
-  },
-
-  // ============================================================================
-  // 10. COMPLEX ALGORITHMS (11 helpers)
-  // ============================================================================
-  'lSystemGeometry': {
-    category: 'Complex',
-    params: {
-      'axiom': { type: 'string', default: 'F' },
-      'rules': { type: 'object', default: { 'F': 'FF+[+F-F-F]-[-F+F+F]' } },
-      'iterations': { type: 'integer', default: 3, min: 1, max: 10 },
-      'angle': { type: 'number', default: 25, min: 0, max: 90 },
-      'length': { type: 'number', default: 1, min: 0.1, max: 10 },
-      'thickness': { type: 'number', default: 0.1, min: 0.01, max: 1 }
-    }
-  },
-  'differentialGrowth': {
-    category: 'Complex',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'iterations': { type: 'integer', default: 10, min: 1, max: 100 },
-      'maxEdgeLength': { type: 'number', default: 0.5, min: 0.1, max: 5 },
-      'repulsionRadius': { type: 'number', default: 0.3, min: 0.1, max: 2 },
-      'repulsionStrength': { type: 'number', default: 0.1, min: 0, max: 1 },
-      'attractionStrength': { type: 'number', default: 0.05, min: 0, max: 1 }
-    }
-  },
-  'meshFromVoxelGrid': {
-    category: 'Complex',
-    params: {
-      'grid': { type: 'array', default: [] },
-      'voxelSize': { type: 'number', default: 1, min: 0.1, max: 10 }
-    }
-  },
-  'pointSetCentroid': {
-    category: 'Complex',
-    params: {
-      'points': { type: 'array', default: [] }
-    }
-  },
-  'pointSetBoundingBox': {
-    category: 'Complex',
-    params: {
-      'points': { type: 'array', default: [] }
-    }
-  },
-  'closestPointOnCurve': {
-    category: 'Complex',
-    params: {
-      'curve': { type: 'object', default: null },
-      'point': { type: 'array', default: [0, 0, 0] },
-      'samples': { type: 'integer', default: 100, min: 10, max: 1000 }
-    }
-  },
-  'signedDistanceToMesh': {
-    category: 'Complex',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'point': { type: 'array', default: [0, 0, 0] }
-    }
-  },
-  'measureVolume': {
-    category: 'Complex',
-    params: {
-      'geometry': { type: 'reference', default: null }
-    }
-  },
-  'measureArea': {
-    category: 'Complex',
-    params: {
-      'geometry': { type: 'reference', default: null }
-    }
-  },
-  'subdivisionSurface': {
-    category: 'Complex',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'iterations': { type: 'integer', default: 1, min: 1, max: 5 }
-    }
-  },
-  'voronoiDivision': {
-    category: 'Complex',
-    params: {
-      'points': { type: 'array', default: [] },
-      'bounds': { type: 'array', default: [[0,0,0], [10,10,10]] }
-    }
-  },
-  'convexHullGeometry': {
-    category: 'Complex',
-    params: {
-      'points': { type: 'array', default: [] }
-    }
-  },
-
-  // ============================================================================
-  // UTILITY HELPERS
-  // ============================================================================
-  'clone': {
-    category: 'Utilities',
-    params: {
-      'geometry': { type: 'reference', default: null }
-    }
-  },
-  'transformMesh': {
-    category: 'Utilities',
-    params: {
-      'geometry': { type: 'reference', default: null },
-      'scale': { type: 'array', default: [1, 1, 1] },
-      'rotation': { type: 'array', default: [0, 0, 0] },
-      'position': { type: 'array', default: [0, 0, 0] }
-    }
-  },
-  'loop': {
-    category: 'Logic',
-    params: {
-      'var': { type: 'string', default: 'i' },
-      'from': { type: 'number', default: 0 },
-      'to': { type: 'number', default: 10 },
-      'body': { type: 'array', default: [] }
-    }
-  }
-};
-
-    function getHelperParams(helperName) {
-      const helperDef = HELPER_REGISTRY[helperName];
-      if (!helperDef) return {};
-      const params = {};
-      for (const [key, def] of Object.entries(helperDef.params)) {
-        if (def.default !== null && def.default !== undefined) {
-          params[key] = def.default;
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
         }
-      }
-      return params;
     }
+    </script>
 
-    function getAvailableGeometries(currentIndex) {
-      const available = [];
-      for (let i = 0; i < currentIndex; i++) {
-        const step = schema.actions[i];
-        available.push({
-          name: `Step ${i + 1}: ${step.thought}`,
-          value: step.as
-        });
-      }
-      return available;
-    }
+    <style>
+        :root {
+            --bg: #121214;
+            --panel: #1c1c21;
+            --card: #25252b;
+            --card-hover: #2d2d33;
+            --border: #333;
+            --accent: #646cff;
+            --text: #ececec;
+            --text-dim: #888;
+            --success: #4ade80;
+            --error: #ff6464;
+        }
 
-    function renderParameterField(paramKey, paramValue, paramDef, stepIndex) {
-      const container = document.createElement('div');
-      container.className = 'field-group';
+        * {
+            box-sizing: border-box;
+        }
 
-      const label = document.createElement('label');
-      label.className = 'field-label';
-      label.innerText = paramKey;
-      container.appendChild(label);
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: var(--bg);
+            font-family: Inter, system-ui, sans-serif;
+            color: var(--text);
+        }
 
-      // REFERENCE PARAMETERS (geometry selector)
-      if (paramDef.type === 'reference') {
-        const select = document.createElement('select');
-        select.className = 'helper-select';
+        .app {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
 
-        const emptyOpt = document.createElement('option');
-        emptyOpt.value = '';
-        emptyOpt.innerText = '-- None --';
-        select.appendChild(emptyOpt);
+        .sidebar {
+            flex: 0 0 500px;
+            width: 500px;
+            background: var(--panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
 
-        const available = getAvailableGeometries(stepIndex);
-        available.forEach(({ name, value }) => {
-          const opt = document.createElement('option');
-          opt.value = value;
-          opt.innerText = name;
-          if (paramValue === value) opt.selected = true;
-          select.appendChild(opt);
-        });
+        .header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-        select.onchange = (e) => {
-          updateStepField(stepIndex, `param-${paramKey}`, e.target.value || null);
-        };
-        container.appendChild(select);
-      }
+        .header h1 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+            flex: 1;
+        }
 
-      // BOOLEAN PARAMETERS
-      else if (paramDef.type === 'boolean') {
-        const checkDiv = document.createElement('div');
-        checkDiv.style.display = 'flex';
-        checkDiv.style.alignItems = 'center';
-        checkDiv.style.gap = '8px';
+        .view-controls {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
 
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.checked = paramValue === true;
-        input.style.width = '16px';
-        input.style.height = '16px';
-        input.style.cursor = 'pointer';
-        input.onchange = (e) => {
-          updateStepField(stepIndex, `param-${paramKey}`, e.target.checked);
-        };
-        checkDiv.appendChild(input);
+        .view-btn {
+            width: 24px;
+            height: 24px;
+            background: rgba(100, 108, 255, 0.2);
+            border: 1px solid transparent;
+            border-radius: 3px;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
 
-        const label2 = document.createElement('span');
-        label2.innerText = paramValue ? 'Yes' : 'No';
-        label2.style.color = 'var(--text-dim)';
-        label2.style.fontSize = '11px';
-        checkDiv.appendChild(label2);
+        .view-btn.active {
+            background: rgba(100, 108, 255, 0.4);
+            color: var(--accent);
+            border-color: var(--accent);
+        }
 
-        container.appendChild(checkDiv);
-      }
+        .view-btn:hover {
+            background: rgba(100, 108, 255, 0.3);
+        }
 
-      // ARRAY PARAMETERS
-      else if (paramDef.type === 'array') {
-        const textarea = document.createElement('textarea');
-        textarea.className = 'expr-input';
-        textarea.value = JSON.stringify(paramValue);
-        textarea.onchange = (e) => {
-          try {
-            updateStepField(stepIndex, `param-${paramKey}`, JSON.parse(e.target.value));
-          } catch (err) {
-            console.error('Invalid JSON:', err);
-          }
-        };
-        container.appendChild(textarea);
-      }
+        .tabs {
+            display: flex;
+            padding: 0 20px;
+            border-bottom: 1px solid var(--border);
+            gap: 12px;
+            overflow-x: auto;
+        }
 
-      // STRING PARAMETERS
-      else if (paramDef.type === 'string') {
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'helper-select';
-        input.value = paramValue;
-        input.onchange = (e) => {
-          updateStepField(stepIndex, `param-${paramKey}`, e.target.value);
-        };
-        container.appendChild(input);
-      }
+        .tab {
+            padding: 10px 0;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-dim);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
 
-      // NUMBER/INTEGER PARAMETERS
-      else if (paramDef.type === 'number' || paramDef.type === 'integer') {
-        const div = document.createElement('div');
-        div.style.display = 'flex';
-        div.style.flexDirection = 'column';
-        div.style.gap = '4px';
+        .tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
 
-        const isExpression = typeof paramValue === 'string' && (paramValue.includes('ctx.') || paramValue.includes('+') || paramValue.includes('-') || paramValue.includes('*') || paramValue.includes('/'));
+        .tab:hover {
+            color: #fff;
+        }
 
-        let useExpression = isExpression;
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: none;
+        }
 
-        const modeBtn = document.createElement('button');
-        modeBtn.className = 'mode-btn';
-        modeBtn.style.cursor = 'pointer';
-        modeBtn.style.marginBottom = '4px';
+        .content.active {
+            display: block;
+        }
 
-        const updateModeBtn = () => {
-          modeBtn.innerText = useExpression ? '📝 Expression' : '# Value';
-          numberInput.style.display = useExpression ? 'none' : 'block';
-          exprInputDiv.style.display = useExpression ? 'block' : 'none';
-        };
+        .globals-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
 
-        modeBtn.onclick = () => {
-          useExpression = !useExpression;
-          updateModeBtn();
-        };
-        div.appendChild(modeBtn);
+        .global-group {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+        }
 
-        const numberInput = document.createElement('input');
-        numberInput.type = 'number';
-        numberInput.className = 'helper-select';
-        if (paramDef.type === 'integer') numberInput.step = '1';
-        else numberInput.step = '0.01';
-        if (paramDef.min !== undefined) numberInput.min = paramDef.min;
-        if (paramDef.max !== undefined) numberInput.max = paramDef.max;
-        numberInput.value = isExpression ? paramDef.default : paramValue;
-        numberInput.onchange = (e) => {
-          const val = paramDef.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
-          updateStepField(stepIndex, `param-${paramKey}`, val);
-        };
-        div.appendChild(numberInput);
+        .global-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-dim);
+        }
 
-        const exprInputDiv = document.createElement('div');
-        exprInputDiv.style.display = 'none';
-        exprInputDiv.style.flexDirection = 'column';
-        exprInputDiv.style.gap = '4px';
+        .btn-add-global {
+            width: 20px;
+            height: 20px;
+            background: rgba(100, 108, 255, 0.2);
+            border: none;
+            border-radius: 3px;
+            color: var(--accent);
+            cursor: pointer;
+            font-weight: bold;
+        }
 
-        const exprInput = document.createElement('textarea');
-        exprInput.className = 'expr-input';
-        exprInput.style.minHeight = '30px';
-        exprInput.value = isExpression ? paramValue : '';
-        exprInput.placeholder = 'e.g., ctx.width * 2';
-        exprInput.onchange = (e) => {
-          updateStepField(stepIndex, `param-${paramKey}`, e.target.value);
-        };
-        exprInputDiv.appendChild(exprInput);
+        .btn-add-global:hover {
+            background: rgba(100, 108, 255, 0.4);
+        }
 
-        const globalsHint = document.createElement('div');
-        globalsHint.className = 'globals-hint';
-        const globalNames = Object.keys(schema.globalParameters).join(', ');
-        globalsHint.innerText = '💡 ' + (globalNames || 'No globals yet');
-        exprInputDiv.appendChild(globalsHint);
+        .global-item {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
 
-        div.appendChild(exprInputDiv);
+        .global-slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 8px;
+        }
 
-        updateModeBtn();
-        container.appendChild(div);
-      }
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--text-dim);
+        }
 
-      else {
-        const textarea = document.createElement('textarea');
-        textarea.className = 'expr-input';
-        textarea.value = JSON.stringify(paramValue);
-        textarea.onchange = (e) => {
-          try {
-            updateStepField(stepIndex, `param-${paramKey}`, JSON.parse(e.target.value));
-          } catch (err) {
-            console.error('Invalid JSON:', err);
-          }
-        };
-        container.appendChild(textarea);
-      }
+        .slider-value {
+            color: var(--accent);
+            font-family: monospace;
+            font-weight: bold;
+        }
 
-      return container;
-    }
+        input[type="text"],
+        input[type="number"],
+        input[type="range"] {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 6px 10px;
+            color: var(--text);
+            font-size: 11px;
+        }
 
-    // SCHEMA STATE
-    let schema = {
-      "version": "5.0",
-      "type": "emergent_procedure",
-      "intent": "Custom Procedure",
-      "materials": {
-        "default": { "color": "#888888", "roughness": 0.7, "metalness": 0.1 },
-        "gold": { "color": "#FFD700", "roughness": 0.2, "metalness": 0.8 },
-        "plastic": { "color": "#FF69B4", "roughness": 0.8, "metalness": 0.0 }
-      },
-      "globalParameters": {
-        "width": { "value": 10, "type": "number", "min": 1, "max": 50, "group": "Dimensions" },
-        "height": { "value": 10, "type": "number", "min": 1, "max": 50, "group": "Dimensions" },
-        "scale": { "value": 1, "type": "number", "min": 0.1, "max": 5, "group": "Dimensions" }
-      },
-      "context": {},
-      "actions": []
-    };
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
 
-    const HELPERS = Object.keys(HELPER_REGISTRY);
+        input[type="range"] {
+            padding: 0;
+            height: 4px;
+            cursor: pointer;
+        }
 
-    window.setTab = (name) => {
-      document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
 
-      document.querySelector(`.tab[onclick="setTab('${name}')"]`).classList.add('active');
-      document.getElementById(`tab-${name}`).classList.add('active');
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
 
-      if (name === 'json') {
-        document.getElementById('json-input').value = JSON.stringify(schema, null, 2);
-      }
-    };
+        /* TIMELINE WITH COLLAPSIBLE SUPPORT */
+        .timeline-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
 
-    // GLOBALS MANAGEMENT
-    window.addGlobalParam = () => {
-      const key = `param_${Date.now()}`;
-      schema.globalParameters[key] = { value: 5, type: "number", min: 0, max: 100, group: "Custom" };
-      renderGlobals();
-      renderTimeline();
-      run();
-    };
+        .timeline-btn {
+            padding: 6px 12px;
+            background: rgba(100, 108, 255, 0.2);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--accent);
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
 
-    window.removeGlobalParam = (key) => {
-      delete schema.globalParameters[key];
-      renderGlobals();
-      renderTimeline();
-      run();
-    };
+        .timeline-btn:hover {
+            background: rgba(100, 108, 255, 0.4);
+        }
 
-    window.updateGlobalParam = (key, field, value) => {
-      if (field === 'value') {
-        schema.globalParameters[key].value = parseFloat(value) || 0;
-        run();
-      } else if (field === 'min') schema.globalParameters[key].min = parseFloat(value) || 0;
-      else if (field === 'max') schema.globalParameters[key].max = parseFloat(value) || 100;
-      else if (field === 'key') {
-        schema.globalParameters[value] = schema.globalParameters[key];
-        delete schema.globalParameters[key];
-        renderGlobals();
-        renderTimeline();
-      }
-    };
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
 
-    function renderGlobals() {
-      const container = document.getElementById('globals-container');
-      container.innerHTML = '';
+        .step-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
 
-      for (const [key, param] of Object.entries(schema.globalParameters)) {
-        const group = document.createElement('div');
-        group.className = 'global-group';
+        .step-card:hover {
+            background: var(--card-hover);
+            border-color: var(--accent);
+        }
 
-        const headerHtml = `
-          <div class="global-header">
-            <span>Parameter</span>
-            <button class="btn-add-global" onclick="removeGlobalParam('${key}')">×</button>
-          </div>
-          <div class="global-item">
-            <label style="font-size: 10px; min-width: 40px;">Name:</label>
-            <input type="text" value="${key}" onchange="updateGlobalParam('${key}', 'key', this.value)" placeholder="param name" />
-          </div>
-          <div class="global-slider-group">
-            <div class="slider-header">
-              <span>Value</span>
-              <span class="slider-value">${param.value}</span>
+        .step-card.hidden {
+            opacity: 0.5;
+            border-color: #555;
+        }
+
+        .step-card.collapsed {
+            padding: 0;
+        }
+
+        /* STEP HEADER - always visible */
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: var(--card);
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+
+        .step-header:hover {
+            background: var(--card-hover);
+        }
+
+        .step-card.collapsed .step-header:hover {
+            background: var(--card-hover);
+        }
+
+        .step-collapse-toggle {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: var(--text-dim);
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+
+        .step-card.collapsed .step-collapse-toggle {
+            transform: rotate(0deg);
+        }
+
+        .step-card:not(.collapsed) .step-collapse-toggle {
+            transform: rotate(90deg);
+        }
+
+        .step-num {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent);
+            flex-shrink: 0;
+        }
+
+        .step-header-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .step-title-input {
+            background: transparent;
+            border: 1px solid transparent;
+            padding: 0;
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 3px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .step-title-input:hover {
+            border-color: var(--border);
+        }
+
+        .step-title-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(100, 108, 255, 0.1);
+        }
+
+        .step-helper-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: rgba(100, 108, 255, 0.15);
+            border: 1px solid rgba(100, 108, 255, 0.3);
+            border-radius: 12px;
+            font-size: 9px;
+            color: var(--accent);
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .step-material-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .step-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .step-btn {
+            width: 22px;
+            height: 22px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .step-btn-visibility {
+            background: rgba(100, 200, 255, 0.2);
+            color: #64c8ff;
+        }
+
+        .step-btn-visibility:hover {
+            background: rgba(100, 200, 255, 0.4);
+        }
+
+        .step-btn-visibility.hidden {
+            background: rgba(100, 100, 100, 0.2);
+            color: #666;
+            opacity: 0.5;
+        }
+
+        .step-btn-remove {
+            background: rgba(255, 100, 100, 0.2);
+            color: var(--error);
+        }
+
+        .step-btn-remove:hover {
+            background: rgba(255, 100, 100, 0.4);
+        }
+
+        /* STEP BODY - collapsible */
+        .step-body {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px;
+            border-top: 1px solid var(--border);
+            max-height: 2000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+            opacity: 1;
+        }
+
+        .step-card.collapsed .step-body {
+            max-height: 0;
+            padding: 0 12px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .field-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-dim);
+        }
+
+        .helper-select {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 6px 10px;
+            color: var(--text);
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .helper-select:hover {
+            border-color: var(--accent);
+        }
+
+        .helper-select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .helper-select:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        textarea.expr-input {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 6px 10px;
+            color: var(--text);
+            font-size: 10px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+            min-height: 40px;
+            max-height: 80px;
+        }
+
+        textarea.expr-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 1000;
+        }
+
+        .menu-overlay.active {
+            display: block;
+        }
+
+        .menu-popup {
+            position: fixed;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            min-width: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 1001;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .menu-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 11px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+        }
+
+        .menu-item:hover {
+            background: rgba(100, 108, 255, 0.2);
+            color: var(--accent);
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        /* MATERIALS TAB */
+        .materials-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .material-item {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .material-item:hover {
+            background: var(--card-hover);
+        }
+
+        .material-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .material-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .material-btn {
+            padding: 4px 8px;
+            background: rgba(100, 108, 255, 0.2);
+            border: none;
+            border-radius: 3px;
+            color: var(--accent);
+            cursor: pointer;
+            font-size: 10px;
+        }
+
+        .material-btn:hover {
+            background: rgba(100, 108, 255, 0.4);
+        }
+
+        .material-delete {
+            background: rgba(255, 100, 100, 0.2);
+            color: var(--error);
+        }
+
+        .material-delete:hover {
+            background: rgba(255, 100, 100, 0.4);
+        }
+
+        /* JSON TAB */
+        .json-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            gap: 10px;
+        }
+
+        textarea.json-input {
+            flex: 1;
+            background: #111;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 10px;
+            color: #0f0;
+            font-family: monospace;
+            font-size: 10px;
+            resize: none;
+        }
+
+        textarea.json-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .json-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .json-btn {
+            flex: 1;
+            padding: 8px;
+            background: rgba(100, 108, 255, 0.2);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            color: var(--accent);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .json-btn:hover {
+            background: rgba(100, 108, 255, 0.4);
+        }
+
+        .viewport {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #222 0%, #111 100%);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+
+        .stats {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-family: monospace;
+            font-size: 10px;
+            color: #666;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 12px;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+
+        .mode-btn {
+            font-size: 9px;
+            padding: 4px 8px;
+            background: rgba(100, 108, 255, 0.2);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--accent);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .mode-btn:hover {
+            background: rgba(100, 108, 255, 0.4);
+        }
+
+        .globals-hint {
+            font-size: 9px;
+            color: var(--text-dim);
+            margin-top: 2px;
+            padding: 4px 6px;
+            background: rgba(100, 108, 255, 0.1);
+            border-radius: 3px;
+            border-left: 2px solid var(--accent);
+        }
+
+        /* View mode styles */
+        .timeline.outline-view .step-card {
+            padding: 0;
+        }
+
+        .timeline.outline-view .step-body {
+            display: none;
+        }
+
+        .timeline.outline-view .step-helper-badge {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <div class="sidebar">
+            <div class="header">
+                <h1>Spellshape</h1>
+                <div class="view-controls">
+                    <button class="view-btn active" onclick="setViewMode('list')" title="List view">📋</button>
+                    <button class="view-btn" onclick="setViewMode('outline')" title="Outline view">📄</button>
+                </div>
             </div>
-            <input type="range" min="${param.min}" max="${param.max}" step="0.1" value="${param.value}" 
-              oninput="updateGlobalParam('${key}', 'value', this.value)" />
-          </div>
-          <div class="global-item">
-            <label style="font-size: 10px; min-width: 40px;">Min:</label>
-            <input type="number" value="${param.min}" onchange="updateGlobalParam('${key}', 'min', this.value)" />
-          </div>
-          <div class="global-item">
-            <label style="font-size: 10px; min-width: 40px;">Max:</label>
-            <input type="number" value="${param.max}" onchange="updateGlobalParam('${key}', 'max', this.value)" />
-          </div>
-        `;
-        group.innerHTML = headerHtml;
-        container.appendChild(group);
-      }
-    }
 
-    // MATERIALS MANAGEMENT
-    window.addMaterial = () => {
-      const name = `material_${Date.now()}`;
-      schema.materials[name] = {
-        color: '#888888',
-        roughness: 0.7,
-        metalness: 0.1
-      };
-      renderMaterials();
-    };
+            <div class="tabs">
+                <div class="tab active" onclick="setTab('globals')">Globals</div>
+                <div class="tab" onclick="setTab('timeline')">Timeline</div>
+                <div class="tab" onclick="setTab('materials')">Materials</div>
+                <div class="tab" onclick="setTab('json')">JSON</div>
+            </div>
 
-    window.removeMaterial = (name) => {
-      delete schema.materials[name];
-      renderMaterials();
-    };
+            <!-- TAB 1: GLOBALS -->
+            <div id="tab-globals" class="content active">
+                <div class="globals-container" id="globals-container"></div>
+                <button onclick="addGlobalParam()" style="width: 100%; padding: 10px; background: rgba(100, 108, 255, 0.2); border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); cursor: pointer; font-weight: 600; margin-top: 12px;">Add Global Parameter</button>
+            </div>
 
-    window.updateMaterial = (name, prop, value) => {
-      schema.materials[name][prop] = value;
-      renderMaterials();
-      renderTimeline();  // Update material dots
-    };
+            <!-- TAB 2: TIMELINE -->
+            <div id="tab-timeline" class="content">
+                <div class="timeline-controls">
+                    <button class="timeline-btn" onclick="expandAllSteps()" title="Expand all steps">Expand All</button>
+                    <button class="timeline-btn" onclick="collapseAllSteps()" title="Collapse all steps">Collapse All</button>
+                </div>
+                <div class="timeline" id="timeline-container"></div>
+                <button onclick="addStep()" style="width: 100%; padding: 10px; background: rgba(100, 108, 255, 0.2); border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); cursor: pointer; font-weight: 600; margin-top: 12px;">Add Step</button>
+            </div>
 
-    function renderMaterials() {
-      const container = document.getElementById('materials-container');
-      container.innerHTML = '';
+            <!-- TAB 3: MATERIALS -->
+            <div id="tab-materials" class="content">
+                <div class="materials-container" id="materials-container"></div>
+                <button onclick="addMaterial()" style="width: 100%; padding: 10px; background: rgba(100, 108, 255, 0.2); border: 1px solid var(--accent); border-radius: 4px; color: var(--accent); cursor: pointer; font-weight: 600; margin-top: 12px;">Add Material</button>
+            </div>
 
-      for (const [name, material] of Object.entries(schema.materials)) {
-        const item = document.createElement('div');
-        item.className = 'material-item';
+            <!-- TAB 4: JSON -->
+            <div id="tab-json" class="content">
+                <div class="json-container">
+                    <textarea class="json-input" id="json-input" spellcheck="false"></textarea>
+                    <div class="json-buttons">
+                        <button class="json-btn" onclick="importJSON()">Import</button>
+                        <button class="json-btn" onclick="exportJSON()">Export</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'material-header';
+        <div class="viewport">
+            <canvas id="glcanvas"></canvas>
+            <div class="stats" id="stats">Ready</div>
+        </div>
+    </div>
 
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.style.background = 'rgba(255,255,255,0.05)';
-        nameInput.style.border = '1px solid var(--border)';
-        nameInput.style.borderRadius = '4px';
-        nameInput.style.padding = '6px 10px';
-        nameInput.style.color = 'var(--text)';
-        nameInput.style.fontSize = '11px';
-        nameInput.style.flex = '1';
-        nameInput.style.marginRight = '8px';
-        nameInput.value = name;
-        nameInput.onchange = (e) => {
-          const newName = e.target.value;
-          if (newName && newName !== name && !schema.materials[newName]) {
-            schema.materials[newName] = schema.materials[name];
+    <!-- Add Step Menu -->
+    <div class="menu-overlay" id="menu-overlay" onclick="closeAddMenu()"></div>
+    <div class="menu-popup" id="menu-popup"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { ProceduralExecutor } from './procedural-executor-5.js';
+
+        // ========== VIEW MODE STATE ==========
+        let viewMode = 'list';
+        window.setViewMode = function(mode) {
+            viewMode = mode;
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`.view-btn[onclick="setViewMode('${mode}')"]`).classList.add('active');
+            const timeline = document.getElementById('timeline-container');
+            timeline.classList.remove('outline-view');
+            if (mode === 'outline') timeline.classList.add('outline-view');
+            localStorage.setItem('viewMode', mode);
+        };
+
+        // ========== COLLAPSE STATE TRACKING ==========
+        const collapseState = {};
+        window.toggleStepCollapse = function(index) {
+            collapseState[index] = !collapseState[index];
+            renderTimeline();
+            localStorage.setItem('collapseState', JSON.stringify(collapseState));
+        };
+
+        window.expandAllSteps = function() {
+            for (let i = 0; i < schema.actions.length; i++) {
+                collapseState[i] = false;
+            }
+            renderTimeline();
+            localStorage.setItem('collapseState', JSON.stringify(collapseState));
+        };
+
+        window.collapseAllSteps = function() {
+            for (let i = 0; i < schema.actions.length; i++) {
+                collapseState[i] = true;
+            }
+            renderTimeline();
+            localStorage.setItem('collapseState', JSON.stringify(collapseState));
+        };
+
+        // ========== LOAD SAVED STATE ==========
+        function loadSavedState() {
+            const saved = localStorage.getItem('collapseState');
+            if (saved) Object.assign(collapseState, JSON.parse(saved));
+            const savedMode = localStorage.getItem('viewMode');
+            if (savedMode && savedMode !== 'list') {
+                setTimeout(() => setViewMode(savedMode), 100);
+            }
+        }
+
+        // ========== MATERIAL COLOR ==========
+        function getMaterialColor(materialName) {
+            if (schema.materials[materialName]) return schema.materials[materialName].color;
+            return '#888888';
+        }
+
+        // ========== HELPER REGISTRY ==========
+        const HELPER_REGISTRY = {
+            // 1. BASIC GEOMETRY - 14 helpers
+            createBox: {
+                category: 'Basic Geometry',
+                params: {
+                    width: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    height: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    depth: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    widthSegments: { type: 'integer', default: 1, min: 1, max: 32 },
+                    heightSegments: { type: 'integer', default: 1, min: 1, max: 32 },
+                    depthSegments: { type: 'integer', default: 1, min: 1, max: 32 }
+                }
+            },
+            createSphere: {
+                category: 'Basic Geometry',
+                params: {
+                    radius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    widthSegments: { type: 'integer', default: 32, min: 3, max: 128 },
+                    heightSegments: { type: 'integer', default: 16, min: 2, max: 64 },
+                    phiStart: { type: 'number', default: 0, min: 0, max: 6.28 },
+                    phiLength: { type: 'number', default: 6.28, min: 0.1, max: 6.28 },
+                    thetaStart: { type: 'number', default: 0, min: 0, max: 3.14 },
+                    thetaLength: { type: 'number', default: 3.14, min: 0.1, max: 3.14 }
+                }
+            },
+            createCylinder: {
+                category: 'Basic Geometry',
+                params: {
+                    radiusTop: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    radiusBottom: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    height: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    radialSegments: { type: 'integer', default: 32, min: 3, max: 128 },
+                    heightSegments: { type: 'integer', default: 1, min: 1, max: 32 },
+                    openEnded: { type: 'boolean', default: false },
+                    thetaStart: { type: 'number', default: 0, min: 0, max: 6.28 },
+                    thetaLength: { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
+                }
+            },
+            createCone: {
+                category: 'Basic Geometry',
+                params: {
+                    radius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    height: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    radialSegments: { type: 'integer', default: 32, min: 3, max: 128 },
+                    heightSegments: { type: 'integer', default: 1, min: 1, max: 32 },
+                    openEnded: { type: 'boolean', default: false }
+                }
+            },
+            createTorus: {
+                category: 'Basic Geometry',
+                params: {
+                    radius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    tube: { type: 'number', default: 0.4, min: 0.1, max: 10 },
+                    radialSegments: { type: 'integer', default: 16, min: 3, max: 64 },
+                    tubularSegments: { type: 'integer', default: 100, min: 8, max: 256 },
+                    arc: { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
+                }
+            },
+            createTorusKnot: {
+                category: 'Basic Geometry',
+                params: {
+                    radius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    tube: { type: 'number', default: 0.4, min: 0.1, max: 10 },
+                    tubularSegments: { type: 'integer', default: 64, min: 8, max: 256 },
+                    radialSegments: { type: 'integer', default: 8, min: 3, max: 32 },
+                    p: { type: 'integer', default: 2, min: 1, max: 10 },
+                    q: { type: 'integer', default: 3, min: 1, max: 10 }
+                }
+            },
+            createPlane: {
+                category: 'Basic Geometry',
+                params: {
+                    width: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    height: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    widthSegments: { type: 'integer', default: 1, min: 1, max: 32 },
+                    heightSegments: { type: 'integer', default: 1, min: 1, max: 32 }
+                }
+            },
+            createCircle: {
+                category: 'Basic Geometry',
+                params: {
+                    radius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    segments: { type: 'integer', default: 32, min: 3, max: 128 },
+                    thetaStart: { type: 'number', default: 0, min: 0, max: 6.28 },
+                    thetaLength: { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
+                }
+            },
+            createRing: {
+                category: 'Basic Geometry',
+                params: {
+                    innerRadius: { type: 'number', default: 0.5, min: 0.1, max: 50 },
+                    outerRadius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    thetaSegments: { type: 'integer', default: 32, min: 3, max: 128 },
+                    phiSegments: { type: 'integer', default: 1, min: 1, max: 32 },
+                    thetaStart: { type: 'number', default: 0, min: 0, max: 6.28 },
+                    thetaLength: { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
+                }
+            },
+            createIcosahedron: {
+                category: 'Basic Geometry',
+                params: {
+                    radius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    detail: { type: 'integer', default: 0, min: 0, max: 10 }
+                }
+            },
+            createOctahedron: {
+                category: 'Basic Geometry',
+                params: {
+                    radius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    detail: { type: 'integer', default: 0, min: 0, max: 10 }
+                }
+            },
+            createTetrahedron: {
+                category: 'Basic Geometry',
+                params: {
+                    radius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    detail: { type: 'integer', default: 0, min: 0, max: 10 }
+                }
+            },
+            createDodecahedron: {
+                category: 'Basic Geometry',
+                params: {
+                    radius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    detail: { type: 'integer', default: 0, min: 0, max: 10 }
+                }
+            },
+            createPolyhedron: {
+                category: 'Basic Geometry',
+                params: {
+                    vertices: { type: 'array', default: [] },
+                    indices: { type: 'array', default: [] },
+                    radius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    detail: { type: 'integer', default: 0, min: 0, max: 10 }
+                }
+            },
+
+            // 2. ADVANCED GEOMETRY - 6 helpers
+            createExtrude: {
+                category: 'Advanced Geometry',
+                params: {
+                    profile: { type: 'object', default: null },
+                    depth: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    bevelEnabled: { type: 'boolean', default: false },
+                    bevelThickness: { type: 'number', default: 0.2, min: 0, max: 5 },
+                    bevelSize: { type: 'number', default: 0.1, min: 0, max: 5 },
+                    bevelSegments: { type: 'integer', default: 3, min: 1, max: 20 },
+                    steps: { type: 'integer', default: 1, min: 1, max: 50 },
+                    curveSegments: { type: 'integer', default: 12, min: 1, max: 100 }
+                }
+            },
+            createLoft: {
+                category: 'Advanced Geometry',
+                params: {
+                    profiles: { type: 'array', default: [] },
+                    heights: { type: 'array', default: null },
+                    segments: { type: 'integer', default: 32, min: 3, max: 128 },
+                    closed: { type: 'boolean', default: false }
+                }
+            },
+            createLathe: {
+                category: 'Advanced Geometry',
+                params: {
+                    points: { type: 'array', default: [] },
+                    segments: { type: 'integer', default: 12, min: 3, max: 128 },
+                    phiStart: { type: 'number', default: 0, min: 0, max: 6.28 },
+                    phiLength: { type: 'number', default: 6.28, min: 0.1, max: 6.28 }
+                }
+            },
+            createConvexHull: {
+                category: 'Advanced Geometry',
+                params: {
+                    points: { type: 'array', default: [] }
+                }
+            },
+            createParametricSurface: {
+                category: 'Advanced Geometry',
+                params: {
+                    func: { type: 'object', default: null },
+                    slices: { type: 'integer', default: 32, min: 2, max: 128 },
+                    stacks: { type: 'integer', default: 32, min: 2, max: 128 }
+                }
+            },
+            createText3D: {
+                category: 'Advanced Geometry',
+                params: {
+                    text: { type: 'string', default: 'Hello' },
+                    font: { type: 'object', default: null },
+                    size: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    depth: { type: 'number', default: 0.2, min: 0, max: 10 }
+                }
+            },
+
+            // 3. CURVES PATHS - 6 helpers
+            createLinePath: {
+                category: 'Curves & Paths',
+                params: {
+                    points: { type: 'array', default: [] }
+                }
+            },
+            createSplinePath: {
+                category: 'Curves & Paths',
+                params: {
+                    points: { type: 'array', default: [] },
+                    tension: { type: 'number', default: 0.5, min: 0, max: 1 }
+                }
+            },
+            createArcPath: {
+                category: 'Curves & Paths',
+                params: {
+                    center: { type: 'array', default: [0, 0, 0] },
+                    radius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    startAngle: { type: 'number', default: 0, min: 0, max: 6.28 },
+                    endAngle: { type: 'number', default: 3.14, min: 0, max: 6.28 },
+                    segments: { type: 'integer', default: 32, min: 3, max: 128 }
+                }
+            },
+            createHelixPath: {
+                category: 'Curves & Paths',
+                params: {
+                    radius: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    height: { type: 'number', default: 3, min: 0.1, max: 100 },
+                    turns: { type: 'integer', default: 3, min: 1, max: 50 },
+                    segments: { type: 'integer', default: 128, min: 8, max: 512 }
+                }
+            },
+            createBezierPath: {
+                category: 'Curves & Paths',
+                params: {
+                    start: { type: 'array', default: [0, 0, 0] },
+                    control1: { type: 'array', default: [1, 1, 0] },
+                    control2: { type: 'array', default: [2, 1, 0] },
+                    end: { type: 'array', default: [3, 0, 0] }
+                }
+            },
+            createPipe: {
+                category: 'Curves & Paths',
+                params: {
+                    path: { type: 'object', default: null },
+                    radius: { type: 'number', default: 0.2, min: 0.01, max: 10 },
+                    tubularSegments: { type: 'integer', default: 64, min: 3, max: 256 },
+                    radialSegments: { type: 'integer', default: 8, min: 3, max: 32 },
+                    closed: { type: 'boolean', default: false }
+                }
+            },
+
+            // 4. DEFORMATIONS - 5 helpers
+            twistGeometry: {
+                category: 'Deformation',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    angle: { type: 'number', default: 0.785, min: -6.28, max: 6.28 },
+                    axis: { type: 'array', default: [0, 1, 0] },
+                    height: { type: 'number', default: null }
+                }
+            },
+            taperGeometry: {
+                category: 'Deformation',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    topScale: { type: 'array', default: [0.5, 0.5] },
+                    axis: { type: 'array', default: [0, 1, 0] },
+                    height: { type: 'number', default: null }
+                }
+            },
+            bendGeometry: {
+                category: 'Deformation',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    angle: { type: 'number', default: 0.785, min: -6.28, max: 6.28 },
+                    direction: { type: 'array', default: [1, 0, 0] }
+                }
+            },
+            deformByNoise: {
+                category: 'Deformation',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    amount: { type: 'number', default: 0.2, min: 0, max: 10 },
+                    frequency: { type: 'number', default: 1.0, min: 0.1, max: 10 },
+                    axis: { type: 'array', default: [0, 1, 0] }
+                }
+            },
+            deformByVectorField: {
+                category: 'Deformation',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    vectorField: { type: 'object', default: null },
+                    amount: { type: 'number', default: 1.0, min: 0, max: 10 }
+                }
+            },
+
+            // 5. BOOLEAN OPERATIONS & UTILITIES - 4 helpers
+            mergeGeometries: {
+                category: 'Utilities',
+                params: {
+                    geometries: { type: 'array', default: [] }
+                }
+            },
+            unionGeometry: {
+                category: 'Utilities',
+                params: {
+                    geometryA: { type: 'reference', default: null },
+                    geometryB: { type: 'reference', default: null }
+                }
+            },
+            subtractGeometry: {
+                category: 'Utilities',
+                params: {
+                    geometryA: { type: 'reference', default: null },
+                    geometryB: { type: 'reference', default: null }
+                }
+            },
+            intersectGeometry: {
+                category: 'Utilities',
+                params: {
+                    geometryA: { type: 'reference', default: null },
+                    geometryB: { type: 'reference', default: null }
+                }
+            },
+
+            // 6. DISTRIBUTION - 5 helpers
+            repeatLinear3d: {
+                category: 'Distribution',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    count: { type: 'integer', default: 3, min: 1, max: 50 },
+                    spacing: { type: 'number', default: 1, min: 0.1, max: 50 },
+                    axis: { type: 'string', default: 'x' },
+                    centered: { type: 'boolean', default: false },
+                    autoMerge: { type: 'boolean', default: true }
+                }
+            },
+            repeatRadial3d: {
+                category: 'Distribution',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    count: { type: 'integer', default: 8, min: 1, max: 50 },
+                    radius: { type: 'number', default: 5, min: 0.1, max: 100 },
+                    startAngle: { type: 'number', default: 0, min: 0, max: 6.28 },
+                    endAngle: { type: 'number', default: 6.28, min: 0.1, max: 6.28 },
+                    axis: { type: 'string', default: 'y' },
+                    faceCenter: { type: 'boolean', default: true },
+                    autoMerge: { type: 'boolean', default: true }
+                }
+            },
+            repeatAlongCurve3d: {
+                category: 'Distribution',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    curve: { type: 'object', default: null },
+                    count: { type: 'integer', default: 10, min: 1, max: 100 },
+                    align: { type: 'boolean', default: true },
+                    autoMerge: { type: 'boolean', default: true }
+                }
+            },
+            distributeOnGrid3d: {
+                category: 'Distribution',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    rows: { type: 'integer', default: 3, min: 1, max: 50 },
+                    cols: { type: 'integer', default: 3, min: 1, max: 50 },
+                    spacing: { type: 'array', default: [2, 0, 2] },
+                    centered: { type: 'boolean', default: true },
+                    autoMerge: { type: 'boolean', default: true }
+                }
+            },
+            distributeRandom3d: {
+                category: 'Distribution',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    bounds: { type: 'array', default: [0, 0, 0, 1, 1, 1] },
+                    count: { type: 'integer', default: 50, min: 1, max: 500 },
+                    seed: { type: 'integer', default: 42, min: 0, max: 10000 },
+                    autoMerge: { type: 'boolean', default: true }
+                }
+            },
+
+            // 7. FIELDS & ATTRACTORS - 2 helpers
+            createVectorField: {
+                category: 'Fields',
+                params: {
+                    type: { type: 'string', default: 'attractor' },
+                    center: { type: 'array', default: [0, 0, 0] },
+                    strength: { type: 'number', default: 1.0, min: 0, max: 10 }
+                }
+            },
+            flowField: {
+                category: 'Fields',
+                params: {
+                    type: { type: 'string', default: 'attractor' },
+                    center: { type: 'array', default: [0, 0, 0] },
+                    strength: { type: 'number', default: 1.0, min: 0, max: 10 }
+                }
+            },
+
+            // 7b. FLOW VISUALIZATION (NEW!) - 2 helpers
+            createStreamlines: {
+                category: 'Flow Visualization',
+                params: {
+                    field: { type: 'object', default: null, description: 'Vector field (wrapped or function)' },
+                    box: { type: 'array', default: [-5, -5, -5, 5, 5, 5], description: 'Bounding box [minX, minY, minZ, maxX, maxY, maxZ]' },
+                    count: { type: 'integer', default: 50, min: 1, max: 200 },
+                    steps: { type: 'integer', default: 50, min: 5, max: 200 },
+                    stepSize: { type: 'number', default: 0.1, min: 0.01, max: 1.0 }
+                }
+            },
+
+            createFlowPipes: {
+                category: 'Flow Visualization',
+                params: {
+                    field: { type: 'object', default: null, description: 'Vector field (wrapped or function)' },
+                    box: { type: 'array', default: [-5, -5, -5, 5, 5, 5], description: 'Bounding box [minX, minY, minZ, maxX, maxY, maxZ]' },
+                    count: { type: 'integer', default: 20, min: 1, max: 100 },
+                    steps: { type: 'integer', default: 40, min: 5, max: 200 },
+                    stepSize: { type: 'number', default: 0.1, min: 0.01, max: 1.0 },
+                    radius: { type: 'number', default: 0.1, min: 0.01, max: 1.0, description: 'Tube radius' }
+                }
+            },
+
+            // 8. PROCEDURAL PATTERNS - 2 helpers
+            cellularAutomata: {
+                category: 'Procedural',
+                params: {
+                    gridSize: { type: 'integer', default: 10, min: 2, max: 50 },
+                    iterations: { type: 'integer', default: 10, min: 1, max: 100 },
+                    rules: { type: 'object', default: { survive: [2, 3], born: [3] } }
+                }
+            },
+            reactionDiffusion: {
+                category: 'Procedural',
+                params: {
+                    gridSize: { type: 'integer', default: 10, min: 2, max: 50 },
+                    iterations: { type: 'integer', default: 5, min: 1, max: 50 }
+                }
+            },
+
+            // 9. EMERGENT FEATURES - 2 helpers
+            modifyGeometry: {
+                category: 'Emergent',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    operations: { type: 'array', default: [] },
+                    expression: { type: 'string', default: '' },
+                    context: { type: 'object', default: {} }
+                }
+            },
+            meshFromMarchingCubes: {
+                category: 'Emergent',
+                params: {
+                    resolution: { type: 'integer', default: 32, min: 8, max: 128 },
+                    isovalue: { type: 'number', default: 0.5, min: 0, max: 1 },
+                    bounds: { type: 'number', default: 10, min: 1, max: 100 },
+                    expression: { type: 'string', default: '' },
+                    context: { type: 'object', default: {} }
+                }
+            },
+
+            // 10. COMPLEX ALGORITHMS - 11 helpers
+            lSystemGeometry: {
+                category: 'Complex',
+                params: {
+                    axiom: { type: 'string', default: 'F' },
+                    rules: { type: 'object', default: { 'F': 'FFF-F-F--FFF' } },
+                    iterations: { type: 'integer', default: 3, min: 1, max: 10 },
+                    angle: { type: 'number', default: 25, min: 0, max: 90 },
+                    length: { type: 'number', default: 1, min: 0.1, max: 10 },
+                    thickness: { type: 'number', default: 0.1, min: 0.01, max: 1 }
+                }
+            },
+            differentialGrowth: {
+                category: 'Complex',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    iterations: { type: 'integer', default: 10, min: 1, max: 100 },
+                    maxEdgeLength: { type: 'number', default: 0.5, min: 0.1, max: 5 },
+                    repulsionRadius: { type: 'number', default: 0.3, min: 0.1, max: 2 },
+                    repulsionStrength: { type: 'number', default: 0.1, min: 0, max: 1 },
+                    attractionStrength: { type: 'number', default: 0.05, min: 0, max: 1 }
+                }
+            },
+            meshFromVoxelGrid: {
+                category: 'Complex',
+                params: {
+                    grid: { type: 'array', default: [] },
+                    voxelSize: { type: 'number', default: 1, min: 0.1, max: 10 }
+                }
+            },
+            pointSetCentroid: {
+                category: 'Complex',
+                params: {
+                    points: { type: 'array', default: [] }
+                }
+            },
+            pointSetBoundingBox: {
+                category: 'Complex',
+                params: {
+                    points: { type: 'array', default: [] }
+                }
+            },
+            closestPointOnCurve: {
+                category: 'Complex',
+                params: {
+                    curve: { type: 'object', default: null },
+                    point: { type: 'array', default: [0, 0, 0] },
+                    samples: { type: 'integer', default: 100, min: 10, max: 1000 }
+                }
+            },
+            signedDistanceToMesh: {
+                category: 'Complex',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    point: { type: 'array', default: [0, 0, 0] }
+                }
+            },
+            measureVolume: {
+                category: 'Complex',
+                params: {
+                    geometry: { type: 'reference', default: null }
+                }
+            },
+            measureArea: {
+                category: 'Complex',
+                params: {
+                    geometry: { type: 'reference', default: null }
+                }
+            },
+            subdivisionSurface: {
+                category: 'Complex',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    iterations: { type: 'integer', default: 1, min: 1, max: 5 }
+                }
+            },
+            voronoiDivision: {
+                category: 'Complex',
+                params: {
+                    points: { type: 'array', default: [] },
+                    bounds: { type: 'array', default: [0, 0, 0, 10, 10, 10] }
+                }
+            },
+            convexHullGeometry: {
+                category: 'Complex',
+                params: {
+                    points: { type: 'array', default: [] }
+                }
+            },
+
+            // UTILITY HELPERS
+            clone: {
+                category: 'Utilities',
+                params: {
+                    geometry: { type: 'reference', default: null }
+                }
+            },
+            transformMesh: {
+                category: 'Utilities',
+                params: {
+                    geometry: { type: 'reference', default: null },
+                    scale: { type: 'array', default: [1, 1, 1] },
+                    rotation: { type: 'array', default: [0, 0, 0] },
+                    position: { type: 'array', default: [0, 0, 0] }
+                }
+            },
+            loop: {
+                category: 'Logic',
+                params: {
+                    var: { type: 'string', default: 'i' },
+                    from: { type: 'number', default: 0 },
+                    to: { type: 'number', default: 10 },
+                    body: { type: 'array', default: [] }
+                }
+            }
+        };
+
+        function getHelperParams(helperName) {
+            const helperDef = HELPER_REGISTRY[helperName];
+            if (!helperDef) return {};
+            const params = {};
+            for (const [key, def] of Object.entries(helperDef.params)) {
+                if (def.default !== null && def.default !== undefined) {
+                    params[key] = def.default;
+                }
+            }
+            return params;
+        }
+
+        function getAvailableGeometries(currentIndex) {
+            const available = [];
+            for (let i = 0; i < currentIndex; i++) {
+                const step = schema.actions[i];
+                available.push({ name: `Step ${i + 1} (${step.thought})`, value: step.as });
+            }
+            return available;
+        }
+
+        function renderParameterField(paramKey, paramValue, paramDef, stepIndex) {
+            const container = document.createElement('div');
+            container.className = 'field-group';
+            const label = document.createElement('label');
+            label.className = 'field-label';
+            label.innerText = paramKey;
+            container.appendChild(label);
+
+            // REFERENCE PARAMETERS
+            if (paramDef.type === 'reference') {
+                const select = document.createElement('select');
+                select.className = 'helper-select';
+                const emptyOpt = document.createElement('option');
+                emptyOpt.value = '';
+                emptyOpt.innerText = '-- None --';
+                select.appendChild(emptyOpt);
+                const available = getAvailableGeometries(stepIndex);
+                available.forEach(({ name, value }) => {
+                    const opt = document.createElement('option');
+                    opt.value = value;
+                    opt.innerText = name;
+                    if (paramValue === value) opt.selected = true;
+                    select.appendChild(opt);
+                });
+                select.onchange = (e) => updateStepField(stepIndex, `param-${paramKey}`, e.target.value || null);
+                container.appendChild(select);
+            }
+            // BOOLEAN PARAMETERS
+            else if (paramDef.type === 'boolean') {
+                const checkDiv = document.createElement('div');
+                checkDiv.style.display = 'flex';
+                checkDiv.style.alignItems = 'center';
+                checkDiv.style.gap = '8px';
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.checked = paramValue === true;
+                input.style.width = '16px';
+                input.style.height = '16px';
+                input.style.cursor = 'pointer';
+                input.onchange = (e) => updateStepField(stepIndex, `param-${paramKey}`, e.target.checked);
+                checkDiv.appendChild(input);
+                const label2 = document.createElement('span');
+                label2.innerText = paramValue ? 'Yes' : 'No';
+                label2.style.color = 'var(--text-dim)';
+                label2.style.fontSize = '11px';
+                checkDiv.appendChild(label2);
+                container.appendChild(checkDiv);
+            }
+            // ARRAY PARAMETERS
+            else if (paramDef.type === 'array') {
+                const textarea = document.createElement('textarea');
+                textarea.className = 'expr-input';
+                textarea.value = JSON.stringify(paramValue);
+                textarea.onchange = (e) => {
+                    try {
+                        updateStepField(stepIndex, `param-${paramKey}`, JSON.parse(e.target.value));
+                    } catch (err) {
+                        console.error('Invalid JSON', err);
+                    }
+                };
+                container.appendChild(textarea);
+            }
+            // STRING PARAMETERS
+            else if (paramDef.type === 'string') {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'helper-select';
+                input.value = paramValue;
+                input.onchange = (e) => updateStepField(stepIndex, `param-${paramKey}`, e.target.value);
+                container.appendChild(input);
+            }
+            // NUMBER/INTEGER PARAMETERS
+            else if (paramDef.type === 'number' || paramDef.type === 'integer') {
+                const div = document.createElement('div');
+                div.style.display = 'flex';
+                div.style.flexDirection = 'column';
+                div.style.gap = '4px';
+                const isExpression = typeof paramValue === 'string' && (paramValue.includes('ctx.') || paramValue.includes('Math.') || paramValue.includes('Math[') || paramValue.includes('-'));
+                let useExpression = isExpression;
+                const modeBtn = document.createElement('button');
+                modeBtn.className = 'mode-btn';
+                modeBtn.style.cursor = 'pointer';
+                modeBtn.style.marginBottom = '4px';
+                const updateModeBtn = () => {
+                    modeBtn.innerText = useExpression ? '🔄 Expression' : '🔢 Value';
+                    numberInput.style.display = useExpression ? 'none' : 'block';
+                    exprInputDiv.style.display = useExpression ? 'block' : 'none';
+                };
+                modeBtn.onclick = () => {
+                    useExpression = !useExpression;
+                    updateModeBtn();
+                };
+                div.appendChild(modeBtn);
+                const numberInput = document.createElement('input');
+                numberInput.type = 'number';
+                numberInput.className = 'helper-select';
+                if (paramDef.type === 'integer') numberInput.step = '1';
+                else numberInput.step = '0.01';
+                if (paramDef.min !== undefined) numberInput.min = paramDef.min;
+                if (paramDef.max !== undefined) numberInput.max = paramDef.max;
+                numberInput.value = isExpression ? paramDef.default : paramValue;
+                numberInput.onchange = (e) => {
+                    const val = paramDef.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value);
+                    updateStepField(stepIndex, `param-${paramKey}`, val);
+                };
+                div.appendChild(numberInput);
+                const exprInputDiv = document.createElement('div');
+                exprInputDiv.style.display = 'none';
+                exprInputDiv.style.flexDirection = 'column';
+                exprInputDiv.style.gap = '4px';
+                const exprInput = document.createElement('textarea');
+                exprInput.className = 'expr-input';
+                exprInput.style.minHeight = '30px';
+                exprInput.value = isExpression ? paramValue : '';
+                exprInput.placeholder = 'e.g., ctx.width * 2';
+                exprInput.onchange = (e) => updateStepField(stepIndex, `param-${paramKey}`, e.target.value);
+                exprInputDiv.appendChild(exprInput);
+                const globalsHint = document.createElement('div');
+                globalsHint.className = 'globals-hint';
+                const globalNames = Object.keys(schema.globalParameters).join(', ');
+                globalsHint.innerText = globalNames ? globalNames : 'No globals yet';
+                exprInputDiv.appendChild(globalsHint);
+                div.appendChild(exprInputDiv);
+                updateModeBtn();
+                container.appendChild(div);
+            }
+            // DEFAULT - treat as JSON
+            else {
+                const textarea = document.createElement('textarea');
+                textarea.className = 'expr-input';
+                textarea.value = JSON.stringify(paramValue);
+                textarea.onchange = (e) => {
+                    try {
+                        updateStepField(stepIndex, `param-${paramKey}`, JSON.parse(e.target.value));
+                    } catch (err) {
+                        console.error('Invalid JSON', err);
+                    }
+                };
+                container.appendChild(textarea);
+            }
+            return container;
+        }
+
+        // ========== SCHEMA STATE ==========
+        let schema = {
+            version: 5.0,
+            type: 'emergent:procedure',
+            intent: 'Custom Procedure',
+            materials: {
+                default: { color: '#888888', roughness: 0.7, metalness: 0.1 },
+                gold: { color: '#FFD700', roughness: 0.2, metalness: 0.8 },
+                plastic: { color: '#FF69B4', roughness: 0.8, metalness: 0.0 }
+            },
+            globalParameters: {
+                width: { value: 10, type: 'number', min: 1, max: 50, group: 'Dimensions' },
+                height: { value: 10, type: 'number', min: 1, max: 50, group: 'Dimensions' },
+                scale: { value: 1, type: 'number', min: 0.1, max: 5, group: 'Dimensions' }
+            },
+            context: {},
+            actions: []
+        };
+
+        const HELPERS = Object.keys(HELPER_REGISTRY);
+
+        window.setTab = function(name) {
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.tab[onclick="setTab('${name}')"]`).classList.add('active');
+            document.getElementById(`tab-${name}`).classList.add('active');
+            if (name === 'json') {
+                document.getElementById('json-input').value = JSON.stringify(schema, null, 2);
+            }
+        };
+
+        // ========== GLOBALS MANAGEMENT ==========
+        window.addGlobalParam = function() {
+            const key = `param${Date.now()}`;
+            schema.globalParameters[key] = {
+                value: 5,
+                type: 'number',
+                min: 0,
+                max: 100,
+                group: 'Custom'
+            };
+            renderGlobals();
+            renderTimeline();
+            run();
+        };
+
+        window.removeGlobalParam = function(key) {
+            delete schema.globalParameters[key];
+            renderGlobals();
+            renderTimeline();
+            run();
+        };
+
+        window.updateGlobalParam = function(key, field, value) {
+            if (field === 'value') {
+                schema.globalParameters[key].value = parseFloat(value) || 0;
+                run();
+            } else if (field === 'min') {
+                schema.globalParameters[key].min = parseFloat(value) || 0;
+            } else if (field === 'max') {
+                schema.globalParameters[key].max = parseFloat(value) || 100;
+            } else if (field === 'key') {
+                schema.globalParameters[value] = schema.globalParameters[key];
+                delete schema.globalParameters[key];
+            }
+            renderGlobals();
+            renderTimeline();
+        };
+
+        function renderGlobals() {
+            const container = document.getElementById('globals-container');
+            container.innerHTML = '';
+            for (const [key, param] of Object.entries(schema.globalParameters)) {
+                const group = document.createElement('div');
+                group.className = 'global-group';
+                const headerHtml = `
+                    <div class="global-header">
+                        <span>${param.group || 'Parameters'}</span>
+                        <button class="btn-add-global" onclick="removeGlobalParam('${key}')">−</button>
+                    </div>
+                    <div class="global-item">
+                        <label style="font-size: 10px; min-width: 40px">Name</label>
+                        <input type="text" value="${key}" onchange="updateGlobalParam('${key}', 'key', this.value)" placeholder="param name" style="flex:1; margin-right:8px">
+                    </div>
+                    <div class="global-slider-group">
+                        <div class="slider-header">
+                            <span>Value</span>
+                            <span class="slider-value">${param.value}</span>
+                        </div>
+                        <input type="range" min="${param.min}" max="${param.max}" step="0.1" value="${param.value}" oninput="updateGlobalParam('${key}', 'value', this.value)">
+                    </div>
+                    <div class="global-item">
+                        <label style="font-size: 10px; min-width: 40px">Min</label>
+                        <input type="number" value="${param.min}" onchange="updateGlobalParam('${key}', 'min', this.value)">
+                    </div>
+                    <div class="global-item">
+                        <label style="font-size: 10px; min-width: 40px">Max</label>
+                        <input type="number" value="${param.max}" onchange="updateGlobalParam('${key}', 'max', this.value)">
+                    </div>
+                `;
+                group.innerHTML = headerHtml;
+                container.appendChild(group);
+            }
+        }
+
+        // ========== MATERIALS MANAGEMENT ==========
+        window.addMaterial = function() {
+            const name = `material${Date.now()}`;
+            schema.materials[name] = { color: '#888888', roughness: 0.7, metalness: 0.1 };
+            renderMaterials();
+        };
+
+        window.removeMaterial = function(name) {
             delete schema.materials[name];
             renderMaterials();
+        };
+
+        window.updateMaterial = function(name, prop, value) {
+            schema.materials[name][prop] = value;
+            renderMaterials();
             renderTimeline();
-          }
+            run();
         };
-        headerDiv.appendChild(nameInput);
 
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'material-btn material-delete';
-        deleteBtn.innerText = '🗑️';
-        deleteBtn.onclick = () => removeMaterial(name);
-        headerDiv.appendChild(deleteBtn);
+        function renderMaterials() {
+            const container = document.getElementById('materials-container');
+            container.innerHTML = '';
+            for (const [name, material] of Object.entries(schema.materials)) {
+                const item = document.createElement('div');
+                item.className = 'material-item';
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'material-header';
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.style.background = 'rgba(255, 255, 255, 0.05)';
+                nameInput.style.border = '1px solid var(--border)';
+                nameInput.style.borderRadius = '4px';
+                nameInput.style.padding = '6px 10px';
+                nameInput.style.color = 'var(--text)';
+                nameInput.style.fontSize = '11px';
+                nameInput.style.flex = '1';
+                nameInput.style.marginRight = '8px';
+                nameInput.value = name;
+                nameInput.onchange = (e) => {
+                    const newName = e.target.value;
+                    if (newName && newName !== name && !schema.materials[newName]) {
+                        schema.materials[newName] = schema.materials[name];
+                        delete schema.materials[name];
+                        renderMaterials();
+                        renderTimeline();
+                    }
+                };
+                headerDiv.appendChild(nameInput);
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'material-btn material-delete';
+                deleteBtn.innerText = '✕';
+                deleteBtn.onclick = () => removeMaterial(name);
+                headerDiv.appendChild(deleteBtn);
+                item.appendChild(headerDiv);
 
-        item.appendChild(headerDiv);
+                // Color
+                const colorDiv = document.createElement('div');
+                colorDiv.style.display = 'flex';
+                colorDiv.style.gap = '8px';
+                colorDiv.style.alignItems = 'center';
+                colorDiv.style.marginBottom = '8px';
+                const colorLabel = document.createElement('label');
+                colorLabel.style.fontSize = '10px';
+                colorLabel.style.fontWeight = '600';
+                colorLabel.style.color = 'var(--text-dim)';
+                colorLabel.style.minWidth = '60px';
+                colorLabel.innerText = 'Color';
+                colorDiv.appendChild(colorLabel);
+                const colorInput = document.createElement('input');
+                colorInput.type = 'color';
+                colorInput.value = material.color;
+                colorInput.style.cursor = 'pointer';
+                colorInput.style.width = '40px';
+                colorInput.style.height = '30px';
+                colorInput.style.border = '1px solid var(--border)';
+                colorInput.style.borderRadius = '4px';
+                colorInput.onchange = (e) => updateMaterial(name, 'color', e.target.value);
+                colorDiv.appendChild(colorInput);
+                const colorValue = document.createElement('span');
+                colorValue.style.fontFamily = 'monospace';
+                colorValue.style.fontSize = '10px';
+                colorValue.style.color = 'var(--text-dim)';
+                colorValue.innerText = material.color;
+                colorDiv.appendChild(colorValue);
+                item.appendChild(colorDiv);
 
-        // Color
-        const colorDiv = document.createElement('div');
-        colorDiv.style.display = 'flex';
-        colorDiv.style.gap = '8px';
-        colorDiv.style.alignItems = 'center';
-        colorDiv.style.marginBottom = '8px';
+                // Roughness
+                const roughDiv = document.createElement('div');
+                roughDiv.style.marginBottom = '8px';
+                const roughLabel = document.createElement('div');
+                roughLabel.style.display = 'flex';
+                roughLabel.style.justifyContent = 'space-between';
+                roughLabel.style.fontSize = '10px';
+                roughLabel.style.marginBottom = '4px';
+                roughLabel.innerHTML = `<span>Roughness</span><span style="color: var(--accent); font-family: monospace">${material.roughness.toFixed(2)}</span>`;
+                roughDiv.appendChild(roughLabel);
+                const roughSlider = document.createElement('input');
+                roughSlider.type = 'range';
+                roughSlider.min = '0';
+                roughSlider.max = '1';
+                roughSlider.step = '0.01';
+                roughSlider.value = material.roughness;
+                roughSlider.style.width = '100%';
+                roughSlider.style.cursor = 'pointer';
+                roughSlider.onchange = (e) => updateMaterial(name, 'roughness', parseFloat(e.target.value));
+                roughDiv.appendChild(roughSlider);
+                item.appendChild(roughDiv);
 
-        const colorLabel = document.createElement('label');
-        colorLabel.style.fontSize = '10px';
-        colorLabel.style.fontWeight = '600';
-        colorLabel.style.color = 'var(--text-dim)';
-        colorLabel.style.minWidth = '60px';
-        colorLabel.innerText = 'Color:';
-        colorDiv.appendChild(colorLabel);
+                // Metalness
+                const metalDiv = document.createElement('div');
+                const metalLabel = document.createElement('div');
+                metalLabel.style.display = 'flex';
+                metalLabel.style.justifyContent = 'space-between';
+                metalLabel.style.fontSize = '10px';
+                metalLabel.style.marginBottom = '4px';
+                metalLabel.innerHTML = `<span>Metalness</span><span style="color: var(--accent); font-family: monospace">${material.metalness.toFixed(2)}</span>`;
+                metalDiv.appendChild(metalLabel);
+                const metalSlider = document.createElement('input');
+                metalSlider.type = 'range';
+                metalSlider.min = '0';
+                metalSlider.max = '1';
+                metalSlider.step = '0.01';
+                metalSlider.value = material.metalness;
+                metalSlider.style.width = '100%';
+                metalSlider.style.cursor = 'pointer';
+                metalSlider.onchange = (e) => updateMaterial(name, 'metalness', parseFloat(e.target.value));
+                metalDiv.appendChild(metalSlider);
+                item.appendChild(metalDiv);
 
-        const colorInput = document.createElement('input');
-        colorInput.type = 'color';
-        colorInput.value = material.color;
-        colorInput.style.cursor = 'pointer';
-        colorInput.style.width = '40px';
-        colorInput.style.height = '30px';
-        colorInput.style.border = '1px solid var(--border)';
-        colorInput.style.borderRadius = '4px';
-        colorInput.onchange = (e) => updateMaterial(name, 'color', e.target.value);
-        colorDiv.appendChild(colorInput);
-
-        const colorValue = document.createElement('span');
-        colorValue.style.fontFamily = 'monospace';
-        colorValue.style.fontSize = '10px';
-        colorValue.style.color = 'var(--text-dim)';
-        colorValue.innerText = material.color;
-        colorDiv.appendChild(colorValue);
-
-        item.appendChild(colorDiv);
-
-        // Roughness
-        const roughDiv = document.createElement('div');
-        roughDiv.style.marginBottom = '8px';
-        const roughLabel = document.createElement('div');
-        roughLabel.style.display = 'flex';
-        roughLabel.style.justifyContent = 'space-between';
-        roughLabel.style.fontSize = '10px';
-        roughLabel.style.marginBottom = '4px';
-        roughLabel.innerHTML = `<span>Roughness</span><span style="color: var(--accent); font-family: monospace;">${material.roughness.toFixed(2)}</span>`;
-        roughDiv.appendChild(roughLabel);
-
-        const roughSlider = document.createElement('input');
-        roughSlider.type = 'range';
-        roughSlider.min = '0';
-        roughSlider.max = '1';
-        roughSlider.step = '0.01';
-        roughSlider.value = material.roughness;
-        roughSlider.style.width = '100%';
-        roughSlider.style.cursor = 'pointer';
-        roughSlider.onchange = (e) => {
-          updateMaterial(name, 'roughness', parseFloat(e.target.value));
-        };
-        roughDiv.appendChild(roughSlider);
-        item.appendChild(roughDiv);
-
-        // Metalness
-        const metalDiv = document.createElement('div');
-        const metalLabel = document.createElement('div');
-        metalLabel.style.display = 'flex';
-        metalLabel.style.justifyContent = 'space-between';
-        metalLabel.style.fontSize = '10px';
-        metalLabel.style.marginBottom = '4px';
-        metalLabel.innerHTML = `<span>Metalness</span><span style="color: var(--accent); font-family: monospace;">${material.metalness.toFixed(2)}</span>`;
-        metalDiv.appendChild(metalLabel);
-
-        const metalSlider = document.createElement('input');
-        metalSlider.type = 'range';
-        metalSlider.min = '0';
-        metalSlider.max = '1';
-        metalSlider.step = '0.01';
-        metalSlider.value = material.metalness;
-        metalSlider.style.width = '100%';
-        metalSlider.style.cursor = 'pointer';
-        metalSlider.onchange = (e) => {
-          updateMaterial(name, 'metalness', parseFloat(e.target.value));
-        };
-        metalDiv.appendChild(metalSlider);
-        item.appendChild(metalDiv);
-
-        container.appendChild(item);
-      }
-    }
-
-    // TIMELINE
-    window.addStep = (afterIndex = -1) => {
-      const newStep = {
-        "thought": "New Step",
-        "do": "createBox",
-        "params": getHelperParams('createBox'),
-        "as": `step_${Date.now()}`,
-        "material": "default",
-        "visible": true
-      };
-      if (afterIndex >= 0) schema.actions.splice(afterIndex + 1, 0, newStep);
-      else schema.actions.push(newStep);
-      renderTimeline();
-      run();
-    };
-
-    window.removeStep = (index) => {
-      schema.actions.splice(index, 1);
-      delete collapseState[index];
-      renderTimeline();
-      run();
-    };
-
-    window.toggleStepVisibility = (index) => {
-      schema.actions[index].visible = !schema.actions[index].visible;
-      renderTimeline();
-      run();
-    };
-
-    window.openAddMenu = (index) => {
-      const overlay = document.getElementById('menu-overlay');
-      const popup = document.getElementById('menu-popup');
-      overlay.classList.add('active');
-      popup.innerHTML = HELPERS.map(h => `<div class="menu-item" onclick="addStepWithHelper('${h}', ${index})">${h}</div>`).join('');
-      const btn = event.target;
-      const rect = btn.getBoundingClientRect();
-      popup.style.top = rect.bottom + 'px';
-      popup.style.left = rect.left + 'px';
-    };
-
-    window.addStepWithHelper = (helper, index) => {
-      const params = getHelperParams(helper);
-      if (params.hasOwnProperty('geometry') && index >= 0 && schema.actions[index]) {
-        params.geometry = schema.actions[index].as;
-      }
-      const newStep = {
-        "thought": `Use ${helper}`,
-        "do": helper,
-        "params": params,
-        "as": `${helper}_${Date.now()}`,
-        "material": "default",
-        "visible": true
-      };
-      schema.actions.splice(index + 1, 0, newStep);
-      closeAddMenu();
-      renderTimeline();
-      run();
-    };
-
-    window.closeAddMenu = () => {
-      document.getElementById('menu-overlay').classList.remove('active');
-    };
-
-    window.updateStepField = (index, field, value) => {
-      if (field === 'thought') schema.actions[index].thought = value;
-      else if (field === 'do') {
-        schema.actions[index].do = value;
-        schema.actions[index].params = getHelperParams(value);
-      }
-      else if (field === 'as') schema.actions[index].as = value;
-      else if (field === 'material') schema.actions[index].material = value;
-      else if (field.startsWith('param-')) {
-        const paramKey = field.replace('param-', '');
-        schema.actions[index].params[paramKey] = value;
-      }
-      renderTimeline();
-      run();
-    };
-
-    function renderTimeline() {
-      const container = document.getElementById('timeline-container');
-      container.innerHTML = '';
-
-      schema.actions.forEach((action, i) => {
-        const card = document.createElement('div');
-        card.className = 'step-card';
-        if (!action.visible) card.classList.add('hidden');
-        if (collapseState[i]) card.classList.add('collapsed');
-
-        // HEADER
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'step-header';
-        headerDiv.onclick = () => toggleStepCollapse(i);
-
-        const toggleIcon = document.createElement('div');
-        toggleIcon.className = 'step-collapse-toggle';
-        toggleIcon.innerText = '▶';
-        headerDiv.appendChild(toggleIcon);
-
-        const stepNum = document.createElement('div');
-        stepNum.className = 'step-num';
-        stepNum.style.backgroundColor = getMaterialColor(action.material);
-        stepNum.innerText = i + 1;
-        headerDiv.appendChild(stepNum);
-
-        const headerContent = document.createElement('div');
-        headerContent.className = 'step-header-content';
-
-        const titleInput = document.createElement('input');
-        titleInput.className = 'step-title-input';
-        titleInput.type = 'text';
-        titleInput.value = action.thought || '';
-        titleInput.placeholder = 'Step description';
-        titleInput.onclick = (e) => e.stopPropagation();
-        titleInput.onchange = (e) => updateStepField(i, 'thought', e.target.value);
-        headerContent.appendChild(titleInput);
-
-        const helperBadge = document.createElement('div');
-        helperBadge.className = 'step-helper-badge';
-        helperBadge.innerText = action.do || 'None';
-        headerContent.appendChild(helperBadge);
-
-        headerDiv.appendChild(headerContent);
-
-        const actions = document.createElement('div');
-        actions.className = 'step-actions';
-
-        const visBtn = document.createElement('button');
-        visBtn.className = `step-btn step-btn-visibility${!action.visible ? ' hidden' : ''}`;
-        visBtn.innerText = '👁️';
-        visBtn.onclick = (e) => {
-          e.stopPropagation();
-          toggleStepVisibility(i);
-        };
-        actions.appendChild(visBtn);
-
-        const delBtn = document.createElement('button');
-        delBtn.className = 'step-btn step-btn-remove';
-        delBtn.innerText = '×';
-        delBtn.onclick = (e) => {
-          e.stopPropagation();
-          removeStep(i);
-        };
-        actions.appendChild(delBtn);
-
-        headerDiv.appendChild(actions);
-        card.appendChild(headerDiv);
-
-        // BODY (collapsible)
-        const bodyDiv = document.createElement('div');
-        bodyDiv.className = 'step-body';
-
-        const helperGroup = document.createElement('div');
-        helperGroup.className = 'field-group';
-        helperGroup.innerHTML = `<label class="field-label">Helper</label>
-          <select class="helper-select" value="${action.do}" onchange="updateStepField(${i}, 'do', this.value)">
-            <option value="">-- Select --</option>
-            ${HELPERS.map(h => `<option value="${h}" ${action.do === h ? 'selected' : ''}>${h}</option>`).join('')}
-          </select>`;
-        bodyDiv.appendChild(helperGroup);
-
-        const asGroup = document.createElement('div');
-        asGroup.className = 'field-group';
-        const asInput = document.createElement('input');
-        asInput.type = 'text';
-        asInput.className = 'helper-select';
-        asInput.value = action.as || '';
-        asInput.placeholder = 'Output name';
-        asInput.onchange = (e) => updateStepField(i, 'as', e.target.value);
-        asGroup.innerHTML = '<label class="field-label">Output (as)</label>';
-        asGroup.appendChild(asInput);
-        bodyDiv.appendChild(asGroup);
-
-        const helperDef = HELPER_REGISTRY[action.do];
-        if (helperDef) {
-          for (const [key, def] of Object.entries(helperDef.params)) {
-            const value = action.params[key];
-            const field = renderParameterField(key, value, def, i);
-            bodyDiv.appendChild(field);
-          }
+                container.appendChild(item);
+            }
         }
 
-        const matGroup = document.createElement('div');
-        matGroup.className = 'field-group';
-        matGroup.innerHTML = '<label class="field-label">Material</label>';
-        const matSelect = document.createElement('select');
-        matSelect.className = 'helper-select';
-        matSelect.disabled = !action.visible;
-        if (!action.visible) {
-          const hiddenOpt = document.createElement('option');
-          hiddenOpt.value = '';
-          hiddenOpt.innerText = '(hidden)';
-          matSelect.appendChild(hiddenOpt);
-        } else {
-          matSelect.value = action.material || 'default';
-          for (const matName of Object.keys(schema.materials)) {
-            const opt = document.createElement('option');
-            opt.value = matName;
-            opt.innerText = matName;
-            if (action.material === matName) opt.selected = true;
-            matSelect.appendChild(opt);
-          }
-          matSelect.onchange = (e) => updateStepField(i, 'material', e.target.value);
+        // ========== TIMELINE ==========
+        window.addStep = function(afterIndex = -1) {
+            const newStep = {
+                thought: 'New Step',
+                do: 'createBox',
+                params: getHelperParams('createBox'),
+                as: `step${Date.now()}`,
+                material: 'default',
+                visible: true
+            };
+            if (afterIndex >= 0) {
+                schema.actions.splice(afterIndex + 1, 0, newStep);
+            } else {
+                schema.actions.push(newStep);
+            }
+            renderTimeline();
+            run();
+        };
+
+        window.removeStep = function(index) {
+            schema.actions.splice(index, 1);
+            delete collapseState[index];
+            renderTimeline();
+            run();
+        };
+
+        window.toggleStepVisibility = function(index) {
+            schema.actions[index].visible = !schema.actions[index].visible;
+            renderTimeline();
+            run();
+        };
+
+        window.openAddMenu = function(index) {
+            const overlay = document.getElementById('menu-overlay');
+            const popup = document.getElementById('menu-popup');
+            overlay.classList.add('active');
+            popup.innerHTML = HELPERS.map(h => `<div class="menu-item" onclick="addStepWithHelper('${h}', ${index})">${h}</div>`).join('');
+            const btn = event.target;
+            const rect = btn.getBoundingClientRect();
+            popup.style.top = rect.bottom + 'px';
+            popup.style.left = (rect.left) + 'px';
+        };
+
+        window.addStepWithHelper = function(helper, index) {
+            const params = getHelperParams(helper);
+            if (params.hasOwnProperty('geometry')) {
+                if (index > 0) {
+                    params.geometry = schema.actions[index].as;
+                }
+            }
+            const newStep = {
+                thought: 'Use helper',
+                do: helper,
+                params: params,
+                as: `${helper}${Date.now()}`,
+                material: 'default',
+                visible: true
+            };
+            schema.actions.splice(index + 1, 0, newStep);
+            closeAddMenu();
+            renderTimeline();
+            run();
+        };
+
+        window.closeAddMenu = function() {
+            document.getElementById('menu-overlay').classList.remove('active');
+        };
+
+        window.updateStepField = function(index, field, value) {
+            if (field === 'thought') {
+                schema.actions[index].thought = value;
+            } else if (field === 'do') {
+                schema.actions[index].do = value;
+                schema.actions[index].params = getHelperParams(value);
+            } else if (field === 'as') {
+                schema.actions[index].as = value;
+            } else if (field === 'material') {
+                schema.actions[index].material = value;
+            } else if (field.startsWith('param-')) {
+                const paramKey = field.replace('param-', '');
+                schema.actions[index].params[paramKey] = value;
+            }
+            renderTimeline();
+            run();
+        };
+
+        function renderTimeline() {
+            const container = document.getElementById('timeline-container');
+            container.innerHTML = '';
+            schema.actions.forEach((action, i) => {
+                const card = document.createElement('div');
+                card.className = 'step-card';
+                if (!action.visible) card.classList.add('hidden');
+                if (collapseState[i]) card.classList.add('collapsed');
+
+                // HEADER
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'step-header';
+                headerDiv.onclick = () => window.toggleStepCollapse(i);
+
+                const toggleIcon = document.createElement('div');
+                toggleIcon.className = 'step-collapse-toggle';
+                toggleIcon.innerText = '▶';
+                headerDiv.appendChild(toggleIcon);
+
+                const stepNum = document.createElement('div');
+                stepNum.className = 'step-num';
+                stepNum.style.backgroundColor = getMaterialColor(action.material);
+                stepNum.innerText = i + 1;
+                headerDiv.appendChild(stepNum);
+
+                const headerContent = document.createElement('div');
+                headerContent.className = 'step-header-content';
+                const titleInput = document.createElement('input');
+                titleInput.className = 'step-title-input';
+                titleInput.type = 'text';
+                titleInput.value = action.thought;
+                titleInput.placeholder = 'Step description';
+                titleInput.onclick = (e) => e.stopPropagation();
+                titleInput.onchange = (e) => window.updateStepField(i, 'thought', e.target.value);
+                headerContent.appendChild(titleInput);
+
+                const helperBadge = document.createElement('div');
+                helperBadge.className = 'step-helper-badge';
+                helperBadge.innerText = action.do || 'None';
+                headerContent.appendChild(helperBadge);
+                headerDiv.appendChild(headerContent);
+
+                const actions = document.createElement('div');
+                actions.className = 'step-actions';
+
+                const visBtn = document.createElement('button');
+                visBtn.className = `step-btn step-btn-visibility${!action.visible ? ' hidden' : ''}`;
+                visBtn.innerText = '👁';
+                visBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    window.toggleStepVisibility(i);
+                };
+                actions.appendChild(visBtn);
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'step-btn step-btn-remove';
+                delBtn.innerText = '✕';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    window.removeStep(i);
+                };
+                actions.appendChild(delBtn);
+                headerDiv.appendChild(actions);
+                card.appendChild(headerDiv);
+
+                // BODY (collapsible)
+                const bodyDiv = document.createElement('div');
+                bodyDiv.className = 'step-body';
+
+                const helperGroup = document.createElement('div');
+                helperGroup.className = 'field-group';
+                helperGroup.innerHTML = `
+                    <label class="field-label">Helper</label>
+                    <select class="helper-select" value="${action.do}" onchange="window.updateStepField(${i}, 'do', this.value)">
+                        <option value="">-- Select --</option>
+                        ${HELPERS.map(h => `<option value="${h}" ${action.do === h ? 'selected' : ''}>${h}</option>`).join('')}
+                    </select>
+                `;
+                bodyDiv.appendChild(helperGroup);
+
+                const asGroup = document.createElement('div');
+                asGroup.className = 'field-group';
+                const asInput = document.createElement('input');
+                asInput.type = 'text';
+                asInput.className = 'helper-select';
+                asInput.value = action.as;
+                asInput.placeholder = 'Output name';
+                asInput.onchange = (e) => window.updateStepField(i, 'as', e.target.value);
+                asGroup.innerHTML = '<label class="field-label">Output as</label>';
+                asGroup.appendChild(asInput);
+                bodyDiv.appendChild(asGroup);
+
+                const helperDef = HELPER_REGISTRY[action.do];
+                if (helperDef) {
+                    for (const [key, def] of Object.entries(helperDef.params)) {
+                        const value = action.params[key];
+                        const field = renderParameterField(key, value, def, i);
+                        bodyDiv.appendChild(field);
+                    }
+                }
+
+                const matGroup = document.createElement('div');
+                matGroup.className = 'field-group';
+                matGroup.innerHTML = '<label class="field-label">Material</label>';
+                const matSelect = document.createElement('select');
+                matSelect.className = 'helper-select';
+                matSelect.disabled = !action.visible;
+                if (!action.visible) {
+                    const hiddenOpt = document.createElement('option');
+                    hiddenOpt.value = '';
+                    hiddenOpt.innerText = 'hidden';
+                    matSelect.appendChild(hiddenOpt);
+                } else {
+                    matSelect.value = action.material || 'default';
+                    for (const matName of Object.keys(schema.materials)) {
+                        const opt = document.createElement('option');
+                        opt.value = matName;
+                        opt.innerText = matName;
+                        if (action.material === matName) opt.selected = true;
+                        matSelect.appendChild(opt);
+                    }
+                }
+                matSelect.onchange = (e) => window.updateStepField(i, 'material', e.target.value);
+                matGroup.appendChild(matSelect);
+                bodyDiv.appendChild(matGroup);
+
+                card.appendChild(bodyDiv);
+                container.appendChild(card);
+            });
         }
-        matGroup.appendChild(matSelect);
-        bodyDiv.appendChild(matGroup);
 
-        card.appendChild(bodyDiv);
-        container.appendChild(card);
-      });
-    }
+        // ========== JSON ==========
+        window.exportJSON = function() {
+            document.getElementById('json-input').value = JSON.stringify(schema, null, 2);
+        };
 
-    // JSON
-    window.exportJSON = () => {
-      document.getElementById('json-input').value = JSON.stringify(schema, null, 2);
-    };
+        window.importJSON = function() {
+            try {
+                schema = JSON.parse(document.getElementById('json-input').value);
+                setTab('globals');
+                renderGlobals();
+                renderTimeline();
+                renderMaterials();
+                run();
+                alert('Schema imported!');
+            } catch (e) {
+                alert('Invalid JSON: ' + e.message);
+            }
+        };
 
-    window.importJSON = () => {
-      try {
-        schema = JSON.parse(document.getElementById('json-input').value);
-        setTab('globals');
+        // ========== 3D ENGINE ==========
+        const canvas = document.querySelector('canvas#glcanvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+        const controls = new OrbitControls(camera, canvas);
+        let currentMesh = null;
+        const executor = new ProceduralExecutor();
+
+        function setupScene() {
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            camera.position.set(40, 40, 40);
+            camera.updateProjectionMatrix();
+            controls.enableDamping = true;
+            controls.target.set(0, 0, 0);
+            scene.background = new THREE.Color(0x111114);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+            dirLight.position.set(50, 100, 50);
+            scene.add(dirLight);
+            scene.add(new THREE.GridHelper(100, 20, 0x333333, 0x111111));
+        }
+
+        function run() {
+            if (currentMesh) scene.remove(currentMesh);
+            currentMesh.traverse(c => {
+                if (c.geometry) c.geometry.dispose();
+                if (c.material && !Array.isArray(c.material)) c.material.dispose();
+            });
+
+            const params = {};
+            for (const [k, v] of Object.entries(schema.globalParameters)) {
+                params[k] = v.value;
+            }
+
+            const visibleSchema = {
+                ...schema,
+                actions: schema.actions.map(action => ({
+                    ...action,
+                    material: action.visible ? action.material : null
+                }))
+            };
+
+            try {
+                currentMesh = executor.execute(visibleSchema, params);
+                scene.add(currentMesh);
+                let count = 0;
+                currentMesh.traverse(c => {
+                    if (c.isMesh) count++;
+                });
+                document.getElementById('stats').innerText = `Meshes: ${count}`;
+            } catch (e) {
+                document.getElementById('stats').innerText = 'Error: ' + e.message.substring(0, 30);
+                console.error(e);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // INIT
+        setupScene();
+        loadSavedState();
         renderGlobals();
         renderTimeline();
         renderMaterials();
         run();
-        alert('Schema imported!');
-      } catch (e) {
-        alert('Invalid JSON: ' + e.message);
-      }
-    };
+        animate();
 
-    // 3D ENGINE
-    const canvas = document.querySelector('#gl');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-    const controls = new OrbitControls(camera, canvas);
-    let currentMesh = null;
-    const executor = new ProceduralExecutor();
-
-    function setupScene() {
-      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-      camera.aspect = canvas.clientWidth / canvas.clientHeight;
-      camera.position.set(40, 40, 40);
-      camera.updateProjectionMatrix();
-      controls.enableDamping = true;
-      controls.target.set(0, 0, 0);
-      scene.background = new THREE.Color(0x111114);
-      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-      const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-      dirLight.position.set(50, 100, 50);
-      scene.add(dirLight);
-      scene.add(new THREE.GridHelper(100, 20, 0x333333, 0x111111));
-    }
-
-    function run() {
-      if (currentMesh) {
-        scene.remove(currentMesh);
-        currentMesh.traverse(c => {
-          if (c.geometry) c.geometry.dispose();
-          if (c.material && !Array.isArray(c.material)) c.material.dispose();
-        });
-      }
-
-      const params = {};
-      for (const [k, v] of Object.entries(schema.globalParameters)) params[k] = v.value;
-
-      const visibleSchema = {
-        ...schema,
-        actions: schema.actions.map(action => ({
-          ...action,
-          material: action.visible ? action.material : null
-        }))
-      };
-
-      try {
-        currentMesh = executor.execute(visibleSchema, params);
-        scene.add(currentMesh);
-        let count = 0;
-        currentMesh.traverse(c => { if (c.isMesh) count++; });
-        document.getElementById('stats').innerText = `Meshes: ${count}`;
-      } catch (e) {
-        document.getElementById('stats').innerText = `Error: ${e.message.substring(0, 30)}`;
-        console.error(e);
-      }
-    }
-
-    // INIT
-    setupScene();
-    loadSavedState();
-    renderGlobals();
-    renderTimeline();
-    renderMaterials();
-    run();
-
-    function animate() {
-      requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    }
-    animate();
-
-    window.onresize = () => {
-      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-      camera.aspect = canvas.clientWidth / canvas.clientHeight;
-      camera.updateProjectionMatrix();
-    }
-  </script>
+        window.onresize = () => {
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            camera.updateProjectionMatrix();
+        };
+    </script>
 </body>
 </html>
