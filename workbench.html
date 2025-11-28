@@ -1244,13 +1244,119 @@
                 }
             },
             flowField: {
-                category: 'Fields',
-                params: {
-                    type: { type: 'string', default: 'attractor' },
-                    center: { type: 'array', default: [0, 0, 0] },
-                    strength: { type: 'number', default: 1.0, min: 0, max: 10 }
-                }
-            },
+  category: 'Fields & Attractors',
+  description: 'Create physics-based flow fields',
+  params: {
+    // Type presets
+    type: {
+      type: 'select',
+      options: ['laminar', 'turbulent', 'chaotic', 'wave', 'custom'],
+      default: 'laminar',
+      group: 'Type'
+    },
+    
+    // Mode selection
+    mode: {
+      type: 'select',
+      options: ['expression', 'noise', 'attractor'],
+      default: 'expression',
+      group: 'Mode'
+    },
+    
+    // Expression mode
+    vx: {
+      type: 'string',
+      default: 'y * 0.1',
+      group: 'Expression',
+      visible: { mode: 'expression' }
+    },
+    vy: {
+      type: 'string',
+      default: '-x * 0.1',
+      group: 'Expression',
+      visible: { mode: 'expression' }
+    },
+    vz: {
+      type: 'string',
+      default: '0',
+      group: 'Expression',
+      visible: { mode: 'expression' }
+    },
+    
+    // Noise mode
+    noiseType: {
+      type: 'select',
+      options: ['curl-noise', 'turbulence', 'fractal'],
+      default: 'curl-noise',
+      group: 'Noise',
+      visible: { mode: 'noise' }
+    },
+    frequency: {
+      type: 'number',
+      default: 0.5,
+      min: 0.1,
+      max: 5.0,
+      step: 0.1,
+      group: 'Noise',
+      visible: { mode: ['noise', 'attractor'] }
+    },
+    octaves: {
+      type: 'number',
+      default: 3,
+      min: 1,
+      max: 8,
+      group: 'Noise',
+      visible: { mode: 'noise' }
+    },
+    
+    // Attractor mode
+    attractors: {
+      type: 'array',
+      default: [],
+      description: '[{pos: [x,y,z], strength: 1.0}]',
+      group: 'Attractors',
+      visible: { mode: 'attractor' }
+    },
+    repellers: {
+      type: 'array',
+      default: [],
+      description: '[{pos: [x,y,z], strength: 1.0}]',
+      group: 'Repellers',
+      visible: { mode: 'attractor' }
+    },
+    
+    // Global
+    strength: {
+      type: 'number',
+      default: 1.0,
+      min: 0,
+      max: 10,
+      step: 0.1,
+      group: 'Global'
+    },
+    scale: {
+      type: 'number',
+      default: 0.1,
+      min: 0.01,
+      max: 1.0,
+      step: 0.01,
+      group: 'Global'
+    },
+    damping: {
+      type: 'number',
+      default: 0.0,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      group: 'Global'
+    },
+    time: {
+      type: 'number',
+      default: 0,
+      group: 'Global'
+    }
+  }
+},
 
             // 7b. FLOW VISUALIZATION (NEW!) - 2 helpers
             createStreamlines: {
