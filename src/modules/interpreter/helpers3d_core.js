@@ -1367,29 +1367,24 @@ export function meshFromMarchingCubes(params = {}) {
         context = {} 
     } = params;
 
-    // FIX: MarchingCubes requires a material (2nd arg) to function, even if we don't use it.
-    // We pass a basic material to prevent the 'flatShading' null error.
     const dummyMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const effect = new MarchingCubes(resolution, dummyMaterial, true, true, 100000);
 
     let fieldFn;
 
-    // ========================================================================
-    // MODE 1: Direct Field Visualization
-    // ========================================================================
+    // --- 1. Field Resolution ---
     if (field) {
         const vectorFn = resolveField(field);
         if (vectorFn) {
             fieldFn = (x, y, z) => {
                 const vec = vectorFn(x, y, z);
-                return vec ? vec.length() : 0;
+                // Safety check for vector
+                return vec && typeof vec.length === 'function' ? vec.length() : 0;
             };
         }
     }
 
-    // ========================================================================
-    // MODE 2: Custom Expression (Overrides field)
-    // ========================================================================
+    // --- 2. Expression Override ---
     if (expression && expression.trim() !== '') {
         try {
             const userFn = new Function('x', 'y', 'z', 'ctx', 'noise', 'utils', `
@@ -1397,54 +1392,45 @@ export function meshFromMarchingCubes(params = {}) {
                     ${expression.includes('return') ? expression : 'return ' + expression + ';'} 
                 } catch(e) { return 0; }
             `);
-
             const noiseFn = (x, y, z) => noise.simplex3(x, y, z);
             fieldFn = (x, y, z) => userFn(x, y, z, context, noiseFn, Math);
-
-        } catch (e) {
-            console.error("MarchingCubes expression error:", e);
-        }
+        } catch (e) { console.error(e); }
     }
 
-    // ========================================================================
-    // FALLBACK
-    // ========================================================================
-    if (!fieldFn) {
-        // Default blob if nothing provided
-        fieldFn = (x, y, z) => noise.simplex3(x * 0.2, y * 0.2, z * 0.2) + 0.5;
-    }
+    if (!fieldFn) fieldFn = (x, y, z) => noise.simplex3(x*0.2, y*0.2, z*0.2) + 0.5;
 
-    // ========================================================================
-    // MESH GENERATION
-    // ========================================================================
+    // --- 3. Data Generation ---
+    // We sample the field over a world-space area defined by 'bounds'
     const scaleFactor = 2 * bounds / resolution;
     effect.isolation = isovalue;
 
-    // Fill the data buffer
     for (let k = 0; k < resolution; k++) {
         for (let j = 0; j < resolution; j++) {
             for (let i = 0; i < resolution; i++) {
+                // Calculate world pos for sampling
                 const x = (i - resolution / 2) * scaleFactor;
                 const y = (j - resolution / 2) * scaleFactor;
                 const z = (k - resolution / 2) * scaleFactor;
                 
-                const val = fieldFn(x, y, z);
-                
-                effect.field[i + j * resolution + k * resolution * resolution] = val;
+                effect.field[i + j * resolution + k * resolution * resolution] = fieldFn(x, y, z);
             }
         }
     }
 
-    // Generate geometry
+    // --- 4. Geometry Extraction & Scaling ---
     try {
         effect.update();
         if (effect.geometry) {
             const exportedGeom = effect.geometry.clone();
             
-            // Cleanup internal resources
+            // ✅ FIX: Scale the normalized geometry to match the user's bounds
+            // MarchingCubes output is typically range [-1, 1] (Size 2). 
+            // We want range [-bounds, bounds] (Size 2*bounds).
+            // So we scale by 'bounds'.
+            exportedGeom.scale(bounds, bounds, bounds);
+
             effect.geometry.dispose();
             dummyMaterial.dispose();
-            
             return exportedGeom;
         }
     } catch (e) {
@@ -1453,6 +1439,7 @@ export function meshFromMarchingCubes(params = {}) {
 
     return new THREE.BufferGeometry();
 }
+
 
 
 
