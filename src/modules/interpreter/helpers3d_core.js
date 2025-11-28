@@ -985,7 +985,7 @@ export function flowField(params = {}) {
         const dy_n1 = (n1(0, eps, 0) - n1(0, -eps, 0)) / (2 * eps);
         const vz = dx_n2 - dy_n1;
         
-        return new THREE.Vector3(vx, vy, vz).normalize().multiplyScalar(strength * scale);
+        return new THREE.Vector3(vx, vy, vz).multiplyScalar(strength * scale);
       };
     }
     
