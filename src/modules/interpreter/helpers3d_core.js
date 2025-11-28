@@ -1146,23 +1146,22 @@ export function flowField(params = {}) {
 // ✅ NEW: createStreamlines visualizes vector fields
 export function createStreamlines(params = {}) {
     const { 
-        field,              // Function or wrapped field
-        box = [-5, -5, -5, 5, 5, 5],
-        count = 50,
-        steps = 50,
-        stepSize = 0.1
+        field, 
+        box = [-5, -5, -5, 5, 5, 5], 
+        count = 50, 
+        steps = 50, 
+        stepSize = 0.1 
     } = params;
 
-    // ✅ RESOLVER: Unwraps field automatically
     const fieldFn = resolveField(field);
-
-    if (typeof fieldFn !== 'function') {
-        console.warn('createStreamlines: No valid field');
-        return new THREE.BufferGeometry();
-    }
+    if (typeof fieldFn !== 'function') return new THREE.BufferGeometry();
 
     const [minX, minY, minZ, maxX, maxY, maxZ] = box;
     const lines = [];
+    
+    // ✅ Store segments for Marching Cubes [[start, end, thickness], ...]
+    const rawSegments = []; 
+    const defaultThickness = 0.05; // Default thickness for "skinning"
 
     for (let i = 0; i < count; i++) {
         let pos = new THREE.Vector3(
@@ -1176,8 +1175,13 @@ export function createStreamlines(params = {}) {
         for (let j = 0; j < steps; j++) {
             const dir = fieldFn(pos.x, pos.y, pos.z);
             if (!dir || dir.length() < 0.001) break;
-
-            pos.add(dir.clone().multiplyScalar(stepSize));
+            
+            const nextPos = pos.clone().add(dir.clone().multiplyScalar(stepSize));
+            
+            // Save segment
+            rawSegments.push([pos.clone(), nextPos.clone(), defaultThickness]);
+            
+            pos = nextPos;
             points.push(pos.clone());
         }
 
@@ -1187,8 +1191,17 @@ export function createStreamlines(params = {}) {
         }
     }
 
-    return lines.length > 0 ? mergeGeometries({ geometries: lines }) : new THREE.BufferGeometry();
+    const finalGeom = lines.length > 0 ? mergeGeometries({ geometries: lines }) : new THREE.BufferGeometry();
+    
+    // ✅ Attach data
+    finalGeom.userData = {
+        type: 'streamlines',
+        segments: rawSegments
+    };
+
+    return finalGeom;
 }
+
 
 // ✅ NEW: createFlowPipes - Same as streamlines but as pipes/tubes
 export function createFlowPipes(params = {}) {
