@@ -92,8 +92,8 @@ function simplex3(xin, yin, zin) {
     return 70.0 * (n0 + n1 + n2 + n3);
 }
 
-const noise = {
-    noise: simplex3,
+export const noise = {
+    simplex3,
     seed: (s) => {
         for(let i=0; i<256; i++) _p[i] = Math.floor((Math.sin(s + i) * 43758.5453) % 1 * 256);
         for(let i=0; i<512; i++) {
