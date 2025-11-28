@@ -210,9 +210,10 @@ export function createLoft(params = {}) {
     profilesType: typeof profiles,
     profilesIsArray: Array.isArray(profiles),
     profilesLength: profiles?.length || 0,
-    firstItemType: profiles?.[0]?.constructor?.name,
-    firstItemIsCurve: profiles?.[0]?.isCurve3 || profiles?.[0]?.isEllipseCurve,
-    isSingleCurve: profiles?.isCurve3
+    firstItemType: profiles?.?.constructor?.name,
+    firstItemIsCurve: profiles?.?.isCurve3 || profiles?.?.isEllipseCurve,
+    isSingleCurve: profiles?.isCurve3,
+    firstItemHasUserData: !!profiles?.?.userData
   });
 
   // ========================================================================
@@ -224,7 +225,7 @@ export function createLoft(params = {}) {
   }
 
   // ========================================================================
-  // STEP 2: Convert all items to point arrays
+  // STEP 2: Convert all items to point arrays (with unwrapping support)
   // ========================================================================
   if (!Array.isArray(profiles)) {
     console.error('❌ createLoft: profiles must be array or curve', typeof profiles);
@@ -236,16 +237,25 @@ export function createLoft(params = {}) {
       type: profile?.constructor?.name,
       isCurve: profile?.isCurve3 || profile?.isEllipseCurve,
       isArray: Array.isArray(profile),
+      hasUserData: !!profile?.userData,
+      userDataCurve: !!profile?.userData?.curve,
       length: profile?.length || 'N/A'
     });
 
+    // ===== NEW: Handle wrapped curves (userData.curve) =====
+    let unwrappedCurve = profile;
+    if (profile?.userData?.curve) {
+      console.log(`  🔓 Unwrapping curve from userData`);
+      unwrappedCurve = profile.userData.curve;
+    }
+
     // If it's a THREE.Curve, sample points from it
-    if (profile && (profile.isCurve3 || profile.isEllipseCurve)) {
+    if (unwrappedCurve && (unwrappedCurve.isCurve3 || unwrappedCurve.isEllipseCurve)) {
       console.log(`  Converting curve to ${segments} points`);
       const points = [];
       for (let i = 0; i < segments; i++) {
         const t = i / (segments - 1);
-        const point = profile.getPoint(t);
+        const point = unwrappedCurve.getPoint(t);
         points.push([point.x, point.z]); // Use X and Z for profile
       }
       return points;
@@ -353,6 +363,7 @@ export function createLoft(params = {}) {
 
   return geometry;
 }
+
 
 // ============================================================================
 // OPTIONAL: Add this helper for backwards compatibility
