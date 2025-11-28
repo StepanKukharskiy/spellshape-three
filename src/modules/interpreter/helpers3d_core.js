@@ -1365,16 +1365,72 @@ export function meshFromMarchingCubes(params = {}) {
         field,             
         expression,        
         context = {},
-        objectSpace = true // Default to true for "Easy Scaling" mode
+        objectSpace = true // Default to true for Noise/Math, but we'll auto-disable for Geometry
     } = params;
 
     const dummyMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const effect = new MarchingCubes(resolution, dummyMaterial, true, true, 100000);
 
     let fieldFn;
+    let forceWorldSpace = false; // Flag to override objectSpace if needed
 
-    // --- 1. Field Resolution ---
-    if (field) {
+    // ========================================================================
+    // MODE 1: SEGMENTS / L-SYSTEM (Implicit Surface from Lines)
+    // ========================================================================
+    // We check this FIRST because 'field' might be a geometry object with userData
+    if (field && field.userData && field.userData.segments) {
+        const segments = field.userData.segments;
+        console.log(`MarchingCubes: Meshing ${segments.length} segments from input`);
+        
+        forceWorldSpace = true; // Segments have absolute positions, don't normalize!
+
+        // Define Density Field Function for Segments
+        // Returns: density (high near lines, low far away)
+        fieldFn = (x, y, z) => {
+            const p = new THREE.Vector3(x, y, z); 
+            let minDistSq = Infinity;
+            let minThick = 0.1; 
+
+            for (let i = 0; i < segments.length; i++) {
+                const [start, end, thick] = segments[i];
+                
+                // Distance Point to Line Segment
+                const l2 = start.distanceToSquared(end);
+                if (l2 == 0) continue;
+                
+                let t = ((p.x - start.x) * (end.x - start.x) + 
+                         (p.y - start.y) * (end.y - start.y) + 
+                         (p.z - start.z) * (end.z - start.z)) / l2;
+                t = Math.max(0, Math.min(1, t));
+                
+                const proj = new THREE.Vector3(
+                    start.x + t * (end.x - start.x),
+                    start.y + t * (end.y - start.y),
+                    start.z + t * (end.z - start.z)
+                );
+                
+                const d2 = p.distanceToSquared(proj);
+                if (d2 < minDistSq) {
+                    minDistSq = d2;
+                    minThick = thick;
+                }
+            }
+            
+            // Smooth Falloff Function
+            // 1.0 at center, 0.5 at surface radius, 0.0 at infinity
+            // val = radius / (dist + epsilon)
+            const dist = Math.sqrt(minDistSq);
+            return minThick / (dist + 0.001);
+        };
+        
+        // Override isovalue if default is too low/high for this logic
+        // If user didn't change default 0.5, it works perfectly with the logic above.
+    }
+
+    // ========================================================================
+    // MODE 2: VECTOR FIELD (Flow / Noise)
+    // ========================================================================
+    else if (field) {
         const vectorFn = resolveField(field);
         if (vectorFn) {
             fieldFn = (x, y, z) => {
@@ -1384,7 +1440,9 @@ export function meshFromMarchingCubes(params = {}) {
         }
     }
 
-    // --- 2. Expression Override ---
+    // ========================================================================
+    // MODE 3: EXPRESSION OVERRIDE
+    // ========================================================================
     if (expression && expression.trim() !== '') {
         try {
             const userFn = new Function('x', 'y', 'z', 'ctx', 'noise', 'utils', `
@@ -1397,10 +1455,16 @@ export function meshFromMarchingCubes(params = {}) {
         } catch (e) { console.error(e); }
     }
 
+    // Fallback
     if (!fieldFn) fieldFn = (x, y, z) => noise.simplex3(x, y, z) + 0.5;
 
-    // --- 3. Data Generation (Object Space Mode) ---
+    // ========================================================================
+    // DATA GENERATION
+    // ========================================================================
     effect.isolation = isovalue;
+    
+    // Determine if we should use Object Space scaling
+    const useObjectSpace = objectSpace && !forceWorldSpace;
 
     for (let k = 0; k < resolution; k++) {
         for (let j = 0; j < resolution; j++) {
@@ -1408,17 +1472,15 @@ export function meshFromMarchingCubes(params = {}) {
                 
                 let x, y, z;
 
-                if (objectSpace) {
+                if (useObjectSpace) {
                     // OBJECT SPACE: Coordinates are normalized (-1 to 1)
-                    // This means the noise pattern is "attached" to the object size.
-                    // Increasing 'bounds' just makes the object bigger without changing the pattern.
-                    // We multiply by 2.0 to give a reasonable default "zoom" into the noise.
+                    // Useful for Noise/Math blobs that should scale with the object
                     x = ((i - resolution / 2) / (resolution / 2)) * 2.0;
                     y = ((j - resolution / 2) / (resolution / 2)) * 2.0;
                     z = ((k - resolution / 2) / (resolution / 2)) * 2.0;
                 } else {
                     // WORLD SPACE: Coordinates are absolute
-                    // Increasing 'bounds' reveals more of the infinite field.
+                    // Essential for Segments/L-Systems to match their true position
                     const scaleFactor = 2 * bounds / resolution;
                     x = (i - resolution / 2) * scaleFactor;
                     y = (j - resolution / 2) * scaleFactor;
@@ -1431,16 +1493,26 @@ export function meshFromMarchingCubes(params = {}) {
         }
     }
 
-    // --- 4. Geometry Extraction & Scaling ---
+    // ========================================================================
+    // GEOMETRY EXTRACTION & SCALING
+    // ========================================================================
     try {
         effect.update();
         if (effect.geometry) {
             const exportedGeom = effect.geometry.clone();
             
-            // Apply the user's requested size
-            // MarchingCubes native output is normalized to size 2 (range -1 to 1)
-            // We scale it so the output fits exactly within 'bounds' (radius)
-            exportedGeom.scale(bounds, bounds, bounds);
+            // Apply scaling based on mode
+            if (useObjectSpace) {
+                 // Scale normalized mesh (-1..1) to fit user bounds
+                 exportedGeom.scale(bounds, bounds, bounds);
+            } else {
+                 // World space mesh is already correct relative to origin, 
+                 // BUT MarchingCubes output is normalized 0..1 internally by Three.js example?
+                 // Actually, Three.js MarchingCubes generates geometry in range [-1, 1] always.
+                 // So even in World Space calculation mode, we must scale the RESULT 
+                 // to match the bounds we sampled.
+                 exportedGeom.scale(bounds, bounds, bounds);
+            }
 
             effect.geometry.dispose();
             dummyMaterial.dispose();
@@ -1452,6 +1524,7 @@ export function meshFromMarchingCubes(params = {}) {
 
     return new THREE.BufferGeometry();
 }
+
 
 
 
@@ -1470,9 +1543,7 @@ export function lSystemGeometry(params = {}) {
         angle = 25, 
         length = 1, 
         thickness = 0.1,
-        mode = '2d',           // '2d' or '3d'
-        manifold = false,      // Toggle for watertight mesh
-        resolution = 64        // Resolution for manifold mesh
+        mode = '2d' // '2d' (Z-rotation) or '3d' (Quaternion Pitch/Roll/Yaw)
     } = params;
 
     // ========================================================================
@@ -1563,125 +1634,28 @@ export function lSystemGeometry(params = {}) {
     }
 
     // ========================================================================
-    // 3. OUTPUT: TUBE GEOMETRY (Fast, Default)
+    // 3. OUTPUT VISUAL MESH
     // ========================================================================
-    if (!manifold) {
-        const geometries = [];
-        for (const [start, end, thick] of segments) {
-            const curve = new THREE.LineCurve3(start, end);
-            // Low radial segments (4) for style/performance
-            const tubeGeom = new THREE.TubeGeometry(curve, 1, thick, 4, false);
-            geometries.push(tubeGeom);
-        }
-        return geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
+    const geometries = [];
+    // Optimization: Use low-poly tubes for the visual preview
+    for (const [start, end, thick] of segments) {
+        const curve = new THREE.LineCurve3(start, end);
+        const tubeGeom = new THREE.TubeGeometry(curve, 1, thick, 4, false);
+        geometries.push(tubeGeom);
     }
 
-    // ========================================================================
-    // 4. OUTPUT: MANIFOLD MESH (Watertight, 3D Print Ready)
-    // ========================================================================
-    else {
-        console.log(`Generating Manifold L-System with ${segments.length} segments...`);
-        
-        // A. Calculate Bounds to limit Marching Cubes area
-        const box = new THREE.Box3();
-        segments.forEach(([s, e]) => { box.expandByPoint(s); box.expandByPoint(e); });
-        
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z);
-        
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-        
-        // Padding allows the mesh to close properly
-        const padding = thickness * 4; 
-        const bounds = (maxDim / 2) + padding;
+    const finalGeom = geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
 
-        // B. Define Density Field Function (Meta-lines)
-        const fieldFn = (x, y, z) => {
-            // Shift sampling point back to world space relative to center
-            const p = new THREE.Vector3(x, y, z).add(center);
-            let minDistSq = Infinity;
-            
-            // Iterate all segments (Brute force SDF)
-            // Note: For >1000 segments this will be slow.
-            for (let i = 0; i < segments.length; i++) {
-                const [start, end, th] = segments[i];
-                
-                // Distance from Point p to Line Segment (start -> end)
-                const l2 = start.distanceToSquared(end);
-                let d2;
-                
-                if (l2 === 0) {
-                    d2 = p.distanceToSquared(start);
-                } else {
-                    let t = ((p.x - start.x) * (end.x - start.x) + 
-                             (p.y - start.y) * (end.y - start.y) + 
-                             (p.z - start.z) * (end.z - start.z)) / l2;
-                    t = Math.max(0, Math.min(1, t));
-                    
-                    const proj = new THREE.Vector3(
-                        start.x + t * (end.x - start.x),
-                        start.y + t * (end.y - start.y),
-                        start.z + t * (end.z - start.z)
-                    );
-                    d2 = p.distanceToSquared(proj);
-                }
+    // ✅ EXPORT DATA: Attach raw segments to geometry
+    // This allows downstream helpers (like meshFromMarchingCubes) to read the skeleton
+    finalGeom.userData = {
+        type: 'l-system',
+        segments: segments // Array of [start, end, thickness]
+    };
 
-                // Find absolute minimum distance to the "skeleton"
-                if (d2 < minDistSq) minDistSq = d2;
-            }
-            
-            const dist = Math.sqrt(minDistSq);
-            
-            // SDF Logic:
-            // We want positive values inside the tube radius, negative outside.
-            // Value = Radius - Distance
-            // We add a small buffer (0.1) to ensure volume exists
-            return Math.max(0, thickness - dist + 0.05); 
-        };
-
-        // C. Generate Mesh via Marching Cubes
-        const dummyMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const effect = new MarchingCubes(resolution, dummyMaterial, true, true, 100000);
-        
-        // Threshold: We want the surface where Density == 0.05 (approx edge)
-        effect.isolation = 0.05; 
-        
-        const scaleFactor = 2 * bounds / resolution;
-        
-        for (let k = 0; k < resolution; k++) {
-            for (let j = 0; j < resolution; j++) {
-                for (let i = 0; i < resolution; i++) {
-                    const x = (i - resolution / 2) * scaleFactor;
-                    const y = (j - resolution / 2) * scaleFactor;
-                    const z = (k - resolution / 2) * scaleFactor;
-                    
-                    // Optimization: Skip calculation if far from center?
-                    // For now, calculate full grid to ensure correctness.
-                    effect.field[i + j * resolution + k * resolution * resolution] = fieldFn(x, y, z);
-                }
-            }
-        }
-        
-        try {
-            effect.update();
-            if (effect.geometry) {
-                const geom = effect.geometry.clone();
-                // Translate back to original world position
-                geom.translate(center.x, center.y, center.z);
-                
-                effect.geometry.dispose();
-                dummyMaterial.dispose();
-                return geom;
-            }
-        } catch (e) {
-            console.error("Manifold generation failed", e);
-        }
-        
-        return new THREE.BufferGeometry();
-    }
+    return finalGeom;
 }
+
 
 
 
