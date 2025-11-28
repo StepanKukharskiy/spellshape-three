@@ -875,7 +875,7 @@ export function flowField(params = {}) {
     // For noise mode
     noiseType = 'curl-noise',  // 'curl-noise', 'turbulence', 'fractal'
     frequency = 1.0,
-    octaves = 3,
+    octaves = 3, 
     
     // For attractor mode
     attractors = [],           // [{pos: [x,y,z], strength: 1.0}, ...]
