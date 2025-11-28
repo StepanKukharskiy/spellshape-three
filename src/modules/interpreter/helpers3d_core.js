@@ -1154,14 +1154,19 @@ export function createStreamlines(params = {}) {
     } = params;
 
     const fieldFn = resolveField(field);
-    if (typeof fieldFn !== 'function') return new THREE.BufferGeometry();
+    if (typeof fieldFn !== 'function') {
+        console.warn('createStreamlines: No valid field found');
+        return new THREE.BufferGeometry();
+    }
 
     const [minX, minY, minZ, maxX, maxY, maxZ] = box;
-    const lines = [];
     
-    // ✅ Store segments for Marching Cubes [[start, end, thickness], ...]
+    // We will collect all segments into a single array for LineSegments (Better Performance)
+    const positions = [];
+    
+    // Also store raw segments for Marching Cubes (start, end, thickness)
     const rawSegments = []; 
-    const defaultThickness = 0.05; // Default thickness for "skinning"
+    const defaultThickness = 0.05;
 
     for (let i = 0; i < count; i++) {
         let pos = new THREE.Vector3(
@@ -1170,37 +1175,43 @@ export function createStreamlines(params = {}) {
             minZ + Math.random() * (maxZ - minZ)
         );
 
-        const points = [pos.clone()];
-
         for (let j = 0; j < steps; j++) {
             const dir = fieldFn(pos.x, pos.y, pos.z);
             if (!dir || dir.length() < 0.001) break;
             
             const nextPos = pos.clone().add(dir.clone().multiplyScalar(stepSize));
             
-            // Save segment
+            // Visual: Add to positions array (pairs of points)
+            positions.push(pos.x, pos.y, pos.z);
+            positions.push(nextPos.x, nextPos.y, nextPos.z);
+            
+            // Data: Save segment for downstream processing
             rawSegments.push([pos.clone(), nextPos.clone(), defaultThickness]);
             
             pos = nextPos;
-            points.push(pos.clone());
-        }
-
-        if (points.length > 1) {
-            const geom = new THREE.BufferGeometry().setFromPoints(points);
-            lines.push(geom);
         }
     }
 
-    const finalGeom = lines.length > 0 ? mergeGeometries({ geometries: lines }) : new THREE.BufferGeometry();
+    if (positions.length === 0) return new THREE.BufferGeometry();
+
+    // Create a single BufferGeometry for all lines
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     
-    // ✅ Attach data
-    finalGeom.userData = {
+    // ✅ WRAP IN LINE OBJECT: This ensures it renders as lines, not invisible triangles
+    // We return a THREE.LineSegments object which the executor will add to the scene.
+    // The executor will apply the user's material (color), which works on lines too.
+    const lineObject = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xffffff }));
+
+    // ✅ Attach data for Marching Cubes
+    lineObject.userData = {
         type: 'streamlines',
         segments: rawSegments
     };
 
-    return finalGeom;
+    return lineObject;
 }
+
 
 
 // ✅ NEW: createFlowPipes - Same as streamlines but as pipes/tubes
