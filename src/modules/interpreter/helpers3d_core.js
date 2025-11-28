@@ -1552,33 +1552,47 @@ export function differentialGrowth(params = {}) {
 export function meshFromVoxelGrid(params = {}) {
     let { grid, voxelSize = 1 } = params;
 
-    // ✅ RESOLVER: Unwraps if it's a wrapped grid
+    // 1. UNWRAP: Handle the output from cellularAutomata
     if (grid && grid.userData && grid.userData.grid) {
+        // Extract the actual 3D array from the wrapper
         grid = grid.userData.grid;
-        voxelSize = grid.userData?.voxelSize || voxelSize;
+        // Optional: Inherit voxel size if not overridden
+        if (grid.userData?.voxelSize) voxelSize = grid.userData.voxelSize;
     }
 
-    // ✅ RESOLVER: Also handles raw array
-    grid = resolveVoxelGrid(grid);
+    // 2. RESOLVE: Ensure we have a valid 3D array
+    // This handles cases where 'grid' might be a raw array or coming from other sources
+    const resolvedGrid = resolveVoxelGrid(grid);
 
-    if (!grid || !Array.isArray(grid)) {
-        console.warn('meshFromVoxelGrid: No valid grid');
+    if (!resolvedGrid || !Array.isArray(resolvedGrid)) {
+        console.warn('meshFromVoxelGrid: No valid grid found', grid);
         return new THREE.BufferGeometry();
     }
 
+    // 3. GENERATE MESH
     const geometries = [];
     const boxGeom = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
+    
+    const sizeX = resolvedGrid.length;
+    const sizeY = resolvedGrid[0]?.length || 0;
+    const sizeZ = resolvedGrid[0]?.[0]?.length || 0;
 
-    const sizeX = grid.length;
-    const sizeY = grid[0]?.length || 0;
-    const sizeZ = grid[0]?.[0]?.length || 0;
+    // Center the grid
+    const offsetX = -sizeX * voxelSize / 2;
+    const offsetY = -sizeY * voxelSize / 2;
+    const offsetZ = -sizeZ * voxelSize / 2;
 
     for (let x = 0; x < sizeX; x++) {
         for (let y = 0; y < sizeY; y++) {
             for (let z = 0; z < sizeZ; z++) {
-                if (grid[x][y][z]) {
+                // Check if voxel is active (1 or true)
+                if (resolvedGrid[x][y][z]) {
                     const clone = boxGeom.clone();
-                    clone.translate(x * voxelSize, y * voxelSize, z * voxelSize);
+                    clone.translate(
+                        offsetX + x * voxelSize, 
+                        offsetY + y * voxelSize, 
+                        offsetZ + z * voxelSize
+                    );
                     geometries.push(clone);
                 }
             }
@@ -1587,6 +1601,7 @@ export function meshFromVoxelGrid(params = {}) {
 
     return geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
 }
+
 
 export function pointSetCentroid(params = {}) {
     const { points } = params;
