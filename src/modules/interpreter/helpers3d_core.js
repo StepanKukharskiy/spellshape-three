@@ -1830,6 +1830,102 @@ export function differentialGrowth(params = {}) {
 }
 
 
+export function differentialGrowthSurface(params = {}) {
+    const { 
+        pointsCount = 80, 
+        radius = 0.5,
+        generations = 15, 
+        stepsPerGen = 10, 
+        maxEdgeLength = 0.3, 
+        repulsionRadius = 0.8, 
+        repulsionForce = 0.8,
+        heightPerGen = 0.1 
+    } = params;
+
+    console.log(`Growing Surface: ${generations} gens, start radius ${radius}`);
+
+    let nodes = [];
+    // Init Circle
+    for (let i = 0; i < pointsCount; i++) {
+        const theta = (i / pointsCount) * Math.PI * 2;
+        nodes.push(new THREE.Vector3(Math.cos(theta)*radius, Math.sin(theta)*radius, 0));
+    }
+
+    const profiles = []; // To be used by createLoft
+
+    // Evolution Loop
+    for (let gen = 0; gen < generations; gen++) {
+        
+        // 1. Capture Snapshot (Profile)
+        // Deep copy and apply height offset
+        const ring = nodes.map(n => {
+            const v = n.clone();
+            v.z = gen * heightPerGen; 
+            return [v.x, v.y, v.z]; // Export as array [x,y,z] for universality
+        });
+        
+        // Close the loop explicitly for lofting if needed, 
+        // though createLoft 'closed' param handles connections.
+        profiles.push(ring);
+
+        // 2. Simulate Growth (The "Folding")
+        for (let step = 0; step < stepsPerGen; step++) {
+            const newPositions = nodes.map(n => n.clone());
+            const count = nodes.length;
+
+            // A. Forces
+            for (let i = 0; i < count; i++) {
+                const p = nodes[i];
+                let force = new THREE.Vector3();
+                
+                // Simple Repulsion (Check localized sample to save perf)
+                // Scan every 5th node to approximate density pressure
+                for (let j = 0; j < count; j+=5) { 
+                    const other = nodes[j];
+                    if (p === other) continue;
+                    const d2 = p.distanceToSquared(other);
+                    if (d2 < repulsionRadius*repulsionRadius) {
+                        const d = Math.sqrt(d2);
+                        const push = p.clone().sub(other).normalize();
+                        force.add(push.multiplyScalar((repulsionRadius - d) * repulsionForce));
+                    }
+                }
+                
+                // Laplacian Smoothing (Keep curve fair)
+                const prev = nodes[(i - 1 + count) % count];
+                const next = nodes[(i + 1) % count];
+                const smooth = prev.clone().add(next).sub(p.clone().multiplyScalar(2)).multiplyScalar(0.5);
+                force.add(smooth);
+
+                newPositions[i].add(force.multiplyScalar(0.1));
+            }
+            nodes = newPositions;
+
+            // B. Subdivision (Add Geometry)
+            const nextNodes = [];
+            for(let i=0; i<nodes.length; i++) {
+                const p1 = nodes[i];
+                const p2 = nodes[(i+1)%nodes.length];
+                nextNodes.push(p1);
+                if (p1.distanceTo(p2) > maxEdgeLength) {
+                    nextNodes.push(p1.clone().add(p2).multiplyScalar(0.5));
+                }
+            }
+            nodes = nextNodes;
+        }
+    }
+
+    // Return as a wrapped object that createLoft can understand
+    // We use a dummy geometry to carry the data through the pipeline
+    const dummyGeom = new THREE.BufferGeometry();
+    dummyGeom.userData = {
+        type: 'profiles',
+        profiles: profiles // Array of Array of Points
+    };
+    return dummyGeom;
+}
+
+
 // ✅ UPDATED: meshFromVoxelGrid now accepts wrapped grids
 export function meshFromVoxelGrid(params = {}) {
     let { grid, voxelSize = 1 } = params;
