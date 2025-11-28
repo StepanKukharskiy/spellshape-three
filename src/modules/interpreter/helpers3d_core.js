@@ -857,9 +857,237 @@ export function createVectorField(params = {}) {
     return wrapFieldAsObject(fieldFn, `${type} field at [${center}]`);
 }
 
+/**
+ * flowField - Dedicated helper for creating real-world physics flow fields
+ * Simplified API focused on common simulation scenarios
+ * Returns wrapped field for use with createStreamlines, createFlowPipes, modifyGeometry
+ */
 export function flowField(params = {}) {
-    return createVectorField(params);
+  const {
+    type = 'laminar',           // 'laminar', 'turbulent', 'chaotic', 'wave', 'custom'
+    mode = 'expression',        // 'expression', 'noise', 'attractor'
+    
+    // For expression mode
+    vx = 'y * 0.1',            // Velocity X formula (x, y, z available)
+    vy = '-x * 0.1',           // Velocity Y formula
+    vz = '0',                  // Velocity Z formula
+    
+    // For noise mode
+    noiseType = 'curl-noise',  // 'curl-noise', 'turbulence', 'fractal'
+    frequency = 1.0,
+    octaves = 3,
+    
+    // For attractor mode
+    attractors = [],           // [{pos: [x,y,z], strength: 1.0}, ...]
+    repellers = [],            // [{pos: [x,y,z], strength: 1.0}, ...]
+    
+    // Global parameters
+    strength = 1.0,
+    scale = 0.1,
+    time = 0,
+    damping = 0.0              // 0-1: damps velocity magnitude over distance
+  } = params;
+
+  console.log(`✅ flowField: type='${type}', mode='${mode}'`);
+
+  let fieldFn;
+
+  // =========================================================================
+  // EXPRESSION-BASED FLOWS (user-defined formulas)
+  // =========================================================================
+  if (mode === 'expression') {
+    try {
+      const ctx = {
+        Math, sin: Math.sin, cos: Math.cos, sqrt: Math.sqrt,
+        abs: Math.abs, tan: Math.tan, exp: Math.exp, log: Math.log,
+        time
+      };
+      
+      const fnX = new Function('x, y, z, ctx', `return ${vx}`);
+      const fnY = new Function('x, y, z, ctx', `return ${vy}`);
+      const fnZ = new Function('x, y, z, ctx', `return ${vz}`);
+      
+      fieldFn = (x, y, z) => {
+        const velX = fnX(x, y, z, ctx) * scale;
+        const velY = fnY(x, y, z, ctx) * scale;
+        const velZ = fnZ(x, y, z, ctx) * scale;
+        
+        const vel = new THREE.Vector3(velX, velY, velZ).multiplyScalar(strength);
+        
+        // Apply damping
+        if (damping > 0) {
+          const dist = Math.sqrt(x*x + y*y + z*z);
+          const damp = Math.exp(-damping * dist);
+          vel.multiplyScalar(damp);
+        }
+        
+        return vel;
+      };
+    } catch (e) {
+      console.error('Expression parsing failed:', e);
+      fieldFn = () => new THREE.Vector3(0, 0, 0);
+    }
+  }
+
+  // =========================================================================
+  // NOISE-BASED FLOWS (Perlin/Simplex noise)
+  // =========================================================================
+  else if (mode === 'noise') {
+    if (noiseType === 'curl-noise') {
+      fieldFn = (x, y, z) => {
+        const f = frequency;
+        const eps = 0.001;
+        
+        const n1 = noise.simplex3((x + eps) * f, y * f, z * f);
+        const n2 = noise.simplex3(x * f, (y + eps) * f, z * f);
+        const n3 = noise.simplex3(x * f, y * f, (z + eps) * f);
+        const n4 = noise.simplex3((x - eps) * f, y * f, z * f);
+        const n5 = noise.simplex3(x * f, (y - eps) * f, z * f);
+        const n6 = noise.simplex3(x * f, y * f, (z - eps) * f);
+        
+        const vx = (n3 - n6) - (n2 - n5);
+        const vy = (n1 - n4) - (n3 - n6);
+        const vz = (n2 - n5) - (n1 - n4);
+        
+        return new THREE.Vector3(vx, vy, vz).multiplyScalar(strength * scale);
+      };
+    }
+    
+    else if (noiseType === 'turbulence') {
+      fieldFn = (x, y, z) => {
+        let vx = 0, vy = 0, vz = 0;
+        let amp = 1;
+        let freq = frequency;
+        
+        for (let i = 0; i < octaves; i++) {
+          vx += noise.simplex3(x * freq, y * freq, z * freq) * amp;
+          vy += noise.simplex3(x * freq + 1000, y * freq + 1000, z * freq) * amp;
+          vz += noise.simplex3(x * freq + 2000, y * freq, z * freq + 2000) * amp;
+          
+          freq *= 2;
+          amp *= 0.5;
+        }
+        
+        return new THREE.Vector3(vx, vy, vz).multiplyScalar(strength * scale);
+      };
+    }
+    
+    else if (noiseType === 'fractal') {
+      fieldFn = (x, y, z) => {
+        let result = 0;
+        let amp = 1;
+        let freq = frequency;
+        
+        for (let i = 0; i < octaves; i++) {
+          result += noise.simplex3(x * freq, y * freq, z * freq) * amp;
+          freq *= 2;
+          amp *= 0.5;
+        }
+        
+        const dir = new THREE.Vector3(x, y, z).normalize();
+        return dir.multiplyScalar(result * strength * scale);
+      };
+    }
+  }
+
+  // =========================================================================
+  // ATTRACTOR/REPELLER FLOWS (gravity-like)
+  // =========================================================================
+  else if (mode === 'attractor') {
+    fieldFn = (x, y, z) => {
+      const pos = new THREE.Vector3(x, y, z);
+      let totalForce = new THREE.Vector3(0, 0, 0);
+      
+      // Attractors
+      for (const attr of attractors) {
+        const center = new THREE.Vector3(...attr.pos);
+        const dir = center.clone().sub(pos);
+        const dist = dir.length();
+        if (dist > 0.01) {
+          totalForce.add(dir.normalize().multiplyScalar(attr.strength / (1 + dist * damping)));
+        }
+      }
+      
+      // Repellers
+      for (const rep of repellers) {
+        const center = new THREE.Vector3(...rep.pos);
+        const dir = pos.clone().sub(center);
+        const dist = dir.length();
+        if (dist > 0.01) {
+          totalForce.add(dir.normalize().multiplyScalar(rep.strength / (1 + dist * damping)));
+        }
+      }
+      
+      return totalForce.multiplyScalar(strength * scale);
+    };
+  }
+
+  // =========================================================================
+  // PRESETS (Common field types)
+  // =========================================================================
+  else if (type === 'laminar') {
+    // Simple linear flow
+    fieldFn = () => new THREE.Vector3(strength * scale, 0, 0);
+  }
+  
+  else if (type === 'turbulent') {
+    // Multi-octave noise
+    fieldFn = (x, y, z) => {
+      let vel = new THREE.Vector3(0, 0, 0);
+      let amp = 1;
+      let freq = frequency;
+      
+      for (let i = 0; i < octaves; i++) {
+        const nx = noise.simplex3(x * freq, y * freq, z * freq) * amp;
+        const ny = noise.simplex3(x * freq + 500, y * freq + 500, z * freq) * amp;
+        const nz = noise.simplex3(x * freq + 1000, y * freq + 1000, z * freq) * amp;
+        
+        vel.add(new THREE.Vector3(nx, ny, nz));
+        freq *= 2;
+        amp *= 0.5;
+      }
+      
+      return vel.multiplyScalar(strength * scale);
+    };
+  }
+  
+  else if (type === 'chaotic') {
+    // Lorenz attractor
+    const sigma = 10, rho = 28, beta = 8/3;
+    fieldFn = (x, y, z) => {
+      const vx = sigma * (y - x);
+      const vy = x * (rho - z) - y;
+      const vz = x * y - beta * z;
+      
+      return new THREE.Vector3(vx, vy, vz).multiplyScalar(strength * scale);
+    };
+  }
+  
+  else if (type === 'wave') {
+    // Expanding/contracting waves
+    const center = new THREE.Vector3(0, 0, 0);
+    fieldFn = (x, y, z) => {
+      const pos = new THREE.Vector3(x, y, z);
+      const dist = pos.sub(center).length();
+      const wave = Math.sin(dist * frequency - time);
+      const dir = pos.clone().normalize();
+      
+      return dir.multiplyScalar(wave * strength * scale);
+    };
+  }
+
+  // ✅ WRAP for downstream use
+  return wrapFieldAsObject(fieldFn, `${type} flow field`, {
+    type,
+    mode,
+    strength,
+    scale,
+    frequency,
+    octaves,
+    damping
+  });
 }
+
 
 // ============================================================================
 // 8. FLOW VISUALIZATION (NEW) - Visualizes flow fields as streamlines/pipes
