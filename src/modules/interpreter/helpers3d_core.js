@@ -1469,10 +1469,15 @@ export function lSystemGeometry(params = {}) {
         iterations = 3, 
         angle = 25, 
         length = 1, 
-        thickness = 0.1 
+        thickness = 0.1,
+        mode = '2d',           // '2d' or '3d'
+        manifold = false,      // Toggle for watertight mesh
+        resolution = 64        // Resolution for manifold mesh
     } = params;
 
-    // 1. Run the L-System String Generation
+    // ========================================================================
+    // 1. GENERATE L-SYSTEM STRING
+    // ========================================================================
     let current = axiom;
     for (let i = 0; i < iterations; i++) {
         let next = '';
@@ -1482,87 +1487,203 @@ export function lSystemGeometry(params = {}) {
         current = next;
     }
 
-    // 2. Turtle Graphics State
-    const stack = [];
-    let position = new THREE.Vector3(0, 0, 0);
-    
-    // Orientation is best tracked with a Quaternion for true 3D
-    let rotation = new THREE.Quaternion(); 
-    
-    // Initial heading: Up (Y-axis)
-    // We can rotate the starting turtle if needed, but default is Y-up
-    
-    const angleRad = angle * Math.PI / 180;
+    // ========================================================================
+    // 2. EXECUTE TURTLE GRAPHICS (Generate Segments)
+    // ========================================================================
     const segments = [];
-    const geometries = [];
+    const angleRad = angle * Math.PI / 180;
+    let position = new THREE.Vector3(0, 0, 0);
 
-    // Helper to rotate the turtle
-    const rotateTurtle = (axis, rads) => {
-        const rotQuat = new THREE.Quaternion();
-        rotQuat.setFromAxisAngle(axis, rads);
-        rotation.multiply(rotQuat); // Local rotation
-    };
+    // --- MODE: 2D (Classic Z-Rotation) ---
+    if (mode === '2d') {
+        const stack = [];
+        let direction = new THREE.Vector3(0, 1, 0); // Up
 
-    // 3. Interpret String
-    for (const char of current) {
-        if (char === 'F') {
-            // Move Forward
-            const direction = new THREE.Vector3(0, 1, 0).applyQuaternion(rotation);
-            const newPos = position.clone().add(direction.multiplyScalar(length));
-            
-            // Create Segment
-            segments.push([position.clone(), newPos.clone(), thickness]);
-            
-            // Advance
-            position.copy(newPos);
+        for (const char of current) {
+            if (char === 'F') {
+                const newPos = position.clone().add(direction.clone().multiplyScalar(length));
+                segments.push([position.clone(), newPos.clone(), thickness]);
+                position.copy(newPos);
+            } else if (char === '+') {
+                direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), angleRad);
+            } else if (char === '-') {
+                direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), -angleRad);
+            } else if (char === '[') {
+                stack.push([position.clone(), direction.clone()]);
+            } else if (char === ']') {
+                if (stack.length > 0) {
+                    const [pos, dir] = stack.pop();
+                    position.copy(pos);
+                    direction.copy(dir);
+                }
+            }
+        }
+    }
+    
+    // --- MODE: 3D (Full Quaternion Pitch/Roll/Yaw) ---
+    else {
+        const stack = [];
+        let rotation = new THREE.Quaternion(); 
+        
+        // Helper to rotate the turtle locally
+        const rotateTurtle = (axis, rads) => {
+            const rotQuat = new THREE.Quaternion();
+            rotQuat.setFromAxisAngle(axis, rads);
+            rotation.multiply(rotQuat);
+        };
 
-        } else if (char === '+') {
-            // Turn Left (Z-axis)
-            rotateTurtle(new THREE.Vector3(0, 0, 1), angleRad);
-        } else if (char === '-') {
-            // Turn Right (Z-axis)
-            rotateTurtle(new THREE.Vector3(0, 0, 1), -angleRad);
-            
-        } else if (char === '&') {
-            // Pitch Down (X-axis)
-            rotateTurtle(new THREE.Vector3(1, 0, 0), angleRad);
-        } else if (char === '^') {
-            // Pitch Up (X-axis)
-            rotateTurtle(new THREE.Vector3(1, 0, 0), -angleRad);
-            
-        } else if (char === '\\') {
-            // Roll Left (Y-axis)
-            rotateTurtle(new THREE.Vector3(0, 1, 0), angleRad);
-        } else if (char === '/') {
-            // Roll Right (Y-axis)
-            rotateTurtle(new THREE.Vector3(0, 1, 0), -angleRad);
-            
-        } else if (char === '[') {
-            // Save State
-            stack.push({
-                pos: position.clone(),
-                rot: rotation.clone()
-            });
-        } else if (char === ']') {
-            // Restore State
-            if (stack.length > 0) {
-                const state = stack.pop();
-                position.copy(state.pos);
-                rotation.copy(state.rot);
+        for (const char of current) {
+            if (char === 'F') {
+                const direction = new THREE.Vector3(0, 1, 0).applyQuaternion(rotation);
+                const newPos = position.clone().add(direction.multiplyScalar(length));
+                segments.push([position.clone(), newPos.clone(), thickness]);
+                position.copy(newPos);
+            } else if (char === '+') { // Turn Left (Z)
+                rotateTurtle(new THREE.Vector3(0, 0, 1), angleRad);
+            } else if (char === '-') { // Turn Right (Z)
+                rotateTurtle(new THREE.Vector3(0, 0, 1), -angleRad);
+            } else if (char === '&') { // Pitch Down (X)
+                rotateTurtle(new THREE.Vector3(1, 0, 0), angleRad);
+            } else if (char === '^') { // Pitch Up (X)
+                rotateTurtle(new THREE.Vector3(1, 0, 0), -angleRad);
+            } else if (char === '\\') { // Roll Left (Y)
+                rotateTurtle(new THREE.Vector3(0, 1, 0), angleRad);
+            } else if (char === '/') { // Roll Right (Y)
+                rotateTurtle(new THREE.Vector3(0, 1, 0), -angleRad);
+            } else if (char === '[') {
+                stack.push({ pos: position.clone(), rot: rotation.clone() });
+            } else if (char === ']') {
+                if (stack.length > 0) {
+                    const state = stack.pop();
+                    position.copy(state.pos);
+                    rotation.copy(state.rot);
+                }
             }
         }
     }
 
-    // 4. Build Geometry from Segments
-    // Optimization: If too many segments, merge them efficiently
-    for (const [start, end, thick] of segments) {
-        const curve = new THREE.LineCurve3(start, end);
-        const tubeGeom = new THREE.TubeGeometry(curve, 1, thick, 4, false); // Low res for speed
-        geometries.push(tubeGeom);
+    // ========================================================================
+    // 3. OUTPUT: TUBE GEOMETRY (Fast, Default)
+    // ========================================================================
+    if (!manifold) {
+        const geometries = [];
+        for (const [start, end, thick] of segments) {
+            const curve = new THREE.LineCurve3(start, end);
+            // Low radial segments (4) for style/performance
+            const tubeGeom = new THREE.TubeGeometry(curve, 1, thick, 4, false);
+            geometries.push(tubeGeom);
+        }
+        return geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
     }
 
-    return geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
+    // ========================================================================
+    // 4. OUTPUT: MANIFOLD MESH (Watertight, 3D Print Ready)
+    // ========================================================================
+    else {
+        console.log(`Generating Manifold L-System with ${segments.length} segments...`);
+        
+        // A. Calculate Bounds to limit Marching Cubes area
+        const box = new THREE.Box3();
+        segments.forEach(([s, e]) => { box.expandByPoint(s); box.expandByPoint(e); });
+        
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        
+        // Padding allows the mesh to close properly
+        const padding = thickness * 4; 
+        const bounds = (maxDim / 2) + padding;
+
+        // B. Define Density Field Function (Meta-lines)
+        const fieldFn = (x, y, z) => {
+            // Shift sampling point back to world space relative to center
+            const p = new THREE.Vector3(x, y, z).add(center);
+            let minDistSq = Infinity;
+            
+            // Iterate all segments (Brute force SDF)
+            // Note: For >1000 segments this will be slow.
+            for (let i = 0; i < segments.length; i++) {
+                const [start, end, th] = segments[i];
+                
+                // Distance from Point p to Line Segment (start -> end)
+                const l2 = start.distanceToSquared(end);
+                let d2;
+                
+                if (l2 === 0) {
+                    d2 = p.distanceToSquared(start);
+                } else {
+                    let t = ((p.x - start.x) * (end.x - start.x) + 
+                             (p.y - start.y) * (end.y - start.y) + 
+                             (p.z - start.z) * (end.z - start.z)) / l2;
+                    t = Math.max(0, Math.min(1, t));
+                    
+                    const proj = new THREE.Vector3(
+                        start.x + t * (end.x - start.x),
+                        start.y + t * (end.y - start.y),
+                        start.z + t * (end.z - start.z)
+                    );
+                    d2 = p.distanceToSquared(proj);
+                }
+
+                // Find absolute minimum distance to the "skeleton"
+                if (d2 < minDistSq) minDistSq = d2;
+            }
+            
+            const dist = Math.sqrt(minDistSq);
+            
+            // SDF Logic:
+            // We want positive values inside the tube radius, negative outside.
+            // Value = Radius - Distance
+            // We add a small buffer (0.1) to ensure volume exists
+            return Math.max(0, thickness - dist + 0.05); 
+        };
+
+        // C. Generate Mesh via Marching Cubes
+        const dummyMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const effect = new MarchingCubes(resolution, dummyMaterial, true, true, 100000);
+        
+        // Threshold: We want the surface where Density == 0.05 (approx edge)
+        effect.isolation = 0.05; 
+        
+        const scaleFactor = 2 * bounds / resolution;
+        
+        for (let k = 0; k < resolution; k++) {
+            for (let j = 0; j < resolution; j++) {
+                for (let i = 0; i < resolution; i++) {
+                    const x = (i - resolution / 2) * scaleFactor;
+                    const y = (j - resolution / 2) * scaleFactor;
+                    const z = (k - resolution / 2) * scaleFactor;
+                    
+                    // Optimization: Skip calculation if far from center?
+                    // For now, calculate full grid to ensure correctness.
+                    effect.field[i + j * resolution + k * resolution * resolution] = fieldFn(x, y, z);
+                }
+            }
+        }
+        
+        try {
+            effect.update();
+            if (effect.geometry) {
+                const geom = effect.geometry.clone();
+                // Translate back to original world position
+                geom.translate(center.x, center.y, center.z);
+                
+                effect.geometry.dispose();
+                dummyMaterial.dispose();
+                return geom;
+            }
+        } catch (e) {
+            console.error("Manifold generation failed", e);
+        }
+        
+        return new THREE.BufferGeometry();
+    }
 }
+
+
 
 
 export function differentialGrowth(params = {}) {
