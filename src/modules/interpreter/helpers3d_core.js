@@ -207,71 +207,47 @@ export function createLoft(params = {}) {
   let { profiles = [], heights = null, segments = 32, closed = false } = params;
 
   // ========================================================================
-  // STEP 0: AUTO-UNWRAP DATA (Crucial Fix)
+  // STEP 0: AUTO-UNWRAP DATA
   // ========================================================================
-  // Check if 'profiles' is actually a Geometry/Object with userData attached
-  // This handles output from differentialGrowthSurface
   if (profiles && profiles.userData && profiles.userData.profiles) {
       console.log('createLoft: Unwrapping profiles from userData');
       profiles = profiles.userData.profiles;
-      // If coming from differential growth (rings), auto-close the loop
       closed = true; 
   }
 
-  // Ensure it's an array
   if (!Array.isArray(profiles)) profiles = [profiles];
 
   // ========================================================================
-  // STEP 1: Sample curves to 3D point arrays
+  // STEP 1: Sample curves
   // ========================================================================
   profiles = profiles.map((profile, idx) => {
     let unwrappedCurve = profile;
-    
-    // Handle single wrapped curve
-    if (profile?.userData?.curve) {
-      unwrappedCurve = profile.userData.curve;
-    }
-
-    // If it's a curve object, sample points from it
+    if (profile?.userData?.curve) unwrappedCurve = profile.userData.curve;
     if (unwrappedCurve && typeof unwrappedCurve.getPoint === 'function') {
-      // console.log(`Profile ${idx}: Sampling curve with ${segments} points`);
       const points = [];
       for (let i = 0; i < segments; i++) {
         const t = i / (segments - 1);
         const point = unwrappedCurve.getPoint(t);
-        if (point) {
-          points.push([point.x, point.y, point.z]);
-        }
+        if (point) points.push([point.x, point.y, point.z]);
       }
       return points;
     }
-
-    // Already an array of points?
-    if (Array.isArray(profile)) {
-      return profile;
-    }
-
+    if (Array.isArray(profile)) return profile;
     return [];
   });
 
-  // Filter out empty profiles
   profiles = profiles.filter(p => p.length > 0);
 
-  // ========================================================================
-  // STEP 2: Validate we have at least 2 profiles
-  // ========================================================================
   if (profiles.length < 2) {
     console.error('❌ createLoft: Need at least 2 profiles');
     return new THREE.BufferGeometry();
   }
 
   // ========================================================================
-  // STEP 3: Create interpolation curves between profiles
+  // STEP 3: Resample (Arc-Length)
   // ========================================================================
   const resampleProfile = (points, targetCount) => {
       if (points.length < 2) return points;
-
-      // 1. Calculate total length and segment lengths
       const dists = [0];
       let totalLen = 0;
       for (let i = 0; i < points.length - 1; i++) {
@@ -283,20 +259,12 @@ export function createLoft(params = {}) {
       }
 
       const result = [];
-      // Always keep first point
       result.push(points[0]);
-
-      // Interpolate middle points
       for (let i = 1; i < targetCount - 1; i++) {
           const targetDist = (i / (targetCount - 1)) * totalLen;
-          
-          // Find segment index
           let idx = 0;
-          while (dists[idx+1] < targetDist && idx < dists.length - 2) {
-              idx++;
-          }
+          while (dists[idx+1] < targetDist && idx < dists.length - 2) idx++;
           
-          // Linear Interpolation between points[idx] and points[idx+1]
           const segmentLen = dists[idx+1] - dists[idx];
           const t = segmentLen === 0 ? 0 : (targetDist - dists[idx]) / segmentLen;
           
@@ -309,27 +277,19 @@ export function createLoft(params = {}) {
               p1[2] + (p2[2] - p1[2]) * t
           ]);
       }
-
-      // Always keep last point (if open) or match first (if closed loop intent)
-      // Since we are wrapping rings, last point should align with end.
       result.push(points[points.length - 1]);
-      
       return result;
   };
 
-  // Apply resampling
-  // Use the 'segments' parameter to define resolution, or default to max
+  // Use finalPointCount instead of pointsPerProfile
   const finalPointCount = Math.max(segments, ...profiles.map(p => p.length));
-  
   profiles = profiles.map(profile => resampleProfile(profile, finalPointCount));
 
-
   // ========================================================================
-  // STEP 4: For each point column, create interpolation curve
+  // STEP 4: Create Interpolation Curves
   // ========================================================================
   const interpCurves = [];
-  for (let j = 0; j < pointsPerProfile; j++) {
-    // Collect the j-th point from each profile
+  for (let j = 0; j < finalPointCount; j++) { // ✅ FIX: Used correct variable
     const columnPoints = profiles.map((profile) => {
       const [x, y, z] = profile[j];
       return new THREE.Vector3(x, y, z);
@@ -342,9 +302,10 @@ export function createLoft(params = {}) {
   }
 
   // ========================================================================
-  // STEP 5: Sample interpolation curves and build mesh
+  // STEP 5: Build Mesh
   // ========================================================================
-  // Increase samples for smoother vertical surface
+  const vertices = []; // ✅ FIX: Defined arrays
+  const indices = [];
   const samplesPerCurve = Math.max(16, profiles.length * 2); 
   
   for (let j = 0; j < interpCurves.length; j++) {
@@ -362,13 +323,12 @@ export function createLoft(params = {}) {
       const b = j * samplesPerCurve + k + 1;
       const c = (j + 1) * samplesPerCurve + k + 1;
       const d = (j + 1) * samplesPerCurve + k;
-
       indices.push(a, b, d);
       indices.push(b, c, d);
     }
   }
 
-  // Close the loop (connect last column to first column)
+  // Close loop
   if (closed && interpCurves.length > 1) {
     const lastIdx = interpCurves.length - 1;
     for (let k = 0; k < samplesPerCurve - 1; k++) {
@@ -376,14 +336,13 @@ export function createLoft(params = {}) {
       const b = lastIdx * samplesPerCurve + k + 1;
       const c = k + 1;
       const d = k;
-
       indices.push(a, b, d);
       indices.push(b, c, d);
     }
   }
 
   // ========================================================================
-  // STEP 6: Create geometry
+  // STEP 6: Create Geometry
   // ========================================================================
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
@@ -397,6 +356,7 @@ export function createLoft(params = {}) {
 
   return geometry;
 }
+
 
 
 
