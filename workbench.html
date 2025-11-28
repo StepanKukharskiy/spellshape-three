@@ -1410,15 +1410,16 @@
                 }
             },
             meshFromMarchingCubes: {
-                category: 'Emergent',
-                params: {
-                    resolution: { type: 'integer', default: 32, min: 8, max: 128 },
-                    isovalue: { type: 'number', default: 0.5, min: 0, max: 1 },
-                    bounds: { type: 'number', default: 10, min: 1, max: 100 },
-                    expression: { type: 'string', default: '' },
-                    context: { type: 'object', default: {} }
-                }
-            },
+    category: 'Emergent',
+    params: {
+        resolution: { type: 'integer', default: 32, min: 8, max: 128 },
+        isovalue: { type: 'number', default: 0.5, min: 0.01, max: 2.0 }, // Tweak min/max for field magnitude
+        bounds: { type: 'number', default: 10, min: 1, max: 100 },
+        field: { type: 'string', default: '', hint: 'Name of previous Flow Field step' },
+        expression: { type: 'string', default: '', hint: 'Optional: Custom JS expression' },
+        context: { type: 'object', default: {} }
+    }
+},
 
             // 10. COMPLEX ALGORITHMS - 11 helpers
             lSystemGeometry: {
