@@ -219,6 +219,12 @@ export function createLoft(params = {}) {
       unwrappedCurve = profile.userData.curve;
     }
 
+    if (profiles.userData && profiles.userData.profiles) {
+        profiles = profiles.userData.profiles;
+        // Auto-close the profiles since they are rings
+        closed = true; 
+    }
+
     // If it's a curve, sample points from it
     if (unwrappedCurve && typeof unwrappedCurve.getPoint === 'function') {
       console.log(`Profile ${idx}: Sampling curve with ${segments} points`);
