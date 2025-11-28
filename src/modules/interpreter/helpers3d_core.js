@@ -242,7 +242,7 @@ export function createLoft(params = {}) {
     }
 
     // If it's a THREE.Curve, sample points from it
-    if (unwrappedCurve && (unwrappedCurve.isCurve3 || unwrappedCurve.isEllipseCurve)) {
+    if (unwrappedCurve && typeof unwrappedCurve.getPoint === 'function') {
       console.log(`  Converting curve to ${segments} points`);
       const points = [];
       for (let i = 0; i < segments; i++) {
