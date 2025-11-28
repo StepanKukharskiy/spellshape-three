@@ -190,57 +190,57 @@ if (Array.isArray(result)) {
 
     // ========== PARAMETER EVALUATION ==========
     evaluateParamsCarefully(params) {
-        if (!params) return {};
+    if (!params) return {};
 
-        const evaluated = {};
+    const evaluated = {};
 
-        for (const [key, value] of Object.entries(params)) {
-            // CRITICAL: Arrays stay as arrays (may contain curve references, etc)
-            if (Array.isArray(value)) {
-                evaluated[key] = value.map(item => {
-                    if (typeof item === 'number') return item;
-                    if (Array.isArray(item)) return item;
-
-                    // If item references a stored geometry/curve/field, resolve it
-                    if (typeof item === 'string' && this.geometries.has(item)) {
-                        return this.geometries.get(item);
-                    }
-
-                    // If it's an expression, evaluate it
-                    if (typeof item === 'string' && (item.includes('ctx.') || item.includes('Math'))) {
-                        return this.evaluateExpression(item);
-                    }
-
-                    return item;
-                });
-            }
-            // Objects stay as objects (recursively evaluate)
-            else if (typeof value === 'object' && value !== null) {
-                evaluated[key] = this.evaluateParamsCarefully(value);
-            }
-            // Strings: only evaluate if they contain expressions
-            else if (typeof value === 'string') {
-                // Check if it's a geometry/curve/field reference (stored object)
-                if (this.geometries.has(value)) {
-                    evaluated[key] = this.geometries.get(value);
+    for (const [key, value] of Object.entries(params)) {
+        if (Array.isArray(value)) {
+            evaluated[key] = value.map(item => {
+                if (typeof item === 'number') return item;
+                if (Array.isArray(item)) return item;
+                if (typeof item === 'string' && this.geometries.has(item)) {
+                    return this.geometries.get(item);
                 }
-                // Check if it's an expression
-                else if (value.includes('ctx.') || value.includes('Math.') || value.includes('Math[')) {
-                    evaluated[key] = this.evaluateExpression(value);
+                if (typeof item === 'string' && (item.includes('ctx.') || item.includes('Math'))) {
+                    return this.evaluateExpression(item);
                 }
-                // Otherwise keep as string
-                else {
-                    evaluated[key] = value;
+                return item;
+            });
+        }
+        else if (typeof value === 'object' && value !== null) {
+            evaluated[key] = this.evaluateParamsCarefully(value);
+        }
+        else if (typeof value === 'string') {
+            // ✅ NEW: Check if it references a stored wrapped object
+            if (this.geometries.has(value)) {
+                const stored = this.geometries.get(value);
+                // ✅ If it's wrapped (field, grid, curve), pass it unwrapped
+                if (stored.userData?.curve) {
+                    evaluated[key] = stored.userData.curve;  // Unwrap curve
+                } else if (stored.userData?.field) {
+                    evaluated[key] = stored.userData.field;  // Unwrap field ← THIS IS KEY!
+                } else if (stored.userData?.grid) {
+                    evaluated[key] = stored.userData.grid;   // Unwrap grid
+                } else {
+                    evaluated[key] = stored;  // Not wrapped, use as-is
                 }
             }
-            // Numbers and booleans stay as-is
+            else if (value.includes('ctx.') || value.includes('Math.') || value.includes('Math[')) {
+                evaluated[key] = this.evaluateExpression(value);
+            }
             else {
                 evaluated[key] = value;
             }
         }
-
-        return evaluated;
+        else {
+            evaluated[key] = value;
+        }
     }
+
+    return evaluated;
+}
+
 
     // ========== LOOP EXECUTION ==========
     executeLoop(action, group) {
