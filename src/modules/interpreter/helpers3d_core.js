@@ -1463,8 +1463,16 @@ export function meshFromMarchingCubes(params = {}) {
 // ============================================================================
 
 export function lSystemGeometry(params = {}) {
-    const { axiom = 'F', rules = { 'F': 'FF+[+F-F-F]-[-F+F+F]' }, iterations = 3, angle = 25, length = 1, thickness = 0.1 } = params;
+    const { 
+        axiom = 'F', 
+        rules = { 'F': 'FF+[+F-F-F]-[-F+F+F]' }, 
+        iterations = 3, 
+        angle = 25, 
+        length = 1, 
+        thickness = 0.1 
+    } = params;
 
+    // 1. Run the L-System String Generation
     let current = axiom;
     for (let i = 0; i < iterations; i++) {
         let next = '';
@@ -1474,39 +1482,88 @@ export function lSystemGeometry(params = {}) {
         current = next;
     }
 
+    // 2. Turtle Graphics State
     const stack = [];
-    const position = new THREE.Vector3(0, 0, 0);
-    const direction = new THREE.Vector3(0, 1, 0);
+    let position = new THREE.Vector3(0, 0, 0);
+    
+    // Orientation is best tracked with a Quaternion for true 3D
+    let rotation = new THREE.Quaternion(); 
+    
+    // Initial heading: Up (Y-axis)
+    // We can rotate the starting turtle if needed, but default is Y-up
+    
     const angleRad = angle * Math.PI / 180;
     const segments = [];
+    const geometries = [];
 
+    // Helper to rotate the turtle
+    const rotateTurtle = (axis, rads) => {
+        const rotQuat = new THREE.Quaternion();
+        rotQuat.setFromAxisAngle(axis, rads);
+        rotation.multiply(rotQuat); // Local rotation
+    };
+
+    // 3. Interpret String
     for (const char of current) {
         if (char === 'F') {
-            const newPos = position.clone().add(direction.clone().multiplyScalar(length));
+            // Move Forward
+            const direction = new THREE.Vector3(0, 1, 0).applyQuaternion(rotation);
+            const newPos = position.clone().add(direction.multiplyScalar(length));
+            
+            // Create Segment
             segments.push([position.clone(), newPos.clone(), thickness]);
+            
+            // Advance
             position.copy(newPos);
+
         } else if (char === '+') {
-            direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), angleRad);
+            // Turn Left (Z-axis)
+            rotateTurtle(new THREE.Vector3(0, 0, 1), angleRad);
         } else if (char === '-') {
-            direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), -angleRad);
+            // Turn Right (Z-axis)
+            rotateTurtle(new THREE.Vector3(0, 0, 1), -angleRad);
+            
+        } else if (char === '&') {
+            // Pitch Down (X-axis)
+            rotateTurtle(new THREE.Vector3(1, 0, 0), angleRad);
+        } else if (char === '^') {
+            // Pitch Up (X-axis)
+            rotateTurtle(new THREE.Vector3(1, 0, 0), -angleRad);
+            
+        } else if (char === '\\') {
+            // Roll Left (Y-axis)
+            rotateTurtle(new THREE.Vector3(0, 1, 0), angleRad);
+        } else if (char === '/') {
+            // Roll Right (Y-axis)
+            rotateTurtle(new THREE.Vector3(0, 1, 0), -angleRad);
+            
         } else if (char === '[') {
-            stack.push([position.clone(), direction.clone()]);
+            // Save State
+            stack.push({
+                pos: position.clone(),
+                rot: rotation.clone()
+            });
         } else if (char === ']') {
-            const [pos, dir] = stack.pop();
-            position.copy(pos);
-            direction.copy(dir);
+            // Restore State
+            if (stack.length > 0) {
+                const state = stack.pop();
+                position.copy(state.pos);
+                rotation.copy(state.rot);
+            }
         }
     }
 
-    const geometries = [];
+    // 4. Build Geometry from Segments
+    // Optimization: If too many segments, merge them efficiently
     for (const [start, end, thick] of segments) {
         const curve = new THREE.LineCurve3(start, end);
-        const tubeGeom = new THREE.TubeGeometry(curve, 2, thick, 4, false);
+        const tubeGeom = new THREE.TubeGeometry(curve, 1, thick, 4, false); // Low res for speed
         geometries.push(tubeGeom);
     }
 
     return geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
 }
+
 
 export function differentialGrowth(params = {}) {
     const { geometry, iterations = 10, maxEdgeLength = 0.5, repulsionRadius = 0.3, repulsionStrength = 0.1, attractionStrength = 0.05 } = params;
