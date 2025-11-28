@@ -1436,7 +1436,9 @@
             default: '2d', 
             options: ['2d', '3d'], 
             hint: '2d = Z-rotation only (Ferns)\n3d = Full Pitch/Roll/Yaw (Trees)' 
-        }
+        },
+      manifold: { type: 'boolean', default: false, hint: 'Create watertight mesh (Slow!)' },
+    resolution: { type: 'integer', default: 50, min: 20, max: 100, hint: 'Mesh detail' }
     }
 },
             differentialGrowth: {
