@@ -204,60 +204,99 @@ export function createExtrude(params = {}) {
 }
 
 export function createLoft(params = {}) {
-    const { profiles = [], heights = null, segments = 32, closed = false } = params;
+  let { profiles = [], heights = null, segments = 32, closed = false } = params;
 
-    if (profiles.length < 2) {
-        console.warn('createLoft: Need at least 2 profiles');
-        return new THREE.BufferGeometry();
-    }
+  console.log('createLoft received:', {
+    profilesType: typeof profiles,
+    profilesIsArray: Array.isArray(profiles),
+    profilesLength: profiles?.length || 0,
+    isCurve: profiles?.isCurve3 || profiles?.isEllipseCurve
+  });
 
-    const profileHeights = heights || profiles.map((_, i) => i / (profiles.length - 1));
-    const curves = profiles.map((profile, i) => {
-        const points = profile.map(([x, z]) => new THREE.Vector3(x, profileHeights[i], z));
-        return new THREE.CatmullRomCurve3(points, true);
+  // FIX 1: If profiles is a single curve, convert to array
+  if (profiles && profiles.isCurve3) {
+    console.warn('createLoft: Single curve passed, wrapping in array');
+    profiles = [profiles];
+  }
+
+  // FIX 2: If profiles is an array of curves, convert them to point arrays
+  if (Array.isArray(profiles)) {
+    profiles = profiles.map(profile => {
+      // If it's a THREE.Curve, sample points from it
+      if (profile.isCurve3 || profile.isEllipseCurve) {
+        console.log('Converting curve to points:', profile.type);
+        const points = [];
+        for (let i = 0; i < segments; i++) {
+          const t = i / (segments - 1);
+          const point = profile.getPoint(t);
+          points.push([point.x, point.z]); // Use X and Z for profile
+        }
+        return points;
+      }
+      // Otherwise assume it's already an array of points
+      return profile;
     });
+  }
 
-    const pointsPerProfile = Math.max(profiles[0].length, segments);
-    const vertices = [];
-    const indices = [];
+  // Validate
+  if (!Array.isArray(profiles) || profiles.length < 2) {
+    console.warn('createLoft: Need at least 2 profiles', profiles);
+    return new THREE.BufferGeometry();
+  }
 
-    for (let i = 0; i < curves.length; i++) {
-        for (let j = 0; j < pointsPerProfile; j++) {
-            const t = j / pointsPerProfile;
-            const point = curves[i].getPoint(t);
-            vertices.push(point.x, point.y, point.z);
-        }
+  // Rest of original logic
+  const profileHeights = heights || profiles.map((_, i) => i / (profiles.length - 1));
+  const curves = profiles.map((profile, i) => {
+    const points = profile.map(([x, z]) => new THREE.Vector3(x, profileHeights[i], z));
+    return new THREE.CatmullRomCurve3(points, true);
+  });
+
+  const pointsPerProfile = Math.max(...profiles.map(p => p.length), segments);
+  const vertices = [];
+  const indices = [];
+
+  for (let i = 0; i < curves.length; i++) {
+    for (let j = 0; j < pointsPerProfile; j++) {
+      const t = j / (pointsPerProfile - 1);
+      const point = curves[i].getPoint(t);
+      vertices.push(point.x, point.y, point.z);
     }
+  }
 
-    for (let i = 0; i < curves.length - 1; i++) {
-        for (let j = 0; j < pointsPerProfile; j++) {
-            const a = i * pointsPerProfile + j;
-            const b = i * pointsPerProfile + ((j + 1) % pointsPerProfile);
-            const c = (i + 1) * pointsPerProfile + ((j + 1) % pointsPerProfile);
-            const d = (i + 1) * pointsPerProfile + j;
-            indices.push(a, b, d);
-            indices.push(b, c, d);
-        }
+  for (let i = 0; i < curves.length - 1; i++) {
+    for (let j = 0; j < pointsPerProfile - 1; j++) {
+      const a = i * pointsPerProfile + j;
+      const b = i * pointsPerProfile + j + 1;
+      const c = (i + 1) * pointsPerProfile + j + 1;
+      const d = (i + 1) * pointsPerProfile + j;
+
+      indices.push(a, b, d);
+      indices.push(b, c, d);
     }
+  }
 
-    if (closed && curves.length > 2) {
-        const lastIdx = curves.length - 1;
-        for (let j = 0; j < pointsPerProfile; j++) {
-            const a = lastIdx * pointsPerProfile + j;
-            const b = lastIdx * pointsPerProfile + ((j + 1) % pointsPerProfile);
-            const c = ((j + 1) % pointsPerProfile);
-            const d = j;
-            indices.push(a, b, d);
-            indices.push(b, c, d);
-        }
+  if (closed && curves.length > 2) {
+    const lastIdx = curves.length - 1;
+    for (let j = 0; j < pointsPerProfile - 1; j++) {
+      const a = lastIdx * pointsPerProfile + j;
+      const b = lastIdx * pointsPerProfile + j + 1;
+      const c = j + 1;
+      const d = j;
+
+      indices.push(a, b, d);
+      indices.push(b, c, d);
     }
+  }
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-    return geometry;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+  geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+  geometry.computeVertexNormals();
+
+  console.log('✅ createLoft success:', { curveCount: curves.length, pointsPerProfile });
+  return geometry;
 }
+
 
 // ✅ UPDATED: createLathe now accepts curves via resolver
 export function createLathe(params = {}) {
