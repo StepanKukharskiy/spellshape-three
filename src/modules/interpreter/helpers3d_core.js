@@ -1357,8 +1357,6 @@ export function modifyGeometry(params) {
     return geom;
 }
 
-// helpers3d_core.js
-
 export function meshFromMarchingCubes(params = {}) {
     const { 
         resolution = 32, 
