@@ -865,37 +865,42 @@ export function createVectorField(params = {}) {
 export function flowField(params = {}) {
   const {
     type = 'laminar',           
-    mode,                       // Removed default value to prevent shadowing
+    mode, // Left undefined by default to allow auto-detection
     
-    // For expression mode
-    vx = '0', vy = '0', vz = '0', // Default to 0 to avoid unintended rotation
+    // For expression mode (defaults set to '0' to avoid NaN/undefined issues)
+    vx = '0', 
+    vy = '0', 
+    vz = '0',
     
     // For noise mode
-    noiseType = 'curl-noise',
+    noiseType = 'curl-noise',  // 'curl-noise', 'turbulence', 'fractal'
     frequency = 1.0,
     octaves = 3, 
     
     // For attractor mode
-    attractors = [],
-    repellers = [],
+    attractors = [],           // [{pos: [x,y,z], strength: 1.0}, ...]
+    repellers = [],            // [{pos: [x,y,z], strength: 1.0}, ...]
     
     // Global parameters
     strength = 1.0,
     scale = 0.1,
     time = 0,
-    damping = 0.0
+    damping = 0.0              // 0-1: damps velocity magnitude over distance
   } = params;
 
-  // 1. Determine the Effective Mode
-  // If 'mode' is explicitly set in schema, use it.
-  // Otherwise, deduce it from 'type'.
+  // 1. Determine Effective Mode
+  // Priority: Explicit 'mode' param > Deduce from 'type' > Fallback
   let effectiveMode = mode;
   if (!effectiveMode) {
-    if (type === 'laminar') effectiveMode = 'preset-laminar';
-    else if (['turbulent', 'chaotic', 'wave'].includes(type)) effectiveMode = 'preset-' + type;
-    else if (['noise', 'curl-noise'].includes(type)) effectiveMode = 'noise';
-    else if (['attractor', 'repeller', 'vortex'].includes(type)) effectiveMode = 'attractor';
-    else effectiveMode = 'expression'; // Fallback
+    if (['laminar', 'turbulent', 'chaotic', 'wave'].includes(type)) {
+        effectiveMode = 'preset-' + type;
+    } else if (['noise', 'curl-noise'].includes(type)) {
+        effectiveMode = 'noise';
+    } else if (['attractor', 'repeller', 'vortex'].includes(type)) {
+        effectiveMode = 'attractor';
+    } else {
+        effectiveMode = 'expression';
+    }
   }
 
   console.log(`✅ flowField: type='${type}', mode='${mode}' -> effective='${effectiveMode}'`);
@@ -903,23 +908,22 @@ export function flowField(params = {}) {
   let fieldFn;
 
   // =========================================================================
-  // 2. Implement Modes
+  // MODE: EXPRESSION (Custom Formulas)
   // =========================================================================
-  
-  // --- EXPRESSION MODE (Custom Formulas) ---
   if (effectiveMode === 'expression') {
     try {
       const ctx = {
         Math, sin: Math.sin, cos: Math.cos, sqrt: Math.sqrt,
         abs: Math.abs, tan: Math.tan, exp: Math.exp, log: Math.log,
+        max: Math.max, min: Math.min, pow: Math.pow, PI: Math.PI,
         time
       };
       
-      // Parse expressions or use defaults
-      // Note: We allow numbers or strings
+      // Helper to ensure we have a valid return statement
       const parse = (val) => {
           if (typeof val === 'number') return `return ${val}`;
-          return `return ${val}`;
+          if (!val.includes('return')) return `return ${val}`;
+          return val;
       };
 
       const fnX = new Function('x, y, z, ctx', parse(vx));
@@ -927,17 +931,20 @@ export function flowField(params = {}) {
       const fnZ = new Function('x, y, z, ctx', parse(vz));
       
       fieldFn = (x, y, z) => {
-        const velX = fnX(x, y, z, ctx);
-        const velY = fnY(x, y, z, ctx);
-        const velZ = fnZ(x, y, z, ctx);
+        let velX = 0, velY = 0, velZ = 0;
+        try { velX = fnX(x, y, z, ctx); } catch(e) {}
+        try { velY = fnY(x, y, z, ctx); } catch(e) {}
+        try { velZ = fnZ(x, y, z, ctx); } catch(e) {}
         
         const vel = new THREE.Vector3(velX, velY, velZ).multiplyScalar(strength * scale);
         
+        // Apply global damping
         if (damping > 0) {
           const dist = Math.sqrt(x*x + y*y + z*z);
           const damp = Math.exp(-damping * dist);
           vel.multiplyScalar(damp);
         }
+        
         return vel;
       };
     } catch (e) {
@@ -946,51 +953,189 @@ export function flowField(params = {}) {
     }
   }
 
-  // --- NOISE MODE ---
+  // =========================================================================
+  // MODE: NOISE (Perlin/Simplex)
+  // =========================================================================
   else if (effectiveMode === 'noise') {
-    // ... (Your existing noise implementation is fine, just copy it here)
-    // Simplified Curl Noise Example:
     if (noiseType === 'curl-noise') {
+      // 3D CURL NOISE (Divergence Free - Twisting Pipes in all directions)
       fieldFn = (x, y, z) => {
         const f = frequency;
-        const eps = 0.1;
-        const n1 = noise.simplex3(x * f, y * f + eps, z * f);
-        const n2 = noise.simplex3(x * f, y * f - eps, z * f);
-        const n3 = noise.simplex3(x * f, y * f, z * f + eps);
-        const n4 = noise.simplex3(x * f, y * f, z * f - eps);
-        const a = (n1 - n2) / (2 * eps);
-        const b = (n3 - n4) / (2 * eps);
-        return new THREE.Vector3(b, 0, -a).normalize().multiplyScalar(strength * scale);
+        const eps = 0.1; 
+
+        // Sample 3 "potential" fields by offsetting the noise space
+        // This ensures we generate a valid vector potential A
+        const n1 = (dx, dy, dz) => noise.simplex3(x * f + dx, y * f + dy, z * f + dz);
+        const n2 = (dx, dy, dz) => noise.simplex3(x * f + dx + 123.4, y * f + dy + 123.4, z * f + dz + 123.4);
+        const n3 = (dx, dy, dz) => noise.simplex3(x * f + dx + 234.5, y * f + dy + 234.5, z * f + dz + 234.5);
+
+        // Calculate Curl (∇ × A)
+        // vx = ∂Az/∂y - ∂Ay/∂z
+        const dy_n3 = (n3(0, eps, 0) - n3(0, -eps, 0)) / (2 * eps);
+        const dz_n2 = (n2(0, 0, eps) - n2(0, 0, -eps)) / (2 * eps);
+        const vx = dy_n3 - dz_n2;
+
+        // vy = ∂Ax/∂z - ∂Az/∂x
+        const dz_n1 = (n1(0, 0, eps) - n1(0, -eps, 0)) / (2 * eps);
+        const dx_n3 = (n3(eps, 0, 0) - n3(-eps, 0, 0)) / (2 * eps);
+        const vy = dz_n1 - dx_n3;
+
+        // vz = ∂Ay/∂x - ∂Ax/∂y
+        const dx_n2 = (n2(eps, 0, 0) - n2(-eps, 0, 0)) / (2 * eps);
+        const dy_n1 = (n1(0, eps, 0) - n1(0, -eps, 0)) / (2 * eps);
+        const vz = dx_n2 - dy_n1;
+        
+        return new THREE.Vector3(vx, vy, vz).normalize().multiplyScalar(strength * scale);
       };
-    } else {
-       // Fallback simple noise
-       fieldFn = (x, y, z) => {
-           const n = noise.simplex3(x*frequency, y*frequency, z*frequency);
-           return new THREE.Vector3(n, n, n).multiplyScalar(strength * scale);
-       };
+    }
+    
+    else if (noiseType === 'turbulence') {
+      fieldFn = (x, y, z) => {
+        let vx = 0, vy = 0, vz = 0;
+        let amp = 1;
+        let freq = frequency;
+        
+        for (let i = 0; i < octaves; i++) {
+          vx += noise.simplex3(x * freq, y * freq, z * freq) * amp;
+          vy += noise.simplex3(x * freq + 1000, y * freq + 1000, z * freq) * amp;
+          vz += noise.simplex3(x * freq + 2000, y * freq, z * freq + 2000) * amp;
+          
+          freq *= 2;
+          amp *= 0.5;
+        }
+        
+        return new THREE.Vector3(vx, vy, vz).multiplyScalar(strength * scale);
+      };
+    }
+    
+    else { // Simple directional noise
+      fieldFn = (x, y, z) => {
+        let result = 0;
+        let amp = 1;
+        let freq = frequency;
+        
+        for (let i = 0; i < octaves; i++) {
+          result += noise.simplex3(x * freq, y * freq, z * freq) * amp;
+          freq *= 2;
+          amp *= 0.5;
+        }
+        
+        // Direction radiates from center, modulated by noise
+        const dir = new THREE.Vector3(x, y, z).normalize();
+        return dir.multiplyScalar(result * strength * scale);
+      };
     }
   }
 
-  // --- ATTRACTOR MODE ---
+  // =========================================================================
+  // MODE: ATTRACTOR (Gravity/Magnetism)
+  // =========================================================================
   else if (effectiveMode === 'attractor') {
-      // (Keep your existing attractor logic)
-      fieldFn = (x, y, z) => {
-        return new THREE.Vector3(0,0,0); // Placeholder, paste your logic back
-      };
+    fieldFn = (x, y, z) => {
+      const pos = new THREE.Vector3(x, y, z);
+      let totalForce = new THREE.Vector3(0, 0, 0);
+      
+      // Default single attractor if none provided
+      const effectiveAttractors = attractors.length > 0 ? attractors : [{pos: [0,0,0], strength: 1.0}];
+
+      // Attractors
+      for (const attr of effectiveAttractors) {
+        const center = new THREE.Vector3(...(attr.pos || [0,0,0]));
+        const str = attr.strength !== undefined ? attr.strength : 1.0;
+        const dir = center.clone().sub(pos);
+        const dist = dir.length();
+        if (dist > 0.01) {
+          totalForce.add(dir.normalize().multiplyScalar(str / (1 + dist * damping)));
+        }
+      }
+      
+      // Repellers
+      for (const rep of repellers) {
+        const center = new THREE.Vector3(...(rep.pos || [0,0,0]));
+        const str = rep.strength !== undefined ? rep.strength : 1.0;
+        const dir = pos.clone().sub(center); // Direction AWAY from center
+        const dist = dir.length();
+        if (dist > 0.01) {
+          totalForce.add(dir.normalize().multiplyScalar(str / (1 + dist * damping)));
+        }
+      }
+      
+      return totalForce.multiplyScalar(strength * scale);
+    };
   }
 
-  // --- PRESETS (Fixed!) ---
+  // =========================================================================
+  // MODE: PRESETS
+  // =========================================================================
   else if (effectiveMode === 'preset-laminar') {
+    // Simple linear flow along X
     fieldFn = () => new THREE.Vector3(strength * scale, 0, 0);
   }
   
-  else {
-     // Default fallback
-     fieldFn = () => new THREE.Vector3(0, 0, 0);
+  else if (effectiveMode === 'preset-turbulent') {
+    // Multi-octave noise preset
+    fieldFn = (x, y, z) => {
+      let vel = new THREE.Vector3(0, 0, 0);
+      let amp = 1;
+      let freq = frequency;
+      
+      for (let i = 0; i < octaves; i++) {
+        const nx = noise.simplex3(x * freq, y * freq, z * freq) * amp;
+        const ny = noise.simplex3(x * freq + 500, y * freq + 500, z * freq) * amp;
+        const nz = noise.simplex3(x * freq + 1000, y * freq + 1000, z * freq) * amp;
+        
+        vel.add(new THREE.Vector3(nx, ny, nz));
+        freq *= 2;
+        amp *= 0.5;
+      }
+      
+      return vel.multiplyScalar(strength * scale);
+    };
+  }
+  
+  else if (effectiveMode === 'preset-chaotic') {
+    // Lorenz attractor
+    const sigma = 10, rho = 28, beta = 8/3;
+    fieldFn = (x, y, z) => {
+      const vx = sigma * (y - x);
+      const vy = x * (rho - z) - y;
+      const vz = x * y - beta * z;
+      
+      // Normalize strictly for chaotic fields to prevent explosion
+      return new THREE.Vector3(vx, vy, vz).normalize().multiplyScalar(strength * scale);
+    };
+  }
+  
+  else if (effectiveMode === 'preset-wave') {
+    // Expanding/contracting waves
+    const center = new THREE.Vector3(0, 0, 0);
+    fieldFn = (x, y, z) => {
+      const pos = new THREE.Vector3(x, y, z);
+      const dist = pos.sub(center).length();
+      const wave = Math.sin(dist * frequency - time);
+      const dir = pos.clone().normalize();
+      
+      return dir.multiplyScalar(wave * strength * scale);
+    };
   }
 
-  return wrapFieldAsObject(fieldFn, `${type} flow field`);
+  else {
+      // Final safety fallback
+      fieldFn = () => new THREE.Vector3(0, 0, 0);
+  }
+
+  // ✅ WRAP for downstream use
+  return wrapFieldAsObject(fieldFn, `${type} flow field`, {
+    type,
+    mode: effectiveMode,
+    strength,
+    scale,
+    frequency,
+    octaves,
+    damping
+  });
 }
+
 
 
 
