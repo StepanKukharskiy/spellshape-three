@@ -159,6 +159,24 @@ export class ProceduralExecutor {
         group.add(mesh);
         return;
     }
+      
+      // ✅ Handle array of geometries (from createFlowPipes, distributions, etc)
+if (Array.isArray(result)) {
+  console.log(`📦 Processing array of ${result.length} geometries`);
+  const mat = this.getMaterial(material || 'default');
+  
+  for (const geom of result) {
+    if (geom.isBufferGeometry) {
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.visible = visible !== false;
+      group.add(mesh);
+    } else if (geom.isMesh || geom.isGroup || geom.isLine) {
+      geom.visible = visible !== false;
+      group.add(geom);
+    }
+  }
+  return;
+}
 
     // Is it a wrapped data object? (field, grid, points, etc.)
     if (result.userData) {
