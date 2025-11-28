@@ -206,7 +206,7 @@ export function createExtrude(params = {}) {
 export function createLoft(params = {}) {
   let { profiles = [], heights = null, segments = 32, closed = false } = params;
 
-  console.log('createLoft received:', {
+ // console.log('createLoft received:', {
     profilesType: typeof profiles,
     profilesIsArray: Array.isArray(profiles),
     profilesLength: profiles?.length || 0,
