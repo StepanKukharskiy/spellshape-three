@@ -206,42 +206,47 @@ export function createExtrude(params = {}) {
 export function createLoft(params = {}) {
   let { profiles = [], heights = null, segments = 32, closed = false } = params;
 
+  // ========================================================================
+  // STEP 0: AUTO-UNWRAP DATA (Crucial Fix)
+  // ========================================================================
+  // Check if 'profiles' is actually a Geometry/Object with userData attached
+  // This handles output from differentialGrowthSurface
+  if (profiles && profiles.userData && profiles.userData.profiles) {
+      console.log('createLoft: Unwrapping profiles from userData');
+      profiles = profiles.userData.profiles;
+      // If coming from differential growth (rings), auto-close the loop
+      closed = true; 
+  }
+
+  // Ensure it's an array
   if (!Array.isArray(profiles)) profiles = [profiles];
 
   // ========================================================================
-  // STEP 1: Unwrap and sample curves to 3D point arrays
+  // STEP 1: Sample curves to 3D point arrays
   // ========================================================================
   profiles = profiles.map((profile, idx) => {
     let unwrappedCurve = profile;
     
-    // Unwrap wrapped curves
+    // Handle single wrapped curve
     if (profile?.userData?.curve) {
       unwrappedCurve = profile.userData.curve;
     }
 
-    if (profiles.userData && profiles.userData.profiles) {
-        profiles = profiles.userData.profiles;
-        // Auto-close the profiles since they are rings
-        closed = true; 
-    }
-
-    // If it's a curve, sample points from it
+    // If it's a curve object, sample points from it
     if (unwrappedCurve && typeof unwrappedCurve.getPoint === 'function') {
-      console.log(`Profile ${idx}: Sampling curve with ${segments} points`);
+      // console.log(`Profile ${idx}: Sampling curve with ${segments} points`);
       const points = [];
       for (let i = 0; i < segments; i++) {
         const t = i / (segments - 1);
         const point = unwrappedCurve.getPoint(t);
         if (point) {
-          // ✅ KEY FIX: Store full 3D coordinates [x, y, z]
-          // This preserves the curve's actual 3D shape!
           points.push([point.x, point.y, point.z]);
         }
       }
       return points;
     }
 
-    // Already an array?
+    // Already an array of points?
     if (Array.isArray(profile)) {
       return profile;
     }
@@ -249,10 +254,13 @@ export function createLoft(params = {}) {
     return [];
   });
 
+  // Filter out empty profiles
+  profiles = profiles.filter(p => p.length > 0);
+
   // ========================================================================
   // STEP 2: Validate we have at least 2 profiles
   // ========================================================================
-  if (!Array.isArray(profiles) || profiles.length < 2) {
+  if (profiles.length < 2) {
     console.error('❌ createLoft: Need at least 2 profiles');
     return new THREE.BufferGeometry();
   }
@@ -260,20 +268,14 @@ export function createLoft(params = {}) {
   // ========================================================================
   // STEP 3: Create interpolation curves between profiles
   // ========================================================================
-  // Each profile is now a 3D point array
-  // We need to:
-  // 1. For each point index across profiles, create a curve
-  // 2. These curves connect corresponding points on each profile
-
   const pointsPerProfile = Math.max(...profiles.map(p => p.length), segments);
   const vertices = [];
   const indices = [];
 
-  // Ensure all profiles have same point count
+  // Ensure all profiles have same point count (Resampling)
   profiles = profiles.map(profile => {
     if (profile.length === pointsPerProfile) return profile;
     
-    // Resample if needed
     const resampled = [];
     for (let i = 0; i < pointsPerProfile; i++) {
       const t = i / (pointsPerProfile - 1);
@@ -289,13 +291,11 @@ export function createLoft(params = {}) {
   const interpCurves = [];
   for (let j = 0; j < pointsPerProfile; j++) {
     // Collect the j-th point from each profile
-    const columnPoints = profiles.map((profile, i) => {
+    const columnPoints = profiles.map((profile) => {
       const [x, y, z] = profile[j];
-      // ✅ Keep original positions, don't add profileHeights
       return new THREE.Vector3(x, y, z);
     });
 
-    // Create curve through these points
     if (columnPoints.length >= 2) {
       const curve = new THREE.CatmullRomCurve3(columnPoints, false);
       interpCurves.push(curve);
@@ -305,7 +305,8 @@ export function createLoft(params = {}) {
   // ========================================================================
   // STEP 5: Sample interpolation curves and build mesh
   // ========================================================================
-  const samplesPerCurve = 16; // How many points to sample along each interpolation curve
+  // Increase samples for smoother vertical surface
+  const samplesPerCurve = Math.max(16, profiles.length * 2); 
   
   for (let j = 0; j < interpCurves.length; j++) {
     for (let k = 0; k < samplesPerCurve; k++) {
@@ -328,7 +329,7 @@ export function createLoft(params = {}) {
     }
   }
 
-  // Close if needed
+  // Close the loop (connect last column to first column)
   if (closed && interpCurves.length > 1) {
     const lastIdx = interpCurves.length - 1;
     for (let k = 0; k < samplesPerCurve - 1; k++) {
@@ -352,15 +353,12 @@ export function createLoft(params = {}) {
 
   console.log('✅ createLoft success:', {
     profileCount: profiles.length,
-    pointsPerProfile,
-    interpCurveCount: interpCurves.length,
-    sampleCount: samplesPerCurve,
-    vertexCount: vertices.length / 3,
-    faceCount: indices.length / 3
+    vertexCount: vertices.length / 3
   });
 
   return geometry;
 }
+
 
 
 
