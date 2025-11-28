@@ -206,15 +206,7 @@ export function createExtrude(params = {}) {
 export function createLoft(params = {}) {
   let { profiles = [], heights = null, segments = 32, closed = false } = params;
 
- // console.log('createLoft received:', {
-    profilesType: typeof profiles,
-    profilesIsArray: Array.isArray(profiles),
-    profilesLength: profiles?.length || 0,
-    firstItemType: profiles?.?.constructor?.name,
-    firstItemIsCurve: profiles?.?.isCurve3 || profiles?.?.isEllipseCurve,
-    isSingleCurve: profiles?.isCurve3,
-    firstItemHasUserData: !!profiles?.?.userData
-  });
+
 
   // ========================================================================
   // STEP 1: Normalize input - wrap single curve in array
