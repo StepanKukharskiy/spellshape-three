@@ -1703,45 +1703,132 @@ export function lSystemGeometry(params = {}) {
 
 
 export function differentialGrowth(params = {}) {
-    const { geometry, iterations = 10, maxEdgeLength = 0.5, repulsionRadius = 0.3, repulsionStrength = 0.1, attractionStrength = 0.05 } = params;
+    const { 
+        geometry,            // Optional: Start from existing curve/edges
+        pointsCount = 50,    // Start with a circle of this many points
+        radius = 2.0,        // Radius of starting circle
+        iterations = 100,    // Growth steps
+        maxEdgeLength = 0.2, // Threshold to add new points
+        repulsionRadius = 1.0, // How far nodes push each other
+        repulsionForce = 0.5,
+        attractionForce = 0.8, // Spring force keeping line together
+        noiseForce = 0.1,    // Random motion to break symmetry
+        outputType = 'line'  // 'line' or 'mesh' (ribbon)
+    } = params;
 
-    console.warn('differentialGrowth: Complex mesh topology modification - simplified version');
-
-    let geom = geometry.clone();
-    for (let iter = 0; iter < iterations; iter++) {
-        const positions = geom.attributes.position;
-        const count = positions.count;
-        const forces = new Array(count).fill(null).map(() => new THREE.Vector3());
-
-        for (let i = 0; i < count; i++) {
-            const pi = new THREE.Vector3(positions.getX(i), positions.getY(i), positions.getZ(i));
-
-            for (let j = i + 1; j < count; j++) {
-                const pj = new THREE.Vector3(positions.getX(j), positions.getY(j), positions.getZ(j));
-                const diff = pi.clone().sub(pj);
-                const dist = diff.length();
-
-                if (dist < repulsionRadius && dist > 0.001) {
-                    const force = diff.normalize().multiplyScalar(repulsionStrength / dist);
-                    forces[i].add(force);
-                    forces[j].sub(force);
-                }
-            }
+    // 1. Initialize Nodes (Circle)
+    let nodes = [];
+    
+    // If input geometry is a Line/Curve, extract points
+    if (geometry && geometry.isBufferGeometry) {
+        const pos = geometry.attributes.position;
+        for(let i=0; i<pos.count; i++) {
+            nodes.push(new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)));
         }
-
-        for (let i = 0; i < count; i++) {
-            const x = positions.getX(i) + forces[i].x;
-            const y = positions.getY(i) + forces[i].y;
-            const z = positions.getZ(i) + forces[i].z;
-            positions.setXYZ(i, x, y, z);
+    } else {
+        // Create Circle
+        for (let i = 0; i < pointsCount; i++) {
+            const theta = (i / pointsCount) * Math.PI * 2;
+            nodes.push(new THREE.Vector3(
+                Math.cos(theta) * radius, 
+                Math.sin(theta) * radius, 
+                0
+            ));
         }
-
-        positions.needsUpdate = true;
-        geom.computeVertexNormals();
     }
 
-    return geom;
+    // 2. Simulation Loop
+    for (let iter = 0; iter < iterations; iter++) {
+        const newPositions = nodes.map(n => n.clone());
+        const count = nodes.length;
+
+        // Build Spatial Hash (Simple grid) for optimization
+        // (Skipping full implementation for brevity, doing brute force with optimization check)
+        
+        for (let i = 0; i < count; i++) {
+            const p = nodes[i];
+            let force = new THREE.Vector3();
+
+            // A. Repulsion (Push away from non-neighbors)
+            // Check random subset or nearby nodes to save perf
+            for (let j = 0; j < count; j++) {
+                if (i === j) continue;
+                // Ignore immediate neighbors (handled by springs)
+                // const isNeighbor = (j === (i + 1) % count) || (j === (i - 1 + count) % count);
+                // Actually, in Diff Growth, even neighbors push to expand circle!
+                
+                const other = nodes[j];
+                const distSq = p.distanceToSquared(other);
+                
+                if (distSq < repulsionRadius * repulsionRadius && distSq > 0) {
+                    const dist = Math.sqrt(distSq);
+                    const dir = p.clone().sub(other).normalize();
+                    // Force stronger when closer
+                    force.add(dir.multiplyScalar((repulsionRadius - dist) * repulsionForce));
+                }
+            }
+
+            // B. Spring / Attraction (Stay close to neighbors)
+            const prev = nodes[(i - 1 + count) % count];
+            const next = nodes[(i + 1) % count];
+            
+            const vecToPrev = prev.clone().sub(p);
+            const vecToNext = next.clone().sub(p);
+            
+            // Move towards midpoint of neighbors (Laplacian smoothing)
+            const smooth = vecToPrev.add(vecToNext).multiplyScalar(attractionForce * 0.5);
+            force.add(smooth);
+            
+            // C. Brownian Motion (Noise)
+            force.x += (Math.random() - 0.5) * noiseForce;
+            force.y += (Math.random() - 0.5) * noiseForce;
+
+            // Apply
+            newPositions[i].add(force.multiplyScalar(0.1)); // Time step
+            // Constrain Z (Planar growth often looks better)
+            newPositions[i].z *= 0.9; 
+        }
+        
+        nodes = newPositions;
+
+        // 3. Subdivision (Growth)
+        // If edge is too long, split it
+        const nextNodes = [];
+        for (let i = 0; i < nodes.length; i++) {
+            const p1 = nodes[i];
+            const p2 = nodes[(i + 1) % nodes.length]; // Loop
+            
+            nextNodes.push(p1);
+            
+            if (p1.distanceTo(p2) > maxEdgeLength) {
+                // Add new node in middle
+                const mid = p1.clone().add(p2).multiplyScalar(0.5);
+                nextNodes.push(mid);
+            }
+        }
+        nodes = nextNodes;
+        
+        // Limit runaway growth
+        if (nodes.length > 2000) break;
+    }
+
+    // 4. Output
+    if (outputType === 'mesh') {
+        // Extrude logic (Simple Ribbon)
+        const shape = new THREE.Shape();
+        shape.moveTo(nodes[0].x, nodes[0].y);
+        for(let i=1; i<nodes.length; i++) shape.lineTo(nodes[i].x, nodes[i].y);
+        shape.closePath();
+        
+        return new THREE.ExtrudeGeometry(shape, { depth: 0.5, bevelEnabled: false });
+    } else {
+        // Line Loop
+        const geom = new THREE.BufferGeometry().setFromPoints([...nodes, nodes[0]]);
+        // Return as Line Loop visual
+        return new THREE.Line(geom, new THREE.LineBasicMaterial({ color: 0xffffff }));
+    }
 }
+
 
 // ✅ UPDATED: meshFromVoxelGrid now accepts wrapped grids
 export function meshFromVoxelGrid(params = {}) {
