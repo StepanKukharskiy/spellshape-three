@@ -1358,25 +1358,52 @@ export function modifyGeometry(params) {
 }
 
 export function meshFromMarchingCubes(params = {}) {
-    const { resolution = 32, isovalue = 0.5, bounds = 10, expression, context = {} } = params;
+    const { 
+        resolution = 32, 
+        isovalue = 0.5, 
+        bounds = 10, 
+        field,             // ✅ New: Direct field input
+        expression,        // Optional: Advanced override
+        context = {} 
+    } = params;
 
     const effect = new MarchingCubes(resolution, null, true, true, 100000);
 
     let fieldFn;
 
+    // ========================================================================
+    // MODE 1: Direct Field Visualization (Streamlined)
+    // ========================================================================
+    if (field) {
+        // Resolve the field input (handles strings, wrapped objects, or raw functions)
+        const vectorFn = resolveField(field);
+        
+        if (vectorFn) {
+            // Automatically convert Vector(x,y,z) -> Scalar(length)
+            // This visualizes the "speed" or "density" of the flow
+            fieldFn = (x, y, z) => {
+                const vec = vectorFn(x, y, z);
+                return vec ? vec.length() : 0;
+            };
+        }
+    }
+
+    // ========================================================================
+    // MODE 2: Custom Expression (Advanced) - Overrides 'field' if provided
+    // ========================================================================
     if (expression) {
         try {
-            // 1. Compile the user's expression string into a function
+            // Compile user expression
             const userFn = new Function('x', 'y', 'z', 'ctx', 'noise', 'utils', `
                 try { 
                     ${expression.includes('return') ? expression : 'return ' + expression + ';'} 
                 } catch(e) { return 0; }
             `);
 
-            // 2. FIX: Map 'noise' argument to the correct 'simplex3' function
+            // Bind noise helper so 'noise(x,y,z)' works in expression
             const noiseFn = (x, y, z) => noise.simplex3(x, y, z);
 
-            // 3. Create the field function calling the user code
+            // Execute
             fieldFn = (x, y, z) => userFn(x, y, z, context, noiseFn, Math);
 
         } catch (e) {
@@ -1384,13 +1411,19 @@ export function meshFromMarchingCubes(params = {}) {
         }
     }
 
-    // Fallback if no valid expression provided
-    if (!fieldFn) fieldFn = (x, y, z) => noise.simplex3(x * 0.1, y * 0.1, z * 0.1);
+    // ========================================================================
+    // FALLBACK: Default Noise
+    // ========================================================================
+    if (!fieldFn) {
+        fieldFn = (x, y, z) => noise.simplex3(x * 0.1, y * 0.1, z * 0.1) + 0.5;
+    }
 
+    // ========================================================================
+    // MESH GENERATION
+    // ========================================================================
     const scaleFactor = 2 * bounds / resolution;
     effect.isolation = isovalue;
 
-    // Generate the scalar field
     for (let k = 0; k < resolution; k++) {
         for (let j = 0; j < resolution; j++) {
             for (let i = 0; i < resolution; i++) {
@@ -1400,13 +1433,11 @@ export function meshFromMarchingCubes(params = {}) {
                 
                 const val = fieldFn(x, y, z);
                 
-                // Update the internal data buffer
                 effect.field[i + j * resolution + k * resolution * resolution] = val;
             }
         }
     }
 
-    // Create the mesh
     effect.update();
     if (effect.geometry) {
         const exportedGeom = effect.geometry.clone();
@@ -1416,6 +1447,7 @@ export function meshFromMarchingCubes(params = {}) {
 
     return new THREE.BufferGeometry();
 }
+
 
 
 // ============================================================================
