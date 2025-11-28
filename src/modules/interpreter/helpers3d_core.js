@@ -365,15 +365,6 @@ export function createLoft(params = {}) {
 }
 
 
-// ============================================================================
-// OPTIONAL: Add this helper for backwards compatibility
-// ============================================================================
-// If you have old schemas that use "profiles": [[...], [...]], this still works
-export function loftProfiles(params = {}) {
-  // Just calls createLoft - identical behavior
-  return createLoft(params);
-}
-
 
 // ✅ UPDATED: createLathe now accepts curves via resolver
 export function createLathe(params = {}) {
