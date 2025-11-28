@@ -1357,30 +1357,31 @@ export function modifyGeometry(params) {
     return geom;
 }
 
+// helpers3d_core.js
+
 export function meshFromMarchingCubes(params = {}) {
     const { 
         resolution = 32, 
         isovalue = 0.5, 
         bounds = 10, 
-        field,             // ✅ New: Direct field input
-        expression,        // Optional: Advanced override
+        field,             
+        expression,        
         context = {} 
     } = params;
 
-    const effect = new MarchingCubes(resolution, null, true, true, 100000);
+    // FIX: MarchingCubes requires a material (2nd arg) to function, even if we don't use it.
+    // We pass a basic material to prevent the 'flatShading' null error.
+    const dummyMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const effect = new MarchingCubes(resolution, dummyMaterial, true, true, 100000);
 
     let fieldFn;
 
     // ========================================================================
-    // MODE 1: Direct Field Visualization (Streamlined)
+    // MODE 1: Direct Field Visualization
     // ========================================================================
     if (field) {
-        // Resolve the field input (handles strings, wrapped objects, or raw functions)
         const vectorFn = resolveField(field);
-        
         if (vectorFn) {
-            // Automatically convert Vector(x,y,z) -> Scalar(length)
-            // This visualizes the "speed" or "density" of the flow
             fieldFn = (x, y, z) => {
                 const vec = vectorFn(x, y, z);
                 return vec ? vec.length() : 0;
@@ -1389,21 +1390,17 @@ export function meshFromMarchingCubes(params = {}) {
     }
 
     // ========================================================================
-    // MODE 2: Custom Expression (Advanced) - Overrides 'field' if provided
+    // MODE 2: Custom Expression (Overrides field)
     // ========================================================================
-    if (expression) {
+    if (expression && expression.trim() !== '') {
         try {
-            // Compile user expression
             const userFn = new Function('x', 'y', 'z', 'ctx', 'noise', 'utils', `
                 try { 
                     ${expression.includes('return') ? expression : 'return ' + expression + ';'} 
                 } catch(e) { return 0; }
             `);
 
-            // Bind noise helper so 'noise(x,y,z)' works in expression
             const noiseFn = (x, y, z) => noise.simplex3(x, y, z);
-
-            // Execute
             fieldFn = (x, y, z) => userFn(x, y, z, context, noiseFn, Math);
 
         } catch (e) {
@@ -1412,10 +1409,11 @@ export function meshFromMarchingCubes(params = {}) {
     }
 
     // ========================================================================
-    // FALLBACK: Default Noise
+    // FALLBACK
     // ========================================================================
     if (!fieldFn) {
-        fieldFn = (x, y, z) => noise.simplex3(x * 0.1, y * 0.1, z * 0.1) + 0.5;
+        // Default blob if nothing provided
+        fieldFn = (x, y, z) => noise.simplex3(x * 0.2, y * 0.2, z * 0.2) + 0.5;
     }
 
     // ========================================================================
@@ -1424,6 +1422,7 @@ export function meshFromMarchingCubes(params = {}) {
     const scaleFactor = 2 * bounds / resolution;
     effect.isolation = isovalue;
 
+    // Fill the data buffer
     for (let k = 0; k < resolution; k++) {
         for (let j = 0; j < resolution; j++) {
             for (let i = 0; i < resolution; i++) {
@@ -1438,15 +1437,25 @@ export function meshFromMarchingCubes(params = {}) {
         }
     }
 
-    effect.update();
-    if (effect.geometry) {
-        const exportedGeom = effect.geometry.clone();
-        effect.geometry.dispose();
-        return exportedGeom;
+    // Generate geometry
+    try {
+        effect.update();
+        if (effect.geometry) {
+            const exportedGeom = effect.geometry.clone();
+            
+            // Cleanup internal resources
+            effect.geometry.dispose();
+            dummyMaterial.dispose();
+            
+            return exportedGeom;
+        }
+    } catch (e) {
+        console.error("MarchingCubes update failed:", e);
     }
 
     return new THREE.BufferGeometry();
 }
+
 
 
 
