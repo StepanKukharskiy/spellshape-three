@@ -210,51 +210,97 @@ export function createLoft(params = {}) {
     profilesType: typeof profiles,
     profilesIsArray: Array.isArray(profiles),
     profilesLength: profiles?.length || 0,
-    isCurve: profiles?.isCurve3 || profiles?.isEllipseCurve
+    firstItemType: profiles?.[0]?.constructor?.name,
+    firstItemIsCurve: profiles?.[0]?.isCurve3 || profiles?.[0]?.isEllipseCurve,
+    isSingleCurve: profiles?.isCurve3
   });
 
-  // FIX 1: If profiles is a single curve, convert to array
-  if (profiles && profiles.isCurve3) {
-    console.warn('createLoft: Single curve passed, wrapping in array');
+  // ========================================================================
+  // STEP 1: Normalize input - wrap single curve in array
+  // ========================================================================
+  if (profiles && (profiles.isCurve3 || profiles.isEllipseCurve)) {
+    console.log('⚠️  Single curve detected, wrapping in array');
     profiles = [profiles];
   }
 
-  // FIX 2: If profiles is an array of curves, convert them to point arrays
-  if (Array.isArray(profiles)) {
-    profiles = profiles.map(profile => {
-      // If it's a THREE.Curve, sample points from it
-      if (profile.isCurve3 || profile.isEllipseCurve) {
-        console.log('Converting curve to points:', profile.type);
-        const points = [];
-        for (let i = 0; i < segments; i++) {
-          const t = i / (segments - 1);
-          const point = profile.getPoint(t);
-          points.push([point.x, point.z]); // Use X and Z for profile
-        }
-        return points;
-      }
-      // Otherwise assume it's already an array of points
-      return profile;
-    });
-  }
-
-  // Validate
-  if (!Array.isArray(profiles) || profiles.length < 2) {
-    console.warn('createLoft: Need at least 2 profiles', profiles);
+  // ========================================================================
+  // STEP 2: Convert all items to point arrays
+  // ========================================================================
+  if (!Array.isArray(profiles)) {
+    console.error('❌ createLoft: profiles must be array or curve', typeof profiles);
     return new THREE.BufferGeometry();
   }
 
-  // Rest of original logic
-  const profileHeights = heights || profiles.map((_, i) => i / (profiles.length - 1));
-  const curves = profiles.map((profile, i) => {
-    const points = profile.map(([x, z]) => new THREE.Vector3(x, profileHeights[i], z));
-    return new THREE.CatmullRomCurve3(points, true);
+  profiles = profiles.map((profile, idx) => {
+    console.log(`Processing profile ${idx}:`, {
+      type: profile?.constructor?.name,
+      isCurve: profile?.isCurve3 || profile?.isEllipseCurve,
+      isArray: Array.isArray(profile),
+      length: profile?.length || 'N/A'
+    });
+
+    // If it's a THREE.Curve, sample points from it
+    if (profile && (profile.isCurve3 || profile.isEllipseCurve)) {
+      console.log(`  Converting curve to ${segments} points`);
+      const points = [];
+      for (let i = 0; i < segments; i++) {
+        const t = i / (segments - 1);
+        const point = profile.getPoint(t);
+        points.push([point.x, point.z]); // Use X and Z for profile
+      }
+      return points;
+    }
+
+    // If it's already an array of points, keep it
+    if (Array.isArray(profile)) {
+      console.log(`  Already array with ${profile.length} points`);
+      return profile;
+    }
+
+    // Unknown format
+    console.error(`  ❌ Profile ${idx} is neither curve nor array:`, profile);
+    return [];
   });
 
+  // ========================================================================
+  // STEP 3: Validate we have at least 2 profiles
+  // ========================================================================
+  if (!Array.isArray(profiles) || profiles.length < 2) {
+    console.error('❌ createLoft: Need at least 2 profiles', {
+      isArray: Array.isArray(profiles),
+      count: profiles?.length
+    });
+    return new THREE.BufferGeometry();
+  }
+
+  // ========================================================================
+  // STEP 4: Create curves from point arrays
+  // ========================================================================
+  const profileHeights = heights || profiles.map((_, i) => i / (profiles.length - 1));
+  
+  const curves = profiles.map((profile, i) => {
+    if (!profile || profile.length === 0) {
+      console.error(`❌ Profile ${i} is empty`);
+      return null;
+    }
+
+    const points = profile.map(([x, z]) => new THREE.Vector3(x, profileHeights[i], z));
+    return new THREE.CatmullRomCurve3(points, true);
+  }).filter(c => c !== null);
+
+  if (curves.length < 2) {
+    console.error('❌ createLoft: Could not create valid curves');
+    return new THREE.BufferGeometry();
+  }
+
+  // ========================================================================
+  // STEP 5: Build mesh geometry
+  // ========================================================================
   const pointsPerProfile = Math.max(...profiles.map(p => p.length), segments);
   const vertices = [];
   const indices = [];
 
+  // Sample points along each curve
   for (let i = 0; i < curves.length; i++) {
     for (let j = 0; j < pointsPerProfile; j++) {
       const t = j / (pointsPerProfile - 1);
@@ -263,6 +309,7 @@ export function createLoft(params = {}) {
     }
   }
 
+  // Create faces between profiles
   for (let i = 0; i < curves.length - 1; i++) {
     for (let j = 0; j < pointsPerProfile - 1; j++) {
       const a = i * pointsPerProfile + j;
@@ -275,6 +322,7 @@ export function createLoft(params = {}) {
     }
   }
 
+  // Close the loft if requested
   if (closed && curves.length > 2) {
     const lastIdx = curves.length - 1;
     for (let j = 0; j < pointsPerProfile - 1; j++) {
@@ -288,13 +336,31 @@ export function createLoft(params = {}) {
     }
   }
 
+  // ========================================================================
+  // STEP 6: Create and return geometry
+  // ========================================================================
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
   geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
   geometry.computeVertexNormals();
 
-  console.log('✅ createLoft success:', { curveCount: curves.length, pointsPerProfile });
+  console.log('✅ createLoft success:', {
+    profileCount: curves.length,
+    pointsPerProfile,
+    vertexCount: vertices.length / 3,
+    faceCount: indices.length / 3
+  });
+
   return geometry;
+}
+
+// ============================================================================
+// OPTIONAL: Add this helper for backwards compatibility
+// ============================================================================
+// If you have old schemas that use "profiles": [[...], [...]], this still works
+export function loftProfiles(params = {}) {
+  // Just calls createLoft - identical behavior
+  return createLoft(params);
 }
 
 
