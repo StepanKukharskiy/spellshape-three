@@ -78,107 +78,97 @@ export class ProceduralExecutor {
 
     // ✅ SIMPLIFIED: executeAction now relies on resolver layer
     executeAction(action, group) {
-        const { thought, do: helperName, params, transform, material, as: storeName, visible } = action;
+    const { thought, do: helperName, params, transform, material, as: storeName, visible } = action;
 
-        if (thought) console.log('📌', thought);
+    if (thought) console.log('📌', thought);
 
-        // Handle Control Flow
-        if (helperName === 'loop') {
-            return this.executeLoop(action, group);
-        }
-
-        if (helperName === 'clone') {
-            return this.executeClone(action, group);
-        }
-
-        // ========== HELPER LOOKUP ==========
-        let helperFn = helpers[helperName];
-        if (!helperFn && helpers.default && typeof helpers.default === 'object') {
-            helperFn = helpers.default[helperName];
-        }
-
-        if (!helperFn) {
-            console.warn(`❌ Helper not found: ${helperName}`, {
-                availableFunctions: Object.keys(helpers)
-                    .filter(k => typeof helpers[k] === 'function')
-                    .slice(0, 10)
-                    .join(', ')
-            });
-            return;
-        }
-
-      if (geometry.isBufferGeometry) {
-    // BufferGeometry needs to be wrapped in a mesh
-    const mat = this.getMaterial(materialName);
-    const mesh = new THREE.Mesh(geometry, mat);
-    mesh.visible = visible !== false;
-    group.add(mesh);
-}
-
-        // ========== PARAMETER EVALUATION ==========
-        const evalParams = this.evaluateParamsCarefully(params);
-
-        console.log(`Calling ${helperName}:`, { rawParams: params, evalParams });
-
-        // Execute helper
-        let result;
-        try {
-            result = helperFn(evalParams);
-            console.log(`✅ ${helperName}:`, {
-                success: !!result,
-                resultType: result?.type || result?.userData?.type || typeof result
-            });
-        } catch (error) {
-            console.error(`❌ Error executing ${helperName}:`, error);
-            console.error('Stack:', error.stack);
-            return;
-        }
-
-        if (!result) {
-            console.warn(`⚠️ ${helperName} returned no result`);
-            return;
-        }
-
-        // Store result (could be geometry, curve, field, grid, or wrapped object)
-        if (storeName) {
-            this.geometries.set(storeName, result);
-            console.log(`📦 Stored: ${storeName}`, result.userData?.type || 'geometry');
-        }
-
-        // Apply transform if provided
-        if (transform && (result.isBufferGeometry || result.isMesh || result.isLine)) {
-            this.applyTransform(result, transform);
-        }
-
-        // ========== HANDLE DIFFERENT RESULT TYPES ==========
-
-        // Is it a renderable object? (Line, Mesh, Group)
-        if (result.isLine || result.isMesh || result.isGroup) {
-            result.visible = visible !== false;
-            group.add(result);
-            return;
-        }
-
-        // Is it a bare geometry? Wrap in mesh
-        if (result.isBufferGeometry) {
-            const mat = this.getMaterial(material || 'default');
-            const mesh = new THREE.Mesh(result, mat);
-            mesh.visible = visible !== false;
-            group.add(mesh);
-            return;
-        }
-
-        // Is it a wrapped data object? (field, grid, points, etc.)
-        if (result.userData) {
-            const type = result.userData.type;
-            console.log(`✓ Stored non-visual data: ${type}`);
-            // These are stored but not rendered directly
-            // They're available for downstream helpers
-            return;
-        }
-
-        console.warn(`⚠️ Unknown result type from ${helperName}:`, result);
+    // Handle Control Flow
+    if (helperName === 'loop') {
+        return this.executeLoop(action, group);
     }
+
+    if (helperName === 'clone') {
+        return this.executeClone(action, group);
+    }
+
+    // ========== HELPER LOOKUP ==========
+    let helperFn = helpers[helperName];
+    if (!helperFn && helpers.default && typeof helpers.default === 'object') {
+        helperFn = helpers.default[helperName];
+    }
+
+    if (!helperFn) {
+        console.warn(`❌ Helper not found: ${helperName}`, {
+            availableFunctions: Object.keys(helpers)
+                .filter(k => typeof helpers[k] === 'function')
+                .slice(0, 10)
+                .join(', ')
+        });
+        return;
+    }
+
+    // ========== PARAMETER EVALUATION ==========
+    const evalParams = this.evaluateParamsCarefully(params);
+
+    console.log(`Calling ${helperName}:`, { rawParams: params, evalParams });
+
+    // Execute helper
+    let result;
+    try {
+        result = helperFn(evalParams);
+        console.log(`✅ ${helperName}:`, {
+            success: !!result,
+            resultType: result?.type || result?.userData?.type || typeof result
+        });
+    } catch (error) {
+        console.error(`❌ Error executing ${helperName}:`, error);
+        console.error('Stack:', error.stack);
+        return;
+    }
+
+    if (!result) {
+        console.warn(`⚠️ ${helperName} returned no result`);
+        return;
+    }
+
+    // Store result (could be geometry, curve, field, grid, or wrapped object)
+    if (storeName) {
+        this.geometries.set(storeName, result);
+        console.log(`📦 Stored: ${storeName}`, result.userData?.type || 'geometry');
+    }
+
+    // Apply transform if provided
+    if (transform && (result.isBufferGeometry || result.isMesh || result.isLine)) {
+        this.applyTransform(result, transform);
+    }
+
+    // ========== HANDLE DIFFERENT RESULT TYPES ==========
+
+    // Is it a renderable object? (Line, Mesh, Group)
+    if (result.isLine || result.isMesh || result.isGroup) {
+        result.visible = visible !== false;
+        group.add(result);
+        return;
+    }
+
+    // Is it a bare geometry? Wrap in mesh
+    if (result.isBufferGeometry) {
+        const mat = this.getMaterial(material || 'default');
+        const mesh = new THREE.Mesh(result, mat);
+        mesh.visible = visible !== false;
+        group.add(mesh);
+        return;
+    }
+
+    // Is it a wrapped data object? (field, grid, points, etc.)
+    if (result.userData) {
+        const type = result.userData.type;
+        console.log(`✓ Stored non-visual data: ${type}`);
+        return;
+    }
+
+    console.warn(`⚠️ Unknown result type from ${helperName}:`, result);
+}
 
     // ========== PARAMETER EVALUATION ==========
     evaluateParamsCarefully(params) {
