@@ -1363,31 +1363,50 @@ export function meshFromMarchingCubes(params = {}) {
     const effect = new MarchingCubes(resolution, null, true, true, 100000);
 
     let fieldFn;
+
     if (expression) {
         try {
-            const userFn = new Function('x', 'y', 'z', 'ctx', 'noise', 'utils', expression);
-            const noiseFn = (x, y, z) => noise.noise(x, y, z);
+            // 1. Compile the user's expression string into a function
+            const userFn = new Function('x', 'y', 'z', 'ctx', 'noise', 'utils', `
+                try { 
+                    ${expression.includes('return') ? expression : 'return ' + expression + ';'} 
+                } catch(e) { return 0; }
+            `);
+
+            // 2. FIX: Map 'noise' argument to the correct 'simplex3' function
+            const noiseFn = (x, y, z) => noise.simplex3(x, y, z);
+
+            // 3. Create the field function calling the user code
             fieldFn = (x, y, z) => userFn(x, y, z, context, noiseFn, Math);
-        } catch(e) { console.error(e); }
+
+        } catch (e) {
+            console.error("MarchingCubes expression error:", e);
+        }
     }
 
-    if (!fieldFn) fieldFn = (x, y, z) => noise.noise(x*0.1, y*0.1, z*0.1) + 0.5;
+    // Fallback if no valid expression provided
+    if (!fieldFn) fieldFn = (x, y, z) => noise.simplex3(x * 0.1, y * 0.1, z * 0.1);
 
     const scaleFactor = 2 * bounds / resolution;
     effect.isolation = isovalue;
 
+    // Generate the scalar field
     for (let k = 0; k < resolution; k++) {
         for (let j = 0; j < resolution; j++) {
             for (let i = 0; i < resolution; i++) {
-                const x = (i - resolution/2) * scaleFactor;
-                const y = (j - resolution/2) * scaleFactor;
-                const z = (k - resolution/2) * scaleFactor;
+                const x = (i - resolution / 2) * scaleFactor;
+                const y = (j - resolution / 2) * scaleFactor;
+                const z = (k - resolution / 2) * scaleFactor;
+                
                 const val = fieldFn(x, y, z);
+                
+                // Update the internal data buffer
                 effect.field[i + j * resolution + k * resolution * resolution] = val;
             }
         }
     }
 
+    // Create the mesh
     effect.update();
     if (effect.geometry) {
         const exportedGeom = effect.geometry.clone();
@@ -1397,6 +1416,7 @@ export function meshFromMarchingCubes(params = {}) {
 
     return new THREE.BufferGeometry();
 }
+
 
 // ============================================================================
 // 11. COMPLEX ALGORITHMS (Irreplaceable by modifyGeometry) - 11 helpers
