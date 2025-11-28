@@ -1389,36 +1389,78 @@ export function meshFromMarchingCubes(params = {}) {
         field,             
         expression,        
         context = {},
-        objectSpace = true // Default to true for Noise/Math, but we'll auto-disable for Geometry
+        objectSpace = true 
     } = params;
 
     const dummyMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const effect = new MarchingCubes(resolution, dummyMaterial, true, true, 100000);
 
     let fieldFn;
-    let forceWorldSpace = false; // Flag to override objectSpace if needed
+    let forceWorldSpace = false;
 
     // ========================================================================
-    // MODE 1: SEGMENTS / L-SYSTEM (Implicit Surface from Lines)
+    // MODE 1: SEGMENTS (Now with Spatial Hash Optimization)
     // ========================================================================
-    // We check this FIRST because 'field' might be a geometry object with userData
     if (field && field.userData && field.userData.segments) {
         const segments = field.userData.segments;
-        console.log(`MarchingCubes: Meshing ${segments.length} segments from input`);
+        console.log(`MarchingCubes: Optimization - Indexing ${segments.length} segments...`);
         
-        forceWorldSpace = true; // Segments have absolute positions, don't normalize!
+        forceWorldSpace = true;
 
-        // Define Density Field Function for Segments
-        // Returns: density (high near lines, low far away)
+        // --- SPATIAL HASH SETUP ---
+        // We bin segments into 3D cells so we only check neighbors
+        const cellSize = 2.0; // Tunable: Larger = safer, Smaller = faster. ~2x average segment length
+        const grid = new Map();
+        
+        const getKey = (gx, gy, gz) => `${gx},${gy},${gz}`;
+
+        // 1. Build the Index
+        for (const seg of segments) {
+            const [s, e, thick] = seg;
+            // Find grid range this segment touches
+            // We add padding for thickness
+            const padding = thick * 2; 
+            const minX = Math.floor((Math.min(s.x, e.x) - padding) / cellSize);
+            const maxX = Math.floor((Math.max(s.x, e.x) + padding) / cellSize);
+            const minY = Math.floor((Math.min(s.y, e.y) - padding) / cellSize);
+            const maxY = Math.floor((Math.max(s.y, e.y) + padding) / cellSize);
+            const minZ = Math.floor((Math.min(s.z, e.z) - padding) / cellSize);
+            const maxZ = Math.floor((Math.max(s.z, e.z) + padding) / cellSize);
+
+            for(let gx = minX; gx <= maxX; gx++) {
+                for(let gy = minY; gy <= maxY; gy++) {
+                    for(let gz = minZ; gz <= maxZ; gz++) {
+                        const key = getKey(gx, gy, gz);
+                        if (!grid.has(key)) grid.set(key, []);
+                        grid.get(key).push(seg);
+                    }
+                }
+            }
+        }
+
+        // 2. Define Fast Lookup Function
         fieldFn = (x, y, z) => {
-            const p = new THREE.Vector3(x, y, z); 
+            const p = new THREE.Vector3(x, y, z);
+            
+            // Which cell are we in?
+            const gx = Math.floor(x / cellSize);
+            const gy = Math.floor(y / cellSize);
+            const gz = Math.floor(z / cellSize);
+            
             let minDistSq = Infinity;
-            let minThick = 0.1; 
+            let minThick = 0.1;
+            
+            // Check this cell and immediate neighbors (3x3x3 area) to handle boundaries
+            // Optimization: Just checking center cell might be enough if cellSize is large relative to thickness
+            const key = getKey(gx, gy, gz);
+            const candidates = grid.get(key);
 
-            for (let i = 0; i < segments.length; i++) {
-                const [start, end, thick] = segments[i];
+            // If no segments nearby, return 0 immediately (Huge speedup for empty space)
+            if (!candidates) return 0; 
+
+            for (let i = 0; i < candidates.length; i++) {
+                const [start, end, thick] = candidates[i];
                 
-                // Distance Point to Line Segment
                 const l2 = start.distanceToSquared(end);
                 if (l2 == 0) continue;
                 
@@ -1440,19 +1482,13 @@ export function meshFromMarchingCubes(params = {}) {
                 }
             }
             
-            // Smooth Falloff Function
-            // 1.0 at center, 0.5 at surface radius, 0.0 at infinity
-            // val = radius / (dist + epsilon)
             const dist = Math.sqrt(minDistSq);
             return minThick / (dist + 0.001);
         };
-        
-        // Override isovalue if default is too low/high for this logic
-        // If user didn't change default 0.5, it works perfectly with the logic above.
     }
 
     // ========================================================================
-    // MODE 2: VECTOR FIELD (Flow / Noise)
+    // MODE 2: VECTOR FIELD
     // ========================================================================
     else if (field) {
         const vectorFn = resolveField(field);
@@ -1465,7 +1501,7 @@ export function meshFromMarchingCubes(params = {}) {
     }
 
     // ========================================================================
-    // MODE 3: EXPRESSION OVERRIDE
+    // MODE 3: EXPRESSION
     // ========================================================================
     if (expression && expression.trim() !== '') {
         try {
@@ -1479,62 +1515,45 @@ export function meshFromMarchingCubes(params = {}) {
         } catch (e) { console.error(e); }
     }
 
-    // Fallback
     if (!fieldFn) fieldFn = (x, y, z) => noise.simplex3(x, y, z) + 0.5;
 
     // ========================================================================
-    // DATA GENERATION
+    // DATA GENERATION & MESHING
     // ========================================================================
     effect.isolation = isovalue;
-    
-    // Determine if we should use Object Space scaling
     const useObjectSpace = objectSpace && !forceWorldSpace;
 
     for (let k = 0; k < resolution; k++) {
         for (let j = 0; j < resolution; j++) {
             for (let i = 0; i < resolution; i++) {
-                
                 let x, y, z;
-
                 if (useObjectSpace) {
-                    // OBJECT SPACE: Coordinates are normalized (-1 to 1)
-                    // Useful for Noise/Math blobs that should scale with the object
                     x = ((i - resolution / 2) / (resolution / 2)) * 2.0;
                     y = ((j - resolution / 2) / (resolution / 2)) * 2.0;
                     z = ((k - resolution / 2) / (resolution / 2)) * 2.0;
                 } else {
-                    // WORLD SPACE: Coordinates are absolute
-                    // Essential for Segments/L-Systems to match their true position
                     const scaleFactor = 2 * bounds / resolution;
                     x = (i - resolution / 2) * scaleFactor;
                     y = (j - resolution / 2) * scaleFactor;
                     z = (k - resolution / 2) * scaleFactor;
                 }
-                
-                // Sample field
                 effect.field[i + j * resolution + k * resolution * resolution] = fieldFn(x, y, z);
             }
         }
     }
 
-    // ========================================================================
-    // GEOMETRY EXTRACTION & SCALING
-    // ========================================================================
     try {
         effect.update();
         if (effect.geometry) {
             const exportedGeom = effect.geometry.clone();
-            
-            // Apply scaling based on mode
-            if (useObjectSpace) {
-                 // Scale normalized mesh (-1..1) to fit user bounds
+            if (useObjectSpace || !forceWorldSpace) {
                  exportedGeom.scale(bounds, bounds, bounds);
-            } else {
-                 // World space mesh is already correct relative to origin, 
-                 // BUT MarchingCubes output is normalized 0..1 internally by Three.js example?
-                 // Actually, Three.js MarchingCubes generates geometry in range [-1, 1] always.
-                 // So even in World Space calculation mode, we must scale the RESULT 
-                 // to match the bounds we sampled.
+            } 
+            // Note: If forceWorldSpace is true (Segments mode), we generally DON'T scale 
+            // because the MarchingCubes grid was sampled at exact world coordinates.
+            // However, Three.js MarchingCubes creates geometry in [-1, 1]. 
+            // We MUST scale it to match the sampling volume size (2 * bounds).
+            else {
                  exportedGeom.scale(bounds, bounds, bounds);
             }
 
@@ -1542,12 +1561,11 @@ export function meshFromMarchingCubes(params = {}) {
             dummyMaterial.dispose();
             return exportedGeom;
         }
-    } catch (e) {
-        console.error("MarchingCubes update failed:", e);
-    }
+    } catch (e) { console.error("MarchingCubes update failed:", e); }
 
     return new THREE.BufferGeometry();
 }
+
 
 
 
