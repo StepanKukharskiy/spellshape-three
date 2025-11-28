@@ -268,22 +268,61 @@ export function createLoft(params = {}) {
   // ========================================================================
   // STEP 3: Create interpolation curves between profiles
   // ========================================================================
-  const pointsPerProfile = Math.max(...profiles.map(p => p.length), segments);
-  const vertices = [];
-  const indices = [];
+  const resampleProfile = (points, targetCount) => {
+      if (points.length < 2) return points;
 
-  // Ensure all profiles have same point count (Resampling)
-  profiles = profiles.map(profile => {
-    if (profile.length === pointsPerProfile) return profile;
-    
-    const resampled = [];
-    for (let i = 0; i < pointsPerProfile; i++) {
-      const t = i / (pointsPerProfile - 1);
-      const idx = Math.floor(t * (profile.length - 1));
-      resampled.push(profile[idx]);
-    }
-    return resampled;
-  });
+      // 1. Calculate total length and segment lengths
+      const dists = [0];
+      let totalLen = 0;
+      for (let i = 0; i < points.length - 1; i++) {
+          const [x1, y1, z1] = points[i];
+          const [x2, y2, z2] = points[i+1];
+          const d = Math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2);
+          totalLen += d;
+          dists.push(totalLen);
+      }
+
+      const result = [];
+      // Always keep first point
+      result.push(points[0]);
+
+      // Interpolate middle points
+      for (let i = 1; i < targetCount - 1; i++) {
+          const targetDist = (i / (targetCount - 1)) * totalLen;
+          
+          // Find segment index
+          let idx = 0;
+          while (dists[idx+1] < targetDist && idx < dists.length - 2) {
+              idx++;
+          }
+          
+          // Linear Interpolation between points[idx] and points[idx+1]
+          const segmentLen = dists[idx+1] - dists[idx];
+          const t = segmentLen === 0 ? 0 : (targetDist - dists[idx]) / segmentLen;
+          
+          const p1 = points[idx];
+          const p2 = points[idx+1];
+          
+          result.push([
+              p1[0] + (p2[0] - p1[0]) * t,
+              p1[1] + (p2[1] - p1[1]) * t,
+              p1[2] + (p2[2] - p1[2]) * t
+          ]);
+      }
+
+      // Always keep last point (if open) or match first (if closed loop intent)
+      // Since we are wrapping rings, last point should align with end.
+      result.push(points[points.length - 1]);
+      
+      return result;
+  };
+
+  // Apply resampling
+  // Use the 'segments' parameter to define resolution, or default to max
+  const finalPointCount = Math.max(segments, ...profiles.map(p => p.length));
+  
+  profiles = profiles.map(profile => resampleProfile(profile, finalPointCount));
+
 
   // ========================================================================
   // STEP 4: For each point column, create interpolation curve
