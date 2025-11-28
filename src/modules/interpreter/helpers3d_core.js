@@ -1364,7 +1364,8 @@ export function meshFromMarchingCubes(params = {}) {
         bounds = 10, 
         field,             
         expression,        
-        context = {} 
+        context = {},
+        objectSpace = true // Default to true for "Easy Scaling" mode
     } = params;
 
     const dummyMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -1378,7 +1379,6 @@ export function meshFromMarchingCubes(params = {}) {
         if (vectorFn) {
             fieldFn = (x, y, z) => {
                 const vec = vectorFn(x, y, z);
-                // Safety check for vector
                 return vec && typeof vec.length === 'function' ? vec.length() : 0;
             };
         }
@@ -1397,21 +1397,35 @@ export function meshFromMarchingCubes(params = {}) {
         } catch (e) { console.error(e); }
     }
 
-    if (!fieldFn) fieldFn = (x, y, z) => noise.simplex3(x*0.2, y*0.2, z*0.2) + 0.5;
+    if (!fieldFn) fieldFn = (x, y, z) => noise.simplex3(x, y, z) + 0.5;
 
-    // --- 3. Data Generation ---
-    // We sample the field over a world-space area defined by 'bounds'
-    const scaleFactor = 2 * bounds / resolution;
+    // --- 3. Data Generation (Object Space Mode) ---
     effect.isolation = isovalue;
 
     for (let k = 0; k < resolution; k++) {
         for (let j = 0; j < resolution; j++) {
             for (let i = 0; i < resolution; i++) {
-                // Calculate world pos for sampling
-                const x = (i - resolution / 2) * scaleFactor;
-                const y = (j - resolution / 2) * scaleFactor;
-                const z = (k - resolution / 2) * scaleFactor;
                 
+                let x, y, z;
+
+                if (objectSpace) {
+                    // OBJECT SPACE: Coordinates are normalized (-1 to 1)
+                    // This means the noise pattern is "attached" to the object size.
+                    // Increasing 'bounds' just makes the object bigger without changing the pattern.
+                    // We multiply by 2.0 to give a reasonable default "zoom" into the noise.
+                    x = ((i - resolution / 2) / (resolution / 2)) * 2.0;
+                    y = ((j - resolution / 2) / (resolution / 2)) * 2.0;
+                    z = ((k - resolution / 2) / (resolution / 2)) * 2.0;
+                } else {
+                    // WORLD SPACE: Coordinates are absolute
+                    // Increasing 'bounds' reveals more of the infinite field.
+                    const scaleFactor = 2 * bounds / resolution;
+                    x = (i - resolution / 2) * scaleFactor;
+                    y = (j - resolution / 2) * scaleFactor;
+                    z = (k - resolution / 2) * scaleFactor;
+                }
+                
+                // Sample field
                 effect.field[i + j * resolution + k * resolution * resolution] = fieldFn(x, y, z);
             }
         }
@@ -1423,10 +1437,9 @@ export function meshFromMarchingCubes(params = {}) {
         if (effect.geometry) {
             const exportedGeom = effect.geometry.clone();
             
-            // ✅ FIX: Scale the normalized geometry to match the user's bounds
-            // MarchingCubes output is typically range [-1, 1] (Size 2). 
-            // We want range [-bounds, bounds] (Size 2*bounds).
-            // So we scale by 'bounds'.
+            // Apply the user's requested size
+            // MarchingCubes native output is normalized to size 2 (range -1 to 1)
+            // We scale it so the output fits exactly within 'bounds' (radius)
             exportedGeom.scale(bounds, bounds, bounds);
 
             effect.geometry.dispose();
@@ -1439,6 +1452,7 @@ export function meshFromMarchingCubes(params = {}) {
 
     return new THREE.BufferGeometry();
 }
+
 
 
 
