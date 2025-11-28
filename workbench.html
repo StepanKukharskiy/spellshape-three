@@ -1259,7 +1259,7 @@
     mode: {
       type: 'select',
       options: ['expression', 'noise', 'attractor'],
-      default: 'expression',
+      default: 'noise',
       group: 'Mode'
     },
     
@@ -1620,6 +1620,25 @@
                 };
                 container.appendChild(textarea);
             }
+              // SELECT PARAMETERS 
+              else if (paramDef.type === 'select' && paramDef.options) {
+  const select = document.createElement('select');
+  select.className = 'helper-select';
+  select.value = paramValue || paramDef.default;
+
+  paramDef.options.forEach(option => {
+    const opt = document.createElement('option');
+    opt.value = option;
+    opt.innerText = option;
+    if (paramValue === option) opt.selected = true;
+    select.appendChild(opt);
+  });
+
+  select.onchange = (e) => {
+    updateStepField(stepIndex, `param-${paramKey}`, e.target.value);
+  };
+  container.appendChild(select);
+}
             // STRING PARAMETERS
             else if (paramDef.type === 'string') {
                 const input = document.createElement('input');
