@@ -221,7 +221,7 @@ if (Array.isArray(result)) {
                 } // Helpers need metadata (size, segments, etc.), so pass the full wrapper.
                 else if (stored.userData?.field || stored.userData?.grid || stored.userData?.voxels) {
                     evaluated[key] = stored; // <--- PASS THE FULL OBJECT
-                }
+                
                 } else {
                     evaluated[key] = stored;  // Not wrapped, use as-is
                 }
