@@ -218,10 +218,10 @@ if (Array.isArray(result)) {
                 // ✅ If it's wrapped (field, grid, curve), pass it unwrapped
                 if (stored.userData?.curve) {
                     evaluated[key] = stored.userData.curve;  // Unwrap curve
-                } else if (stored.userData?.field) {
-                    evaluated[key] = stored.userData.field;  // Unwrap field ← THIS IS KEY!
-                } else if (stored.userData?.grid) {
-                    evaluated[key] = stored.userData.grid;   // Unwrap grid
+                } // Helpers need metadata (size, segments, etc.), so pass the full wrapper.
+                else if (stored.userData?.field || stored.userData?.grid || stored.userData?.voxels) {
+                    evaluated[key] = stored; // <--- PASS THE FULL OBJECT
+                }
                 } else {
                     evaluated[key] = stored;  // Not wrapped, use as-is
                 }
