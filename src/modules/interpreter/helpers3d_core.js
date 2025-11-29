@@ -1365,11 +1365,18 @@ export function reactionDiffusion(params = {}) {
         return (sum - 6 * arr[i]);
     }
 
+    console.log(`Starting Reaction-Diffusion. Grid Size: ${size}, Total Len: ${len}`);
+
     // Simulation Loop
     for(let iter=0; iter<iterations; iter++) {
         const nextA = new Float32Array(len);
         const nextB = new Float32Array(len);
         
+        // Statistics for debugging
+        let minB = 1.0, maxB = 0.0;
+        let activeCount = 0;
+        let nanCount = 0;
+
         for(let z=0; z<size; z++) {
             for(let y=0; y<size; y++) {
                 for(let x=0; x<size; x++) {
@@ -1380,23 +1387,42 @@ export function reactionDiffusion(params = {}) {
                     const lapA = getLaplacian(A, i, x, y, z);
                     const lapB = getLaplacian(B, i, x, y, z);
                     
-                    // Gray-Scott Formulas
-                    // dA/dt = Da*LapA - AB^2 + f(1-A)
-                    // dB/dt = Db*LapB + AB^2 - (k+f)B
                     const abb = a * b * b;
                     
-                    // Diffusion rates: Da=1.0, Db=0.5
+                    // Calculate next state
                     nextA[i] = a + (1.0 * lapA - abb + feed * (1 - a)) * dt;
                     nextB[i] = b + (0.5 * lapB + abb - (kill + feed) * b) * dt;
                     
                     // Clamp
                     nextA[i] = Math.max(0, Math.min(1, nextA[i]));
                     nextB[i] = Math.max(0, Math.min(1, nextB[i]));
+
+                    // --- DIAGNOSTICS ---
+                    const val = nextB[i];
+                    if (val > maxB) maxB = val;
+                    if (val < minB) minB = val;
+                    if (val > 0.1) activeCount++; // 0.1 is your mesher threshold
+                    if (Number.isNaN(val)) nanCount++;
                 }
             }
         }
         A = nextA;
         B = nextB;
+
+        // Log every 10 frames or on the final frame
+        if (iter % 10 === 0 || iter === iterations - 1) {
+            console.log(`[RD Debug] Iter ${iter}: Max B=${maxB.toFixed(4)} | Active Cells=${activeCount} | NaNs=${nanCount}`);
+            
+            // Emergency Stop: If NaNs appear, the math is unstable
+            if (nanCount > 0) {
+                console.error("⚠️ Simulation exploded to NaN. Your 'dt' is likely too high!");
+                break;
+            }
+            // Warning: If nothing is active, the reaction died
+            if (maxB < 0.1 && iter > 0) {
+                console.warn("⚠️ Reaction died out. Adjust Feed/Kill rates.");
+            }
+        }
     }
 
     // Output: Wrap as a Field Function for Marching Cubes
