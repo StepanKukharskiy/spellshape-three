@@ -1455,6 +1455,19 @@
                     attractionStrength: { type: 'number', default: 0.05, min: 0, max: 1 }
                 }
             },
+          differentialSurfaceGrowth: {
+    category: 'Procedural',
+    description: 'Simulates organic growth by expanding and buckling mesh edges, similar to Nervous System Floraform.',
+    params: {
+        iterations: { type: 'integer', default: 20, min: 1, max: 100, label: 'Growth Steps' },
+        growthRate: { type: 'number', default: 1.05, min: 1.01, max: 1.2, step: 0.01, label: 'Growth Rate' },
+        maxEdgeLength: { type: 'number', default: 0.5, min: 0.1, max: 2.0, step: 0.1, label: 'Max Edge Len' },
+        stiffness: { type: 'number', default: 0.5, min: 0.1, max: 1.0, step: 0.1, label: 'Spring Stiffness' },
+        growBoundariesOnly: { type: 'boolean', default: true, label: 'Ruffle Edges Only' },
+        repulsionRadius: { type: 'number', default: 0.2, min: 0.1, max: 1.0, step: 0.1, label: 'Self-Collision' }
+    }
+}
+,
             meshFromVoxelGrid: {
                 category: 'Complex',
                 params: {
