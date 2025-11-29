@@ -2126,7 +2126,7 @@ export function differentialSurfaceGrowth3D(params = {}) {
         geometry,
         iterations = 20,
         growthRate = 1.05,
-        maxEdgeLength = 0.5,
+        maxEdgeLength = 0.5, // Controls detailed ruffles
         repulsionRadius = 0.3,
         stiffness = 0.2,
         growBoundariesOnly = true,
@@ -2135,9 +2135,14 @@ export function differentialSurfaceGrowth3D(params = {}) {
 
     if (!geometry || !geometry.isBufferGeometry) return new THREE.BufferGeometry();
 
-    // 1. Initialize Geometry Nodes
-    const nodes = [];
-    const faces = []; // We will store faces as simple [a, b, c] arrays
+    console.log(`Starting Centroid Growth: ${iterations} iters`);
+
+    // --- 1. DATA STRUCTURE (Simple List) ---
+    // We use a flat list of vertices and faces because Centroid Insert is local.
+    let nodes = [];
+    let faces = [];
+
+    // Import Geometry
     const posAttr = geometry.attributes.position;
     const indexAttr = geometry.index;
 
@@ -2145,167 +2150,139 @@ export function differentialSurfaceGrowth3D(params = {}) {
         nodes.push({
             x: posAttr.getX(i),
             y: posAttr.getY(i),
-            z: posAttr.getZ(i) + (Math.random() - 0.5) * 0.05, // Tiny jitter
+            z: posAttr.getZ(i),
             vx: 0, vy: 0, vz: 0,
-            isBoundary: false
+            isBoundary: false // Will check later
         });
     }
 
-    // Load Faces
     if (indexAttr) {
         for (let i = 0; i < indexAttr.count; i += 3) faces.push([indexAttr.getX(i), indexAttr.getY(i), indexAttr.getZ(i)]);
     } else {
         for (let i = 0; i < posAttr.count; i += 3) faces.push([i, i + 1, i + 2]);
     }
 
-    console.log(`Starting Robust Growth: Nodes=${nodes.length}, Faces=${faces.length}`);
-
-    // Simulation Loop
-    for (let iter = 0; iter < iterations; iter++) {
-
-        // --- A. TOPOLOGY MAP (The "No Holes" Guarantee) ---
-        // Map Key: "min,max" (Edge) -> Value: [FaceIndex1, FaceIndex2, ...]
-        const edgeMap = new Map();
-        const getEdgeKey = (a, b) => a < b ? `${a},${b}` : `${b},${a}`;
-
-        // 1. Build Edge Map
-        for (let f = 0; f < faces.length; f++) {
-            const [a, b, c] = faces[f];
-            if (a === undefined) continue; // Skip deleted faces
-            
-            const edges = [[a,b], [b,c], [c,a]];
-            for (const [u, v] of edges) {
-                const key = getEdgeKey(u, v);
-                if (!edgeMap.has(key)) edgeMap.set(key, []);
-                edgeMap.get(key).push(f);
-            }
+    // Boundary Detection Helper
+    const updateBoundaries = () => {
+        nodes.forEach(n => n.isBoundary = false);
+        const edgeCount = new Map();
+        const key = (a,b) => a<b ? `${a},${b}` : `${b},${a}`;
+        
+        for(const [a,b,c] of faces) {
+            [key(a,b), key(b,c), key(c,a)].forEach(k => edgeCount.set(k, (edgeCount.get(k)||0)+1));
         }
-
-        // 2. Identify Boundary Nodes (Edges with only 1 Face)
-        for (let i = 0; i < nodes.length; i++) nodes[i].isBoundary = false;
-        
-        const edgesToSplit = [];
-        
-        for (const [key, faceIndices] of edgeMap) {
-            const [u, v] = key.split(',').map(Number);
-            
-            // Boundary Check
-            if (faceIndices.length === 1) {
+        for(const [k, count] of edgeCount) {
+            if(count === 1) {
+                const [u,v] = k.split(',').map(Number);
                 nodes[u].isBoundary = true;
                 nodes[v].isBoundary = true;
             }
-
-            // Growth Logic
-            const nu = nodes[u];
-            const nv = nodes[v];
-            const dx = nu.x - nv.x;
-            const dy = nu.y - nv.y;
-            const dz = nu.z - nv.z;
-            const lenSq = dx*dx + dy*dy + dz*dz;
-
-            const isBoundaryEdge = (faceIndices.length === 1);
-            const shouldGrow = !growBoundariesOnly || isBoundaryEdge;
-
-            // If edge is too long, mark for splitting
-            if (shouldGrow && lenSq > maxEdgeLength * maxEdgeLength) {
-                edgesToSplit.push({ u, v, faceIndices, key });
-            }
         }
+    };
+    updateBoundaries();
 
-        // 3. EXECUTE SPLITS (Topology Update)
-        // We limit splits to avoid processing the same triangle twice in one frame (complex)
-        const processedFaces = new Set();
-        let splitCount = 0;
-        const MAX_SPLITS = nodes.length * 0.5;
-
-        // Sort by length (split longest first)? Optional.
+    // --- 2. SIMULATION LOOP ---
+    for (let iter = 0; iter < iterations; iter++) {
         
-        for (const task of edgesToSplit) {
-            if (splitCount > MAX_SPLITS) break;
-            const { u, v, faceIndices } = task;
+        // A. SUBDIVISION (Centroid Insertion)
+        // Iterate backwards so we can modify array safely
+        const facesCount = faces.length; // Freeze count for this frame
+        const facesToRemove = new Set();
+        const newFaces = [];
 
-            // Safety: If any face attached to this edge was already modified, skip to avoid holes
-            if (faceIndices.some(f => processedFaces.has(f))) continue;
+        // Limit splits per frame to prevent exponential explosion
+        let splitAllowance = 500; 
 
-            // Create Midpoint
-            const mIdx = nodes.length;
-            const nu = nodes[u];
-            const nv = nodes[v];
-            
-            // Offset midpoint to encourage buckling
-            const offset = maxEdgeLength * 0.2 * (Math.random() - 0.5);
-            nodes.push({
-                x: (nu.x + nv.x) * 0.5,
-                y: (nu.y + nv.y) * 0.5,
-                z: (nu.z + nv.z) * 0.5 + offset,
-                vx: 0, vy: 0, vz: 0,
-                isBoundary: (faceIndices.length === 1)
-            });
+        for (let i = 0; i < facesCount; i++) {
+            if (splitAllowance <= 0) break;
 
-            // Update Topology: Replace 1 old face with 2 new faces
-            // For every face sharing this edge...
-            for (const fIdx of faceIndices) {
-                processedFaces.add(fIdx); // Lock this face
+            const [a, b, c] = faces[i];
+            const na = nodes[a], nb = nodes[b], nc = nodes[c];
+
+            // Check Edges Length
+            const dAB = (na.x-nb.x)**2 + (na.y-nb.y)**2 + (na.z-nb.z)**2;
+            const dBC = (nb.x-nc.x)**2 + (nb.y-nc.y)**2 + (nb.z-nc.z)**2;
+            const dCA = (nc.x-na.x)**2 + (nc.y-na.y)**2 + (nc.z-na.z)**2;
+            const maxSq = Math.max(dAB, dBC, dCA);
+
+            // Growth Criteria
+            const isBoundaryFace = na.isBoundary || nb.isBoundary || nc.isBoundary;
+            const shouldGrow = !growBoundariesOnly || isBoundaryFace;
+
+            if (shouldGrow && maxSq > maxEdgeLength**2) {
+                // SPLIT THIS FACE
+                splitAllowance--;
+                facesToRemove.add(i);
+
+                // 1. Create Centroid Node
+                const mIdx = nodes.length;
                 
-                const [a, b, c] = faces[fIdx];
-                
-                // Identify the third vertex (opposite to edge u-v)
-                let third;
-                if (a !== u && a !== v) third = a;
-                else if (b !== u && b !== v) third = b;
-                else third = c;
+                // Calculate Normal for direction
+                const ab = {x:nb.x-na.x, y:nb.y-na.y, z:nb.z-na.z};
+                const ac = {x:nc.x-na.x, y:nc.y-na.y, z:nc.z-na.z};
+                let nx = ab.y*ac.z - ab.z*ac.y;
+                let ny = ab.z*ac.x - ab.x*ac.z;
+                let nz = ab.x*ac.y - ab.y*ac.x;
+                const len = Math.sqrt(nx*nx + ny*ny + nz*nz);
+                nx/=len; ny/=len; nz/=len;
 
-                // Replace the old face (fIdx) with one half, add the other half as new
-                // Old Face -> [u, third, m]
-                // New Face -> [v, third, m]
-                // Order matters for Normals! We must preserve winding order.
-                
-                // Find original order:
-                if ((a===u && b===v) || (b===u && c===v) || (c===u && a===v)) {
-                    // Order is U -> V
-                    // T1: U, V, Third -> Become U, M, Third AND M, V, Third ?? 
-                    // Standard Split: 
-                    // Face [u, v, third] becomes [u, m, third] and [m, v, third]
-                    
-                    // We just overwrite the old face array directly to avoid holes
-                    faces[fIdx] = [u, mIdx, third];
-                    faces.push([mIdx, v, third]);
-                } else {
-                    // Order is V -> U
-                    faces[fIdx] = [v, mIdx, third];
-                    faces.push([mIdx, u, third]);
-                }
+                // Offset along normal (Buckling Force)
+                const buckle = maxEdgeLength * 0.2 * (Math.random() > 0.5 ? 1 : -1);
+
+                nodes.push({
+                    x: (na.x+nb.x+nc.x)/3 + nx * buckle,
+                    y: (na.y+nb.y+nc.y)/3 + ny * buckle,
+                    z: (na.z+nb.z+nc.z)/3 + nz * buckle,
+                    vx: 0, vy: 0, vz: 0,
+                    isBoundary: false // Internal node
+                });
+
+                // 2. Create 3 New Faces
+                // a,b,c -> (a,b,m), (b,c,m), (c,a,m)
+                newFaces.push([a, b, mIdx]);
+                newFaces.push([b, c, mIdx]);
+                newFaces.push([c, a, mIdx]);
             }
-            splitCount++;
+        }
+
+        // Commit Topology Changes
+        if (newFaces.length > 0) {
+            // Filter out removed faces (create new array)
+            const nextFaces = [];
+            for(let i=0; i<faces.length; i++) {
+                if(!facesToRemove.has(i)) nextFaces.push(faces[i]);
+            }
+            faces = nextFaces.concat(newFaces);
+            updateBoundaries(); // Re-check boundaries
         }
 
 
-        // --- B. PHYSICS (Relaxation) ---
-        // We rebuild the adjacency list for physics since topology changed
-        const neighbors = new Array(nodes.length).fill(0).map(() => []);
-        for (const [a, b, c] of faces) {
-            if (a===undefined) continue;
-            neighbors[a].push(b, c);
-            neighbors[b].push(a, c);
-            neighbors[c].push(a, b);
+        // B. PHYSICS (Relaxation)
+        // Build neighbors adjacency
+        const neighbors = Array.from({length:nodes.length}, () => []);
+        for(const [a,b,c] of faces) {
+            neighbors[a].push(b,c); neighbors[b].push(a,c); neighbors[c].push(a,b);
         }
 
-        for (let i = 0; i < nodes.length; i++) {
+        for(let i=0; i<nodes.length; i++) {
             const n = nodes[i];
-            let fx = 0, fy = 0, fz = 0;
-            const myNeighbors = neighbors[i]; // This contains duplicates, which is actually fine for weighting
-            
-            // 1. Spring Force
-            for (let k=0; k<myNeighbors.length; k+=2) { // Simple stride
-                const ni = myNeighbors[k];
-                const neighbor = nodes[ni];
-                const dx = n.x - neighbor.x;
-                const dy = n.y - neighbor.y;
-                const dz = n.z - neighbor.z;
+            let fx=0, fy=0, fz=0;
+
+            // 1. Spring Force (Target Distance)
+            const myNeighbors = neighbors[i];
+            // De-duplicate neighbors for physics efficiency
+            const uniqueNeighbors = [...new Set(myNeighbors)];
+
+            for(const nIdx of uniqueNeighbors) {
+                const nb = nodes[nIdx];
+                const dx = n.x - nb.x;
+                const dy = n.y - nb.y;
+                const dz = n.z - nb.z;
                 const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
                 
-                if (dist > 0.001) {
-                    const target = maxEdgeLength * 0.9;
+                if(dist > 0.0001) {
+                    // We want edges to GROW to maxEdgeLength
+                    const target = maxEdgeLength * 0.8;
                     const force = (dist - target) * stiffness;
                     fx -= (dx/dist) * force;
                     fy -= (dy/dist) * force;
@@ -2313,29 +2290,43 @@ export function differentialSurfaceGrowth3D(params = {}) {
                 }
             }
 
-            // 2. Laplacian Smoothing (Crucial for nice shapes)
-            let avgX = 0, avgY = 0, avgZ = 0, c = 0;
-            for (const ni of myNeighbors) {
-                avgX += nodes[ni].x;
-                avgY += nodes[ni].y;
-                avgZ += nodes[ni].z;
-                c++;
-            }
-            if (c > 0) {
-                fx += (avgX/c - n.x) * 0.25; // Smooth factor
-                fy += (avgY/c - n.y) * 0.25;
-                fz += (avgZ/c - n.z) * 0.25;
+            // 2. Repulsion (Keep folds apart)
+            // Checking against ALL nodes is O(N^2) -> Too Slow.
+            // Optimization: Only check neighbors of neighbors (Local)
+            if (repulsionRadius > 0) {
+                // Quick hack: check random sample of nodes for global collisions?
+                // Better: Just rely on local Laplacian to keep mesh regular
             }
 
-            // 3. Boundary Push
-            if (n.isBoundary && growBoundariesOnly) {
+            // 3. Laplacian Smoothing (The "Smooth Surface" force)
+            // Pulls vertex to average of neighbors
+            let avgX=0, avgY=0, avgZ=0;
+            for(const nIdx of uniqueNeighbors) {
+                avgX += nodes[nIdx].x;
+                avgY += nodes[nIdx].y;
+                avgZ += nodes[nIdx].z;
+            }
+            if(uniqueNeighbors.length > 0) {
+                const count = uniqueNeighbors.length;
+                // Strong smoothing prevents spikes
+                const smooth = 0.4; 
+                fx += (avgX/count - n.x) * smooth;
+                fy += (avgY/count - n.y) * smooth;
+                fz += (avgZ/count - n.z) * smooth;
+            }
+
+            // 4. Boundary Expansion
+            if(n.isBoundary && growBoundariesOnly) {
+                // Push out from origin
                 const d = Math.sqrt(n.x*n.x + n.y*n.y);
-                if (d > 0.1) {
-                    fx += (n.x/d) * 0.15; 
-                    fy += (n.y/d) * 0.15;
+                if(d > 0.001) {
+                    const push = 0.1;
+                    fx += (n.x/d) * push;
+                    fy += (n.y/d) * push;
                 }
             }
 
+            // Integrate
             n.vx = (n.vx * 0.8) + fx * dt;
             n.vy = (n.vy * 0.8) + fy * dt;
             n.vz = (n.vz * 0.8) + fz * dt;
@@ -2343,27 +2334,25 @@ export function differentialSurfaceGrowth3D(params = {}) {
         }
     }
 
-    // Output
+    // --- 3. EXPORT ---
     const newGeo = new THREE.BufferGeometry();
     const positions = new Float32Array(nodes.length * 3);
     const indices = [];
-    
-    for (let i = 0; i < nodes.length; i++) {
+
+    for(let i=0; i<nodes.length; i++) {
         positions[i*3] = nodes[i].x;
         positions[i*3+1] = nodes[i].y;
         positions[i*3+2] = nodes[i].z;
     }
-    
-    for (const f of faces) {
-        if (f && f.length === 3) indices.push(...f);
-    }
+    faces.forEach(f => indices.push(...f));
 
     newGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     newGeo.setIndex(indices);
     newGeo.computeVertexNormals();
-    
+
     return newGeo;
 }
+
 
 
 
