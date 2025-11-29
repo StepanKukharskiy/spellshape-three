@@ -2145,32 +2145,66 @@ export function differentialGrowth3DSimple(params = {}) {
 export function meshFromVoxelGrid(params = {}) {
     let { grid, voxelSize = 1 } = params;
 
-    // 1. UNWRAP: Handle the output from cellularAutomata
-    if (grid && grid.userData && grid.userData.grid) {
-        // Extract the actual 3D array from the wrapper
-        grid = grid.userData.grid;
-        // Optional: Inherit voxel size if not overridden
-        if (grid.userData?.voxelSize) voxelSize = grid.userData.voxelSize;
+    // --- 1. STANDARDIZE INPUT (Universal Accessor) ---
+    let accessFn, sizeX, sizeY, sizeZ;
+
+    // Handle Wrapped Objects (Reaction Diffusion / Flat Arrays)
+    if (grid && grid.userData) {
+        const data = grid.userData;
+        if (data.grid instanceof Float32Array || data.grid instanceof Uint8Array) {
+            const flat = data.grid;
+            const s = data.size; 
+            sizeX = Array.isArray(s) ? s[0] : s;
+            sizeY = Array.isArray(s) ? s[1] : s;
+            sizeZ = Array.isArray(s) ? s[2] : s;
+            // Accessor for Flat Array
+            accessFn = (x, y, z) => flat[x + y*sizeX + z*sizeX*sizeY] > 0.5; 
+        } 
+        else if (Array.isArray(data.grid)) {
+            grid = data.grid; // Unwrap nested array
+            if (data.voxelSize) voxelSize = data.voxelSize;
+        }
     }
 
-    // 2. RESOLVE: Ensure we have a valid 3D array
-    // This handles cases where 'grid' might be a raw array or coming from other sources
-    const resolvedGrid = resolveVoxelGrid(grid);
-
-    if (!resolvedGrid || !Array.isArray(resolvedGrid)) {
-        console.warn('meshFromVoxelGrid: No valid grid found', grid);
-        return new THREE.BufferGeometry();
+    // Handle Standard 3D Arrays
+    if (!accessFn && Array.isArray(grid)) {
+        const resolved = resolveVoxelGrid(grid);
+        if (resolved) {
+            sizeX = resolved.length;
+            sizeY = resolved[0]?.length || 0;
+            sizeZ = resolved[0]?.[0]?.length || 0;
+            // Accessor for Nested Array
+            accessFn = (x, y, z) => resolved[x][y][z];
+        }
     }
 
-    // 3. GENERATE MESH
-    const geometries = [];
-    const boxGeom = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
+    if (!accessFn) return new THREE.BufferGeometry();
+
+    // --- 2. FAST GEOMETRY GENERATION (Constructive) ---
+    // Instead of merging geometries, we push raw vertices.
+    const vertices = [];
+    const normals = [];
+    const indices = [];
+    let vertexCount = 0;
+
+    const hs = voxelSize / 2; // Half size
     
-    const sizeX = resolvedGrid.length;
-    const sizeY = resolvedGrid[0]?.length || 0;
-    const sizeZ = resolvedGrid[0]?.[0]?.length || 0;
+    // Pre-calculated cube data (corners relative to center)
+    const corners = [
+        [-hs, -hs,  hs], [ hs, -hs,  hs], [ hs,  hs,  hs], [-hs,  hs,  hs], // Front
+        [-hs, -hs, -hs], [-hs,  hs, -hs], [ hs,  hs, -hs], [ hs, -hs, -hs]  // Back
+    ];
 
-    // Center the grid
+    // Face definitions: [corner1, corner2, corner3, corner4, normal]
+    const faces = [
+        [0, 1, 2, 3, [ 0,  0,  1]], // Front
+        [1, 7, 6, 2, [ 1,  0,  0]], // Right
+        [7, 4, 5, 6, [ 0,  0, -1]], // Back
+        [4, 0, 3, 5, [-1,  0,  0]], // Left
+        [3, 2, 6, 5, [ 0,  1,  0]], // Top
+        [4, 7, 1, 0, [ 0, -1,  0]]  // Bottom
+    ];
+
     const offsetX = -sizeX * voxelSize / 2;
     const offsetY = -sizeY * voxelSize / 2;
     const offsetZ = -sizeZ * voxelSize / 2;
@@ -2178,22 +2212,62 @@ export function meshFromVoxelGrid(params = {}) {
     for (let x = 0; x < sizeX; x++) {
         for (let y = 0; y < sizeY; y++) {
             for (let z = 0; z < sizeZ; z++) {
-                // Check if voxel is active (1 or true)
-                if (resolvedGrid[x][y][z]) {
-                    const clone = boxGeom.clone();
-                    clone.translate(
-                        offsetX + x * voxelSize, 
-                        offsetY + y * voxelSize, 
-                        offsetZ + z * voxelSize
-                    );
-                    geometries.push(clone);
+                
+                if (accessFn(x, y, z)) {
+                    const cx = offsetX + x * voxelSize + hs;
+                    const cy = offsetY + y * voxelSize + hs;
+                    const cz = offsetZ + z * voxelSize + hs;
+
+                    // Optimization: Check neighbors to cull internal faces
+                    // (If neighbor exists, don't draw the face between them)
+                    const neighbors = [
+                        z < sizeZ-1 && accessFn(x,y,z+1), // Front neighbor
+                        x < sizeX-1 && accessFn(x+1,y,z), // Right
+                        z > 0       && accessFn(x,y,z-1), // Back
+                        x > 0       && accessFn(x-1,y,z), // Left
+                        y < sizeY-1 && accessFn(x,y+1,z), // Top
+                        y > 0       && accessFn(x,y-1,z)  // Bottom
+                    ];
+
+                    for (let f = 0; f < 6; f++) {
+                        // Culling: If neighbor exists, skip face
+                        if (neighbors[f]) continue;
+
+                        const [c1, c2, c3, c4, n] = faces[f];
+                        
+                        // Push Vertices
+                        vertices.push(
+                            cx + corners[c1][0], cy + corners[c1][1], cz + corners[c1][2],
+                            cx + corners[c2][0], cy + corners[c2][1], cz + corners[c2][2],
+                            cx + corners[c3][0], cy + corners[c3][1], cz + corners[c3][2],
+                            cx + corners[c4][0], cy + corners[c4][1], cz + corners[c4][2]
+                        );
+
+                        // Push Normals
+                        for(let i=0; i<4; i++) normals.push(n[0], n[1], n[2]);
+
+                        // Push Indices (Two triangles per face)
+                        // 0, 1, 2 and 0, 2, 3
+                        indices.push(
+                            vertexCount, vertexCount + 1, vertexCount + 2,
+                            vertexCount, vertexCount + 2, vertexCount + 3
+                        );
+
+                        vertexCount += 4;
+                    }
                 }
             }
         }
     }
 
-    return geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geometry.setIndex(indices);
+
+    return geometry;
 }
+
 
 
 export function pointSetCentroid(params = {}) {
