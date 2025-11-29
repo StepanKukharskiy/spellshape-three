@@ -1678,6 +1678,10 @@ export function meshFromMarchingCubes(params = {}) {
             
             effect.geometry.dispose();
             dummyMaterial.dispose();
+          // DEBUG STATS
+        const count = exportedGeom.attributes.position.count;
+        console.log(`✅ Marching Cubes Result: ${count} vertices. Bounds: ${bounds}`);
+          
             return exportedGeom;
         }
     } catch (e) { console.error("MarchingCubes update failed:", e); }
