@@ -1322,149 +1322,81 @@ export function cellularAutomata(params = {}) {
 
 export function reactionDiffusion(params = {}) {
     const { 
-        size = 32,         // Grid resolution
+        size = 32,
         iterations = 50, 
-        feed = 0.055,      // F rate (Coral-like preset)
-        kill = 0.062,      // K rate
-        dt = 1.0           // Time step
+        feed = 0.055,
+        kill = 0.062,
+        dt = 0.2 // Reduced from 1.0 for stability
     } = params;
 
-    // Initialize Grid: A=1, B=0
-    // We use a flat array for performance: index = x + y*size + z*size*size
+    // 1. Initialize Grid
     const len = size * size * size;
     let A = new Float32Array(len).fill(1.0);
     let B = new Float32Array(len).fill(0.0);
     
-    // Seed with some B in the center to start reaction
+    // Seed Center
     const center = Math.floor(size/2);
     const radius = 4;
     for(let z=center-radius; z<=center+radius; z++) {
         for(let y=center-radius; y<=center+radius; y++) {
             for(let x=center-radius; x<=center+radius; x++) {
                 if ((x-center)**2 + (y-center)**2 + (z-center)**2 < radius**2) {
-                    const idx = x + y*size + z*size*size;
-                    B[idx] = 1.0;
+                    B[x + y*size + z*size*size] = 1.0;
                 }
             }
         }
     }
 
-    // Helper for laplacian (neighbor check)
-    // Simplified 7-point stencil (Center + 6 neighbors)
+    // Helper: Laplacian Stencil
     function getLaplacian(arr, i, x, y, z) {
         let sum = 0;
-        // Neighbors (wrap around edges)
         const xm = x > 0 ? i-1 : i+size-1;
         const xp = x < size-1 ? i+1 : i-size+1;
         const ym = y > 0 ? i-size : i-size+(size*size);
         const yp = y < size-1 ? i+size : i+size-(size*size);
         const zm = z > 0 ? i-(size*size) : i+(size*size)*(size-1);
         const zp = z < size-1 ? i+(size*size) : i-(size*size)*(size-1);
-        
         sum += arr[xm] + arr[xp] + arr[ym] + arr[yp] + arr[zm] + arr[zp];
         return (sum - 6 * arr[i]);
     }
 
-    console.log(`Starting Reaction-Diffusion. Grid Size: ${size}, Total Len: ${len}`);
-
-    // Simulation Loop
+    // 2. Simulation Loop
+    console.log(`Starting RD: ${size}x${size}x${size}`);
     for(let iter=0; iter<iterations; iter++) {
         const nextA = new Float32Array(len);
         const nextB = new Float32Array(len);
         
-        // Statistics for debugging
-        let minB = 1.0, maxB = 0.0;
-        let activeCount = 0;
-        let nanCount = 0;
-
         for(let z=0; z<size; z++) {
             for(let y=0; y<size; y++) {
                 for(let x=0; x<size; x++) {
                     const i = x + y*size + z*size*size;
-                    
                     const a = A[i];
                     const b = B[i];
+                    
+                    // Gray-Scott Model
+                    const abb = a * b * b;
                     const lapA = getLaplacian(A, i, x, y, z);
                     const lapB = getLaplacian(B, i, x, y, z);
                     
-                    const abb = a * b * b;
-                    
-                    // Calculate next state
-                    nextA[i] = a + (1.0 * lapA - abb + feed * (1 - a)) * dt;
-                    nextB[i] = b + (0.5 * lapB + abb - (kill + feed) * b) * dt;
-                    
-                    // Clamp
-                    nextA[i] = Math.max(0, Math.min(1, nextA[i]));
-                    nextB[i] = Math.max(0, Math.min(1, nextB[i]));
-
-                    // --- DIAGNOSTICS ---
-                    const val = nextB[i];
-                    if (val > maxB) maxB = val;
-                    if (val < minB) minB = val;
-                    if (val > 0.1) activeCount++; // 0.1 is your mesher threshold
-                    if (Number.isNaN(val)) nanCount++;
+                    nextA[i] = Math.max(0, Math.min(1, a + (1.0 * lapA - abb + feed * (1 - a)) * dt));
+                    nextB[i] = Math.max(0, Math.min(1, b + (0.5 * lapB + abb - (kill + feed) * b) * dt));
                 }
             }
         }
         A = nextA;
         B = nextB;
-
-        // Log every 10 frames or on the final frame
-        if (iter % 10 === 0 || iter === iterations - 1) {
-            console.log(`[RD Debug] Iter ${iter}: Max B=${maxB.toFixed(4)} | Active Cells=${activeCount} | NaNs=${nanCount}`);
-            
-            // Emergency Stop: If NaNs appear, the math is unstable
-            if (nanCount > 0) {
-                console.error("⚠️ Simulation exploded to NaN. Your 'dt' is likely too high!");
-                break;
-            }
-            // Warning: If nothing is active, the reaction died
-            if (maxB < 0.1 && iter > 0) {
-                console.warn("⚠️ Reaction died out. Adjust Feed/Kill rates.");
-            }
-        }
     }
 
-    // Output: Wrap as a Field Function for Marching Cubes
-    // We interpolate the grid values
-    const fieldFn = (x, y, z) => {
-        // Map world space (bounds ~10) to grid space (0..size)
-        // Assume world bounds -5 to 5
-        const gx = (x + 5) / 10 * size;
-        const gy = (y + 5) / 10 * size;
-        const gz = (z + 5) / 10 * size;
-        
-        const ix = Math.floor(gx); 
-        const iy = Math.floor(gy); 
-        const iz = Math.floor(gz);
-        
-        if (ix<0 || ix>=size || iy<0 || iy>=size || iz<0 || iz>=size) return 0;
-        
-        // Return concentration of Chemical B (The pattern)
-        // Invert/Threshold it for solid shape
-        return B[ix + iy*size + iz*size*size]; 
-    };
-
-
-    // Return wrapped object
-    // return wrapFieldAsObject(fieldFn, 'Reaction-Diffusion B', { 
-    //     type: 'reaction-diffusion', 
-    //     grid: B, 
-    //     size 
-    // });
-
-  // New Code: Return a raw object
-    // We attach the function too, just in case
-    return {
-        isVoxelGrid: true, // Marker
-        userData: {
-            type: 'reaction-diffusion', // Custom type
-            grid: B,
-            size: size,
-            fn: fieldFn // We keep the function handy inside userData
-        }
-    };
+    // 3. RETURN USING GRID CONVENTION (Like cellularAutomata)
+    // This ensures the array data survives the transfer to the mesher.
+    return wrapGridAsObject(B, size, { 
+        type: 'reaction-diffusion',
+        voxelSize: 1,
+        feed, 
+        kill 
+    });
 }
+
 
 
 // ============================================================================
