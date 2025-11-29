@@ -1330,21 +1330,22 @@ export function reactionDiffusion(params = {}) {
     } = params;
 
     // 1. Initialize Grid
+    // Flattened array: x + y*size + z*size*size
     const len = size * size * size;
     let A = new Float32Array(len).fill(1.0);
     let B = new Float32Array(len).fill(0.0);
     
-    // Seed Center
+    // 2. Seed Center
     const center = Math.floor(size/2);
-    const radius = Math.max(2, Math.floor(size/8)); // Adaptive radius
+    const radius = Math.max(2, Math.floor(size/8));
     
-    console.log(`Starting RD Simulation: ${size}^3 grid, ${iterations} iters`);
+    console.log(`Starting RD Simulation: ${size}^3, ${iterations} steps, dt=${dt}`);
 
+    // Pre-seed pattern
     for(let z=center-radius; z<=center+radius; z++) {
         for(let y=center-radius; y<=center+radius; y++) {
             for(let x=center-radius; x<=center+radius; x++) {
                 if ((x-center)**2 + (y-center)**2 + (z-center)**2 < radius**2) {
-                    // Safe index check
                     if (x>=0 && x<size && y>=0 && y<size && z>=0 && z<size) {
                         B[x + y*size + z*size*size] = 1.0;
                     }
@@ -1353,30 +1354,26 @@ export function reactionDiffusion(params = {}) {
         }
     }
 
-    // Helper: Laplacian Stencil (Optimized)
-    // Pre-calculate offsets to avoid conditional checks in loop
+    // 3. Simulation Helpers
     const strideY = size;
     const strideZ = size * size;
 
     function getLaplacian(arr, i, x, y, z) {
-        // Fast Neighbor Lookup with Wrap (Toroidal)
+        // Toroidal (Wrap-around) Neighbors
         const xm = (x > 0 ? i-1 : i+size-1);
         const xp = (x < size-1 ? i+1 : i-size+1);
-        
         const ym = (y > 0 ? i-strideY : i-strideY+strideZ);
         const yp = (y < size-1 ? i+strideY : i+strideY-strideZ);
-        
-        const zm = (z > 0 ? i-strideZ : i-strideZ+len); // +len wraps to end
-        const zp = (z < size-1 ? i+strideZ : i-strideZ*(size-1)); // Wraps to start
+        const zm = (z > 0 ? i-strideZ : i-strideZ+len); 
+        const zp = (z < size-1 ? i+strideZ : i-strideZ*(size-1));
 
         return (arr[xm] + arr[xp] + arr[ym] + arr[yp] + arr[zm] + arr[zp] - 6 * arr[i]);
     }
 
-    // 2. Simulation Loop
+    // 4. Simulation Loop
     for(let iter=0; iter<iterations; iter++) {
         const nextA = new Float32Array(len);
         const nextB = new Float32Array(len);
-        
         let activeCount = 0;
 
         for(let z=0; z<size; z++) {
@@ -1390,26 +1387,27 @@ export function reactionDiffusion(params = {}) {
                     const lapA = getLaplacian(A, i, x, y, z);
                     const lapB = getLaplacian(B, i, x, y, z);
                     
+                    // Gray-Scott Formulas
                     nextA[i] = Math.max(0, Math.min(1, a + (1.0 * lapA - abb + feed * (1 - a)) * dt));
                     nextB[i] = Math.max(0, Math.min(1, b + (0.5 * lapB + abb - (kill + feed) * b) * dt));
                     
-                    if (nextB[i] > 0.1) activeCount++;
+                    if (nextB[i] > 0.01) activeCount++;
                 }
             }
         }
         A = nextA;
         B = nextB;
-        
+
         if (iter === iterations - 1) {
-             console.log(`RD Final Stats: Active Cells = ${activeCount}`);
+             console.log(`RD Stats: Active Cells (>0.01) = ${activeCount}/${len}`);
         }
     }
 
-    // 3. Return standard Grid Object
+    // 5. Return Wrapped Object
+    // We explicitly set 'grid' and 'size' to ensure compatibility
     return wrapGridAsObject(B, size, { 
         type: 'reaction-diffusion',
         voxelSize: 1,
-        bounds: 10, // Hint for the mesher
         feed, 
         kill 
     });
@@ -1480,7 +1478,7 @@ export function modifyGeometry(params) {
 export function meshFromMarchingCubes(params = {}) {
     const { 
         resolution = 32, 
-        isovalue = 0.2, // Safe default
+        isovalue = 0.1, 
         bounds = 10, 
         field,             
         expression,        
@@ -1488,171 +1486,106 @@ export function meshFromMarchingCubes(params = {}) {
         objectSpace = true 
     } = params;
 
-    // Safety: Ensure isovalue isn't impossible
-    const safeIso = (isovalue > 0.9) ? 0.1 : isovalue;
-
     const dummyMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const effect = new MarchingCubes(resolution, dummyMaterial, true, true, 100000);
+    // Disable colors/UVs for performance and simplicity
+    const effect = new MarchingCubes(resolution, dummyMaterial, false, false, 200000);
 
     let fieldFn;
     let forceWorldSpace = false;
+    let mode = 'unknown';
 
-    // ========================================================================
-    // MODE 1: SEGMENTS 
-    // ========================================================================
-    if (field && field.userData && field.userData.segments) {
-        const segments = field.userData.segments;
-        forceWorldSpace = true;
-        const cellSize = 2.0; 
-        const grid = new Map();
-        const getKey = (gx, gy, gz) => `${gx},${gy},${gz}`;
-
-        for (const seg of segments) {
-            const [s, e, thick] = seg;
-            const padding = thick * 2; 
-            const minX = Math.floor((Math.min(s.x, e.x) - padding) / cellSize);
-            const maxX = Math.floor((Math.max(s.x, e.x) + padding) / cellSize);
-            const minY = Math.floor((Math.min(s.y, e.y) - padding) / cellSize);
-            const maxY = Math.floor((Math.max(s.y, e.y) + padding) / cellSize);
-            const minZ = Math.floor((Math.min(s.z, e.z) - padding) / cellSize);
-            const maxZ = Math.floor((Math.max(s.z, e.z) + padding) / cellSize);
-
-            for(let gx = minX; gx <= maxX; gx++) {
-                for(let gy = minY; gy <= maxY; gy++) {
-                    for(let gz = minZ; gz <= maxZ; gz++) {
-                        const key = getKey(gx, gy, gz);
-                        if (!grid.has(key)) grid.set(key, []);
-                        grid.get(key).push(seg);
-                    }
-                }
-            }
-        }
-
-        fieldFn = (x, y, z) => {
-            const p = new THREE.Vector3(x, y, z);
-            const gx = Math.floor(x / cellSize);
-            const gy = Math.floor(y / cellSize);
-            const gz = Math.floor(z / cellSize);
-            const key = getKey(gx, gy, gz);
-            const candidates = grid.get(key);
-            if (!candidates) return 0; 
-
-            let minDistSq = Infinity;
-            let minThick = 0.1;
-
-            for (let i = 0; i < candidates.length; i++) {
-                const [start, end, thick] = candidates[i];
-                const l2 = start.distanceToSquared(end);
-                if (l2 == 0) continue;
-                let t = ((p.x - start.x) * (end.x - start.x) + 
-                         (p.y - start.y) * (end.y - start.y) + 
-                         (p.z - start.z) * (end.z - start.z)) / l2;
-                t = Math.max(0, Math.min(1, t));
-                const proj = new THREE.Vector3(
-                    start.x + t * (end.x - start.x),
-                    start.y + t * (end.y - start.y),
-                    start.z + t * (end.z - start.z)
-                );
-                const d2 = p.distanceToSquared(proj);
-                if (d2 < minDistSq) {
-                    minDistSq = d2;
-                    minThick = thick;
-                }
-            }
-            return minThick / (Math.sqrt(minDistSq) + 0.001);
-        };
-    }
-
-    // ========================================================================
-    // MODE 2: VOXEL GRID (Reaction Diffusion) - FIXED
-    // ========================================================================
-    // We check if 'field' IS the data, or if 'field.userData' holds the data
+    // --- DATA EXTRACTION ---
+    // Handle both wrapped object and direct userData
     let voxelData = null;
-    
     if (field && field.userData && (field.userData.grid || field.userData.voxels)) {
         voxelData = field.userData;
     } else if (field && (field.grid || field.voxels)) {
-        // Handle case where wrapper returned the raw object directly
         voxelData = field;
     }
 
+    // ========================================================================
+    // MODE: VOXEL GRID (Reaction Diffusion)
+    // ========================================================================
     if (voxelData) {
-        console.log("MarchingCubes: Detected Voxel Grid (Active)"); // You MUST see this log
+        mode = 'grid';
         
         const gridArr = voxelData.grid || voxelData.voxels;
-        const size = voxelData.size;
+        const sizeVal = voxelData.size || voxelData.gridSize || resolution;
         
-        // Robust Size Parsing
-        const sx = (Array.isArray(size)) ? size[0] : size;
-        const sy = (Array.isArray(size)) ? size[1] : size;
-        const sz = (Array.isArray(size)) ? size[2] : size;
+        // Robust Dimensions
+        const sx = Array.isArray(sizeVal) ? sizeVal[0] : sizeVal;
+        const sy = Array.isArray(sizeVal) ? sizeVal[1] : sizeVal;
+        const sz = Array.isArray(sizeVal) ? sizeVal[2] : sizeVal;
 
-        // Robust Bounds from metadata or params
-        const gridBounds = voxelData.bounds || bounds;
+        // 🔍 DATA AUDIT: Check if the data is actually there
+        let maxVal = -Infinity;
+        let minVal = Infinity;
+        let nonZero = 0;
+        for(let i=0; i<gridArr.length; i++) {
+            const v = gridArr[i];
+            if (v > maxVal) maxVal = v;
+            if (v < minVal) minVal = v;
+            if (v > 0.01) nonZero++;
+        }
+        console.log(`MarchingCubes Data Check: Mode=${mode}, Size=[${sx},${sy},${sz}], MaxVal=${maxVal.toFixed(4)}, Active=${nonZero}`);
 
+        if (maxVal < isovalue) {
+            console.warn(`⚠️ ISOVALUE WARNING: Max data value (${maxVal}) is lower than isovalue (${isovalue}). Output will be empty.`);
+        }
+
+        // Field Function with Clamped Mapping
         fieldFn = (x, y, z) => {
-            // Map World (-bounds to +bounds) -> UV (0 to 1)
+            // Map World Space (-bounds..bounds) to Unit Space (0..1)
             const u = (x + bounds) / (2 * bounds);
             const v = (y + bounds) / (2 * bounds);
             const w = (z + bounds) / (2 * bounds);
 
+            // Strict bounds check
             if (u < 0 || u >= 1 || v < 0 || v >= 1 || w < 0 || w >= 1) return 0;
 
+            // Map to Grid Indices
             const ix = Math.floor(u * sx);
             const iy = Math.floor(v * sy);
             const iz = Math.floor(w * sz);
-            
-            const idx = ix + iy*sx + iz*sx*sy;
-            return gridArr[idx] || 0; 
+
+            // Safety Clamp (Prevent Array Overflow)
+            if (ix < 0 || ix >= sx || iy < 0 || iy >= sy || iz < 0 || iz >= sz) return 0;
+
+            return gridArr[ix + iy*sx + iz*sx*sy];
         };
     }
 
     // ========================================================================
-    // MODE 3: VECTOR FIELD
+    // MODE: VECTOR FIELD
     // ========================================================================
-    else if (field) {
-        const vectorFn = resolveField(field);
-        if (vectorFn) {
-            fieldFn = (x, y, z) => {
-                const vec = vectorFn(x, y, z);
-                return vec && typeof vec.length === 'function' ? vec.length() : 0;
-            };
-        }
+    else if (field && (resolveField(field) || typeof field === 'function')) {
+        mode = 'field';
+        const vectorFn = resolveField(field) || field;
+        fieldFn = (x, y, z) => {
+            const vec = vectorFn(x, y, z);
+            return vec && typeof vec.length === 'function' ? vec.length() : 0;
+        };
     }
 
     // ========================================================================
-    // MODE 4: EXPRESSION
+    // FALLBACK
     // ========================================================================
-    if (!fieldFn && expression && expression.trim() !== '') {
-        try {
-            const userFn = new Function('x', 'y', 'z', 'ctx', 'noise', 'utils', `
-                try { 
-                    ${expression.includes('return') ? expression : 'return ' + expression + ';'} 
-                } catch(e) { return 0; }
-            `);
-            const noiseFn = (x, y, z) => noise.simplex3(x, y, z);
-            fieldFn = (x, y, z) => userFn(x, y, z, context, noiseFn, Math);
-        } catch (e) { console.error(e); }
-    }
-
-    // Fallback to noise if nothing else matches
     if (!fieldFn) {
         console.warn("MarchingCubes: No valid field found, using Noise fallback");
         fieldFn = (x, y, z) => noise.simplex3(x, y, z) + 0.5;
     }
 
     // ========================================================================
-    // MESH GENERATION
+    // GENERATE
     // ========================================================================
-    effect.isolation = safeIso; 
-    const useObjectSpace = objectSpace && !forceWorldSpace;
+    effect.isolation = isovalue;
     const halfRes = resolution / 2;
 
+    // Fill Marching Cubes Buffer
     for (let k = 0; k < resolution; k++) {
         for (let j = 0; j < resolution; j++) {
             for (let i = 0; i < resolution; i++) {
-                // We always want to query fieldFn with WORLD coordinates
-                // Map i,j,k (0..res) -> x,y,z (-bounds..bounds)
+                // Generate sample coordinates matching the bounds
                 const x = (i - halfRes) / halfRes * bounds;
                 const y = (j - halfRes) / halfRes * bounds;
                 const z = (k - halfRes) / halfRes * bounds;
@@ -1665,12 +1598,12 @@ export function meshFromMarchingCubes(params = {}) {
     try {
         effect.update();
         
-        // 1. Check if we actually generated anything
-        // 'count' is the number of indices/vertices used.
+        // EXTRACT VALID GEOMETRY
+        // 1. Check count
         const count = effect.geometry.drawRange.count;
         
         if (count > 0) {
-            // 2. Extract ONLY the used data from the massive buffer
+            // 2. Copy ONLY active data to new geometry
             const rawPos = effect.geometry.attributes.position;
             const rawNorm = effect.geometry.attributes.normal;
             
@@ -1678,7 +1611,6 @@ export function meshFromMarchingCubes(params = {}) {
             const cleanNorm = new Float32Array(count * 3);
 
             for (let i = 0; i < count; i++) {
-                // Manually copy coordinates to ensure we drop the garbage data
                 cleanPos[i*3]     = rawPos.getX(i);
                 cleanPos[i*3 + 1] = rawPos.getY(i);
                 cleanPos[i*3 + 2] = rawPos.getZ(i);
@@ -1690,7 +1622,6 @@ export function meshFromMarchingCubes(params = {}) {
                 }
             }
 
-            // 3. Create a fresh, tight geometry
             const cleanGeom = new THREE.BufferGeometry();
             cleanGeom.setAttribute('position', new THREE.BufferAttribute(cleanPos, 3));
             if (rawNorm) {
@@ -1699,24 +1630,23 @@ export function meshFromMarchingCubes(params = {}) {
                 cleanGeom.computeVertexNormals();
             }
 
-            // 4. Apply Scale (Bounds)
-            if (useObjectSpace || !forceWorldSpace) {
+            // 3. Scale to World Size
+            // MC output is roughly -1..1 (relative to resolution). 
+            // We match it to our 'bounds'.
+            if (objectSpace || !forceWorldSpace) {
                  cleanGeom.scale(bounds, bounds, bounds);
-            } 
+            }
 
-            // 5. Log Real Stats
-            console.log(`✅ Marching Cubes Success: Extracted ${count} active vertices from buffer.`);
-
+            console.log(`✅ Marching Cubes: Generated ${count/3} triangles.`);
             effect.geometry.dispose();
             dummyMaterial.dispose();
             return cleanGeom;
-        } 
-        else {
-            console.warn("⚠️ Marching Cubes finished with 0 vertices. Try lowering isovalue.");
+
+        } else {
+            console.warn(`⚠️ Marching Cubes finished with 0 vertices. Max Grid Value: ${voxelData ? voxelData.grid[0] : '?'}`);
         }
-    } catch (e) { 
-        console.error("MarchingCubes update failed:", e); 
-    }
+
+    } catch (e) { console.error("MarchingCubes update failed:", e); }
 
     return new THREE.BufferGeometry();
 }
