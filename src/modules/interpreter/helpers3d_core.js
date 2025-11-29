@@ -2362,21 +2362,17 @@ export function differentialGrowth3DSimple(params = {}) {
  */
 export function  differentialSurfaceGrowth3D(params = {}) {
   // --- 1. ROBUST INPUT HANDLING ---
-    let geo = params.inputGeometry || params.geometry;
+    // We try to find the geometry in multiple likely places
+    let inputGeometry = params.inputGeometry || params.geometry;
     
-    // Unwrap wrapped objects from previous steps
-    if (geo && geo.userData && geo.isField) { 
-         // Special case if you accidentally passed a Field
-         console.warn("Passed Field to Growth solver. This requires Mesh Geometry.");
-         return new THREE.BufferGeometry();
+    // Unwrap Mesh/Object3D wrappers or helper results
+    if (inputGeometry && inputGeometry.isObject3D && inputGeometry.geometry) {
+        inputGeometry = inputGeometry.geometry;
     }
     
-    // Unwrap Mesh/Object3D wrappers
-    if (geo && geo.isObject3D && geo.geometry) geo = geo.geometry;
-    
-    // Check for direct BufferGeometry
-    if (!geo || !geo.isBufferGeometry) {
-        console.error("differentialSurfaceGrowth3D: Input is not a BufferGeometry", geo);
+    // Check validity
+    if (!inputGeometry || !inputGeometry.isBufferGeometry) {
+        console.error("differentialSurfaceGrowth3D: Input is not a BufferGeometry", inputGeometry);
         return new THREE.BufferGeometry();
     }
     // --- CONFIGURATION ---
