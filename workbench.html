@@ -1468,6 +1468,23 @@
     }
 }
 ,
+          buckleGeometry: {
+    category: 'Deformation',
+    description: 'Forces a high-resolution mesh to fold and ruffle by expanding its surface area while constrained.',
+    params: {
+        iterations: { type: 'integer', default: 50, min: 10, max: 500, label: 'Sim Steps' },
+        expansion: { type: 'number', default: 1.05, min: 1.0, max: 1.5, step: 0.01, label: 'Growth/Step' },
+        constraints: { 
+            type: 'select', 
+            options: ['none', 'center', 'boundary'], 
+            default: 'center', 
+            label: 'Fixed Points' 
+        },
+        noiseAmount: { type: 'number', default: 0.1, min: 0.0, max: 2.0, step: 0.1, label: 'Initial Chaos' },
+        smoothness: { type: 'number', default: 0.5, min: 0.0, max: 1.0, step: 0.05, label: 'Fabric Smoothness' }
+    }
+}
+,
             meshFromVoxelGrid: {
                 category: 'Complex',
                 params: {
