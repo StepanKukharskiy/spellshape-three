@@ -1567,7 +1567,7 @@ export function meshFromMarchingCubes(params = {}) {
       // ========================================================================
     // MODE 1.5: VOXEL GRID (Reaction Diffusion / Cellular Automata)
     // ========================================================================
-    if (field && field.userData && (field.userData.grid || field.userData.voxels)) {
+    else if (field && field.userData && (field.userData.grid || field.userData.voxels)) {
         console.log("MarchingCubes: Meshing Voxel Grid");
         const data = field.userData;
         const gridArr = data.grid || data.voxels;
