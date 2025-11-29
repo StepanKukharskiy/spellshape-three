@@ -2360,60 +2360,58 @@ export function differentialGrowth3DSimple(params = {}) {
  * @param {Object} params - Simulation settings
  * @returns {THREE.BufferGeometry} - The grown geometry
  */
-export function  differentialSurfaceGrowth3D(params = {}) {
-  // --- 1. ROBUST INPUT HANDLING ---
-    // We try to find the geometry in multiple likely places
+import * as THREE from 'three';
+
+export function differentialSurfaceGrowth3D(params = {}) {
+    // --- 1. INPUT HANDLING ---
     let inputGeometry = params.inputGeometry || params.geometry;
-    
-    // Unwrap Mesh/Object3D wrappers or helper results
     if (inputGeometry && inputGeometry.isObject3D && inputGeometry.geometry) {
         inputGeometry = inputGeometry.geometry;
     }
-    
-    // Check validity
     if (!inputGeometry || !inputGeometry.isBufferGeometry) {
-        console.error("differentialSurfaceGrowth3D: Input is not a BufferGeometry", inputGeometry);
+        console.error("differentialSurfaceGrowth3D: Invalid geometry.");
         return new THREE.BufferGeometry();
     }
-    // --- CONFIGURATION ---
+
+    // --- 2. CONFIGURATION ---
     const {
-        iterations = 50,             // Total growth steps
-        maxEdgeLength = 0.2,         // Threshold to split edges (Control detail)
-        minEdgeLength = 0.05,        // Target length for internal springs
-        repulsionRadius = 0.25,      // Radius of self-collision (Volume)
-        repulsionStrength = 1.0,     // Strength of "unfolding" force
-        springStiffness = 0.4,       // Structural integrity
-        boundaryGrowthPush = 0.2,    // The "Ruffle" force (push boundary edges apart)
-        dt = 0.04,                   // Time step (lower = more stable)
-        maxVertices = 30000,         // Hard limit to prevent crashing
-        maxVelocity = 0.5            // Safety cap on movement per frame
+        iterations = 50,
+        maxEdgeLength = 0.2,
+        minEdgeLength = 0.05,
+        repulsionRadius = 0.25,
+        repulsionStrength = 1.0,
+        springStiffness = 0.4,
+        boundaryGrowthPush = 0.2,
+        dt = 0.04,
+        maxVertices = 30000,
+        maxVelocity = 0.5,
+        initialJitter = 0.05 // ✅ NEW: Force to break 2D symmetry
     } = params;
 
-    if (!inputGeometry || !inputGeometry.isBufferGeometry) {
-        console.warn("DifferentialGrowth: Invalid input geometry.");
-        return new THREE.BufferGeometry();
-    }
-
-    // --- DATA INITIALIZATION ---
+    // --- 3. DATA INITIALIZATION ---
     let nodes = [];
     let faces = [];
     
     const posAttr = inputGeometry.attributes.position;
     const indexAttr = inputGeometry.index;
 
-    // 1. Import Nodes
+    // Import Nodes with JITTER
     for (let i = 0; i < posAttr.count; i++) {
+        // ✅ FIX: Add random noise to force the mesh out of its flat plane
+        // We apply it to X, Y, and Z to ensure buckling happens regardless of orientation
+        const j = () => (Math.random() - 0.5) * initialJitter;
+        
         nodes.push({
-            x: posAttr.getX(i),
-            y: posAttr.getY(i),
-            z: posAttr.getZ(i),
+            x: posAttr.getX(i) + j(),
+            y: posAttr.getY(i) + j(),
+            z: posAttr.getZ(i) + j(), 
             vx: 0, vy: 0, vz: 0, 
             fx: 0, fy: 0, fz: 0,
             isBoundary: false
         });
     }
 
-    // 2. Import Faces
+    // Import Faces
     if (indexAttr) {
         for (let i = 0; i < indexAttr.count; i += 3) {
             faces.push([indexAttr.getX(i), indexAttr.getY(i), indexAttr.getZ(i)]);
@@ -2424,7 +2422,7 @@ export function  differentialSurfaceGrowth3D(params = {}) {
         }
     }
 
-    // Helper: Spatial Hash for O(N) Repulsion
+    // Helper: Spatial Hash
     class SpatialHash {
         constructor(cellSize) {
             this.cellSize = cellSize;
@@ -2455,13 +2453,13 @@ export function  differentialSurfaceGrowth3D(params = {}) {
     }
 
     // --- SIMULATION LOOP ---
-    console.time("Differential Growth Simulation");
+    console.time("Differential Growth");
     
     for (let iter = 0; iter < iterations; iter++) {
         if (nodes.length >= maxVertices) break;
 
-        // A. TOPOLOGY ANALYSIS (Find Edges & Boundaries)
-        const edgeMap = new Map(); // "u,v" -> [faceIdx...]
+        // A. TOPOLOGY ANALYSIS
+        const edgeMap = new Map(); 
         nodes.forEach(n => n.isBoundary = false);
 
         faces.forEach((f, fIdx) => {
@@ -2474,25 +2472,24 @@ export function  differentialSurfaceGrowth3D(params = {}) {
         });
 
         for (const [key, fIndices] of edgeMap) {
-            if (fIndices.length === 1) { // Boundary Edge
+            if (fIndices.length === 1) {
                 const [u, v] = key.split(',').map(Number);
                 nodes[u].isBoundary = true;
                 nodes[v].isBoundary = true;
             }
         }
 
-        // B. PHYSICS (Accumulate Forces)
+        // B. PHYSICS
         const spatialHash = new SpatialHash(repulsionRadius);
         nodes.forEach((n, i) => {
             n.fx = 0; n.fy = 0; n.fz = 0;
             spatialHash.add(i, n.x, n.y, n.z);
         });
 
-        // 1. Repulsion (Volume Force)
+        // 1. Repulsion
         for (let i = 0; i < nodes.length; i++) {
             const n = nodes[i];
             const neighbors = spatialHash.query(n.x, n.y, n.z);
-            
             for (const otherIdx of neighbors) {
                 if (otherIdx === i) continue;
                 const other = nodes[otherIdx];
@@ -2501,14 +2498,13 @@ export function  differentialSurfaceGrowth3D(params = {}) {
 
                 if (d2 < repulsionRadius*repulsionRadius && d2 > 1e-6) {
                     const d = Math.sqrt(d2);
-                    // Stronger force when closer (linear falloff)
-                    const force = (repulsionRadius - d) / d * repulsionStrength;
-                    n.fx += dx * force; n.fy += dy * force; n.fz += dz * force;
+                    const f = (repulsionRadius - d) / d * repulsionStrength;
+                    n.fx += dx * f; n.fy += dy * f; n.fz += dz * f;
                 }
             }
         }
 
-        // 2. Spring Forces (Edge Constraint & Growth)
+        // 2. Springs & Boundary Push
         for (const [key, fIndices] of edgeMap) {
             const [u, v] = key.split(',').map(Number);
             const n1 = nodes[u], n2 = nodes[v];
@@ -2517,9 +2513,6 @@ export function  differentialSurfaceGrowth3D(params = {}) {
             
             if (d > 1e-6) {
                 const isBoundary = (fIndices.length === 1);
-                
-                // Internal edges try to stay relaxed (minEdgeLength)
-                // Boundary edges try to EXPAND (maxEdgeLength * 1.1)
                 const targetLen = isBoundary ? maxEdgeLength * 1.1 : minEdgeLength;
                 const force = (d - targetLen) * springStiffness;
                 
@@ -2527,7 +2520,6 @@ export function  differentialSurfaceGrowth3D(params = {}) {
                 n1.fx += fx; n1.fy += fy; n1.fz += fz;
                 n2.fx -= fx; n2.fy -= fy; n2.fz -= fz;
 
-                // The "Ruffle" Driver: Explicitly push boundary nodes apart
                 if (isBoundary && boundaryGrowthPush > 0) {
                     const push = boundaryGrowthPush;
                     n2.fx += (dx/d)*push; n2.fy += (dy/d)*push; n2.fz += (dz/d)*push;
@@ -2536,104 +2528,78 @@ export function  differentialSurfaceGrowth3D(params = {}) {
             }
         }
 
-        // 3. Integrate (Velocity & Position)
+        // 3. Integrate
         const maxVelSq = maxVelocity * maxVelocity;
-        
         for (let i = 0; i < nodes.length; i++) {
             const n = nodes[i];
-            
-            // Update Velocity
-            n.vx = (n.vx + n.fx * dt) * 0.9; // 0.9 damping
+            n.vx = (n.vx + n.fx * dt) * 0.9;
             n.vy = (n.vy + n.fy * dt) * 0.9;
             n.vz = (n.vz + n.fz * dt) * 0.9;
             
-            // Safety: Velocity Clamp
             const vSq = n.vx*n.vx + n.vy*n.vy + n.vz*n.vz;
             if (vSq > maxVelSq) {
                 const scale = maxVelocity / Math.sqrt(vSq);
                 n.vx *= scale; n.vy *= scale; n.vz *= scale;
             }
-
-            // Update Position
             n.x += n.vx; n.y += n.vy; n.z += n.vz;
         }
 
-        // C. GROWTH (Robust Edge Splitting)
+        // C. GROWTH
         const edgesToSplit = [];
         for (const [key, fIndices] of edgeMap) {
             const [u, v] = key.split(',').map(Number);
             const n1 = nodes[u], n2 = nodes[v];
             const d2 = (n1.x - n2.x)**2 + (n1.y - n2.y)**2 + (n1.z - n2.z)**2;
-            
             if (d2 > maxEdgeLength * maxEdgeLength) {
                 edgesToSplit.push({ u, v, fIndices, isBoundary: fIndices.length===1 });
             }
         }
-        
-        // Sort: Prioritize boundaries (they drive the shape)
         edgesToSplit.sort((a,b) => (b.isBoundary ? 1 : 0) - (a.isBoundary ? 1 : 0));
 
         const processedFaces = new Set();
         const facesToRemove = new Set();
         const facesToAdd = [];
         let splitsDone = 0;
-        const MAX_SPLITS_PER_FRAME = 200;
+        const MAX_SPLITS = 200;
 
         for (const split of edgesToSplit) {
-            if (splitsDone >= MAX_SPLITS_PER_FRAME) break;
-            
-            // Ensure no face is modified twice in one frame
+            if (splitsDone >= MAX_SPLITS) break;
             if (split.fIndices.some(fIdx => processedFaces.has(fIdx))) continue;
 
             const { u, v, fIndices } = split;
-
-            // 1. Create Midpoint Vertex
             const n1 = nodes[u], n2 = nodes[v];
             const midIdx = nodes.length;
+            
             nodes.push({
                 x: (n1.x + n2.x) * 0.5,
                 y: (n1.y + n2.y) * 0.5,
                 z: (n1.z + n2.z) * 0.5,
-                vx: (n1.vx + n2.vx) * 0.5, 
-                vy: (n1.vy + n2.vy) * 0.5, 
-                vz: (n1.vz + n2.vz) * 0.5,
+                vx: (n1.vx+n2.vx)*0.5, vy: (n1.vy+n2.vy)*0.5, vz: (n1.vz+n2.vz)*0.5,
                 fx:0, fy:0, fz:0,
                 isBoundary: n1.isBoundary && n2.isBoundary
             });
 
-            // 2. Update Topology (Non-destructive)
             fIndices.forEach(fIdx => {
                 processedFaces.add(fIdx);
                 facesToRemove.add(fIdx);
-                
-                const oldFace = faces[fIdx]; // [a, b, c]
-                
-                // Create T1: Replace V with M (Preserves winding u->m->w)
-                const t1 = [...oldFace];
-                t1[t1.indexOf(v)] = midIdx;
-                
-                // Create T2: Replace U with M (Preserves winding m->v->w)
-                const t2 = [...oldFace];
-                t2[t2.indexOf(u)] = midIdx;
-
+                const oldFace = faces[fIdx];
+                const t1 = [...oldFace]; t1[t1.indexOf(v)] = midIdx;
+                const t2 = [...oldFace]; t2[t2.indexOf(u)] = midIdx;
                 facesToAdd.push(t1, t2);
             });
             splitsDone++;
         }
 
-        // Commit Topology Changes
         if (facesToAdd.length > 0) {
             const nextFaces = [];
-            // Keep untouched faces
             for(let i=0; i<faces.length; i++) {
                 if(!facesToRemove.has(i)) nextFaces.push(faces[i]);
             }
-            // Add new faces
             faces = nextFaces.concat(facesToAdd);
         }
     }
     
-    console.timeEnd("Differential Growth Simulation");
+    console.timeEnd("Differential Growth");
 
     // --- EXPORT ---
     const newGeo = new THREE.BufferGeometry();
@@ -2654,6 +2620,7 @@ export function  differentialSurfaceGrowth3D(params = {}) {
 
     return newGeo;
 }
+
 
 
 
