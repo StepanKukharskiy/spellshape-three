@@ -169,13 +169,18 @@ export function wrapCurveAsLine(curve, divisions = 32, color = 0xffffff) {
  * Wrap a vector field function as an object with attached function
  * This makes fields storable and passable to downstream helpers
  */
-export function wrapFieldAsObject(fieldFn, description = '') {
-    const wrapper = {};
-    wrapper.userData = {
-        field: fieldFn,
-        type: 'field',
-        description
+export function wrapFieldAsObject(fieldFn, description = '', extraData = {}) {
+    const wrapper = {
+        isField: true // Tag it so we know it's a field object
     };
+    
+    wrapper.userData = {
+        field: fieldFn, // Store function as 'fn' to match standard
+        type: 'field',
+        description,
+        ...extraData // ✅ MERGE THE GRID DATA HERE
+    };
+    
     return wrapper;
 }
 
