@@ -2362,7 +2362,7 @@ export function differentialGrowth3DSimple(params = {}) {
  */
 
 export function differentialSurfaceGrowth3D(params = {}) {
-    // --- 1. INPUT HANDLING ---
+    // --- 1. INPUT HANDLING & ORIENTATION FIX ---
     let inputGeometry = params.inputGeometry || params.geometry;
     if (inputGeometry && inputGeometry.isObject3D && inputGeometry.geometry) {
         inputGeometry = inputGeometry.geometry;
@@ -2371,6 +2371,13 @@ export function differentialSurfaceGrowth3D(params = {}) {
         console.error("differentialSurfaceGrowth3D: Invalid geometry.");
         return new THREE.BufferGeometry();
     }
+
+    // CLONE & ROTATE: Ensure we start flat on the XZ plane (Horizontal)
+    // Three.js CircleGeometry defaults to XY plane (facing Z). 
+    // We rotate it -90 deg around X to make it lie flat on XZ.
+    const workingGeometry = inputGeometry.clone();
+    workingGeometry.rotateX(-Math.PI / 2); 
+    // Now Y is "Up".
 
     // --- 2. CONFIGURATION ---
     const {
@@ -2384,26 +2391,31 @@ export function differentialSurfaceGrowth3D(params = {}) {
         dt = 0.04,
         maxVertices = 30000,
         maxVelocity = 0.5,
-        initialJitter = 0.05 // ✅ NEW: Force to break 2D symmetry
+        initialJitter = 0.02
     } = params;
 
     // --- 3. DATA INITIALIZATION ---
     let nodes = [];
     let faces = [];
     
-    const posAttr = inputGeometry.attributes.position;
-    const indexAttr = inputGeometry.index;
+    const posAttr = workingGeometry.attributes.position;
+    const indexAttr = workingGeometry.index;
 
-    // Import Nodes with JITTER
+    // Import Nodes with VERTICAL JITTER
     for (let i = 0; i < posAttr.count; i++) {
-        // ✅ FIX: Add random noise to force the mesh out of its flat plane
-        // We apply it to X, Y, and Z to ensure buckling happens regardless of orientation
-        const j = () => (Math.random() - 0.5) * initialJitter;
+        const x = posAttr.getX(i);
+        const y = posAttr.getY(i);
+        const z = posAttr.getZ(i);
+        
+        // CRITICAL FIX: Apply noise primarily to Y (Up/Down) to force buckling
+        // The initial circle is on XZ plane (y=0). 
+        // We disturb Y to break the 2D symmetry immediately.
+        const jitterY = (Math.random() - 0.5) * initialJitter * 2.0; 
         
         nodes.push({
-            x: posAttr.getX(i) + j(),
-            y: posAttr.getY(i) + j(),
-            z: posAttr.getZ(i) + j(), 
+            x: x,
+            y: y + jitterY, 
+            z: z, 
             vx: 0, vy: 0, vz: 0, 
             fx: 0, fy: 0, fz: 0,
             isBoundary: false
@@ -2421,7 +2433,7 @@ export function differentialSurfaceGrowth3D(params = {}) {
         }
     }
 
-    // Helper: Spatial Hash
+    // Spatial Hash Class (Same as before)
     class SpatialHash {
         constructor(cellSize) {
             this.cellSize = cellSize;
@@ -2457,10 +2469,9 @@ export function differentialSurfaceGrowth3D(params = {}) {
     for (let iter = 0; iter < iterations; iter++) {
         if (nodes.length >= maxVertices) break;
 
-        // A. TOPOLOGY ANALYSIS
+        // A. TOPOLOGY (Same as before)
         const edgeMap = new Map(); 
         nodes.forEach(n => n.isBoundary = false);
-
         faces.forEach((f, fIdx) => {
             const edges = [[f[0], f[1]], [f[1], f[2]], [f[2], f[0]]];
             edges.forEach(([a, b]) => {
@@ -2469,7 +2480,6 @@ export function differentialSurfaceGrowth3D(params = {}) {
                 edgeMap.get(key).push(fIdx);
             });
         });
-
         for (const [key, fIndices] of edgeMap) {
             if (fIndices.length === 1) {
                 const [u, v] = key.split(',').map(Number);
@@ -2494,7 +2504,6 @@ export function differentialSurfaceGrowth3D(params = {}) {
                 const other = nodes[otherIdx];
                 const dx = n.x - other.x, dy = n.y - other.y, dz = n.z - other.z;
                 const d2 = dx*dx + dy*dy + dz*dz;
-
                 if (d2 < repulsionRadius*repulsionRadius && d2 > 1e-6) {
                     const d = Math.sqrt(d2);
                     const f = (repulsionRadius - d) / d * repulsionStrength;
@@ -2543,7 +2552,7 @@ export function differentialSurfaceGrowth3D(params = {}) {
             n.x += n.vx; n.y += n.vy; n.z += n.vz;
         }
 
-        // C. GROWTH
+        // C. GROWTH (With Buckling Offset)
         const edgesToSplit = [];
         for (const [key, fIndices] of edgeMap) {
             const [u, v] = key.split(',').map(Number);
@@ -2567,16 +2576,22 @@ export function differentialSurfaceGrowth3D(params = {}) {
 
             const { u, v, fIndices } = split;
             const n1 = nodes[u], n2 = nodes[v];
-            const midIdx = nodes.length;
+            
+            // BUCKLING LOGIC:
+            // Instead of perfectly centering the new node, move it slightly "Up" or "Down" (Y axis)
+            // or along the surface normal (more expensive to compute).
+            // Simple Y-randomness works well for this "Plate to Flower" case.
+            const buckle = (Math.random() - 0.5) * 0.05; // Small offset
             
             nodes.push({
                 x: (n1.x + n2.x) * 0.5,
-                y: (n1.y + n2.y) * 0.5,
+                y: (n1.y + n2.y) * 0.5 + buckle, // Add offset here!
                 z: (n1.z + n2.z) * 0.5,
                 vx: (n1.vx+n2.vx)*0.5, vy: (n1.vy+n2.vy)*0.5, vz: (n1.vz+n2.vz)*0.5,
                 fx:0, fy:0, fz:0,
                 isBoundary: n1.isBoundary && n2.isBoundary
             });
+            const midIdx = nodes.length - 1;
 
             fIndices.forEach(fIdx => {
                 processedFaces.add(fIdx);
