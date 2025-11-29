@@ -1928,6 +1928,115 @@ export function differentialGrowthSurface(params = {}) {
     return dummyGeom;
 }
 
+export function differentialGrowth3DSimple(params = {}) {
+    const { 
+        geometry, 
+        iterations = 20, 
+        repulsionRadius = 0.5, 
+        growthForce = 0.1, // Expansion speed
+        smoothing = 0.5,   // Laplacian smoothing strength
+        mode = 'line'      // 'line' (curve growth) or 'mesh' (surface folding)
+    } = params;
+
+    // ========================================================================
+    // MODE 1: LINE / RIBBON (Previous Implementation)
+    // ========================================================================
+    if (mode === 'line' || !geometry || !geometry.isBufferGeometry) {
+        // ... (Keep your existing Line/Ribbon logic here) ...
+        // [Paste the previous curve-based logic if you want to keep it]
+        return new THREE.BufferGeometry(); 
+    }
+
+    // ========================================================================
+    // MODE 2: MESH SURFACE GROWTH (New)
+    // ========================================================================
+    // Clone to avoid modifying original
+    const geom = geometry.clone();
+    
+    // Ensure we have topological data (Index)
+    if (!geom.index) {
+        geom = BufferGeometryUtils.mergeVertices(geom); // Create index if missing
+    }
+    
+    const positions = geom.attributes.position;
+    const normals = geom.attributes.normal;
+    const vertexCount = positions.count;
+
+    // 1. Build Adjacency Graph (Neighbor lookup)
+    // This is expensive but needed for smoothing
+    const neighbors = new Array(vertexCount).fill(0).map(() => []);
+    const index = geom.index.array;
+    for (let i = 0; i < index.length; i += 3) {
+        const a = index[i], b = index[i+1], c = index[i+2];
+        if(!neighbors[a].includes(b)) neighbors[a].push(b);
+        if(!neighbors[a].includes(c)) neighbors[a].push(c);
+        if(!neighbors[b].includes(a)) neighbors[b].push(a);
+        if(!neighbors[b].includes(c)) neighbors[b].push(c);
+        if(!neighbors[c].includes(a)) neighbors[c].push(a);
+        if(!neighbors[c].includes(b)) neighbors[c].push(b);
+    }
+
+    // 2. Simulation Loop
+    const tempPos = new Float32Array(positions.array);
+    const p = new THREE.Vector3();
+    const n = new THREE.Vector3();
+    const neighborP = new THREE.Vector3();
+    const avgP = new THREE.Vector3();
+    
+    for (let iter = 0; iter < iterations; iter++) {
+        
+        for (let i = 0; i < vertexCount; i++) {
+            p.set(tempPos[i*3], tempPos[i*3+1], tempPos[i*3+2]);
+            n.set(normals.getX(i), normals.getY(i), normals.getZ(i));
+
+            // A. Laplacian Smoothing (Relaxation)
+            // Pull vertex towards average of neighbors to remove spikes
+            avgP.set(0,0,0);
+            const myNeighbors = neighbors[i];
+            if (myNeighbors.length === 0) continue;
+            
+            for(const nid of myNeighbors) {
+                neighborP.set(tempPos[nid*3], tempPos[nid*3+1], tempPos[nid*3+2]);
+                avgP.add(neighborP);
+            }
+            avgP.divideScalar(myNeighbors.length);
+            
+            // Vector to average
+            const smoothVec = avgP.sub(p); 
+            
+            // B. Growth / Buckling Force
+            // We push vertices OUT along their normal, but constrained by smoothing.
+            // The conflict between expanding (Normal) and staying connected (Smooth) creates folds.
+            
+            // Tangential Repulsion approximation:
+            // If neighbors are too close, push away? 
+            // For simple folding, just expanding surface area works well.
+            
+            // Apply forces
+            p.addScaledVector(smoothVec, smoothing); // Pull together
+            p.addScaledVector(n, growthForce);       // Push out (Expand)
+            
+            // Optional: Collision/Self-intersection check is too slow for JS
+            
+            // Store result
+            positions.setXYZ(i, p.x, p.y, p.z);
+        }
+        
+        // Recompute normals every few frames to guide growth
+        if (iter % 2 === 0) {
+            geom.computeVertexNormals();
+        }
+        
+        // Update temp array for next step dependency
+        for(let k=0; k<positions.array.length; k++) tempPos[k] = positions.array[k];
+    }
+
+    positions.needsUpdate = true;
+    geom.computeVertexNormals();
+    return geom;
+}
+
+
 
 // ✅ UPDATED: meshFromVoxelGrid now accepts wrapped grids
 export function meshFromVoxelGrid(params = {}) {
