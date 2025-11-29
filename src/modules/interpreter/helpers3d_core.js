@@ -1326,7 +1326,7 @@ export function reactionDiffusion(params = {}) {
         iterations = 50, 
         feed = 0.055,
         kill = 0.062,
-        dt = 0.2 // Reduced from 1.0 for stability
+        dt = 0.2 
     } = params;
 
     // 1. Initialize Grid
@@ -1336,36 +1336,49 @@ export function reactionDiffusion(params = {}) {
     
     // Seed Center
     const center = Math.floor(size/2);
-    const radius = 4;
+    const radius = Math.max(2, Math.floor(size/8)); // Adaptive radius
+    
+    console.log(`Starting RD Simulation: ${size}^3 grid, ${iterations} iters`);
+
     for(let z=center-radius; z<=center+radius; z++) {
         for(let y=center-radius; y<=center+radius; y++) {
             for(let x=center-radius; x<=center+radius; x++) {
                 if ((x-center)**2 + (y-center)**2 + (z-center)**2 < radius**2) {
-                    B[x + y*size + z*size*size] = 1.0;
+                    // Safe index check
+                    if (x>=0 && x<size && y>=0 && y<size && z>=0 && z<size) {
+                        B[x + y*size + z*size*size] = 1.0;
+                    }
                 }
             }
         }
     }
 
-    // Helper: Laplacian Stencil
+    // Helper: Laplacian Stencil (Optimized)
+    // Pre-calculate offsets to avoid conditional checks in loop
+    const strideY = size;
+    const strideZ = size * size;
+
     function getLaplacian(arr, i, x, y, z) {
-        let sum = 0;
-        const xm = x > 0 ? i-1 : i+size-1;
-        const xp = x < size-1 ? i+1 : i-size+1;
-        const ym = y > 0 ? i-size : i-size+(size*size);
-        const yp = y < size-1 ? i+size : i+size-(size*size);
-        const zm = z > 0 ? i-(size*size) : i+(size*size)*(size-1);
-        const zp = z < size-1 ? i+(size*size) : i-(size*size)*(size-1);
-        sum += arr[xm] + arr[xp] + arr[ym] + arr[yp] + arr[zm] + arr[zp];
-        return (sum - 6 * arr[i]);
+        // Fast Neighbor Lookup with Wrap (Toroidal)
+        const xm = (x > 0 ? i-1 : i+size-1);
+        const xp = (x < size-1 ? i+1 : i-size+1);
+        
+        const ym = (y > 0 ? i-strideY : i-strideY+strideZ);
+        const yp = (y < size-1 ? i+strideY : i+strideY-strideZ);
+        
+        const zm = (z > 0 ? i-strideZ : i-strideZ+len); // +len wraps to end
+        const zp = (z < size-1 ? i+strideZ : i-strideZ*(size-1)); // Wraps to start
+
+        return (arr[xm] + arr[xp] + arr[ym] + arr[yp] + arr[zm] + arr[zp] - 6 * arr[i]);
     }
 
     // 2. Simulation Loop
-    console.log(`Starting RD: ${size}x${size}x${size}`);
     for(let iter=0; iter<iterations; iter++) {
         const nextA = new Float32Array(len);
         const nextB = new Float32Array(len);
         
+        let activeCount = 0;
+
         for(let z=0; z<size; z++) {
             for(let y=0; y<size; y++) {
                 for(let x=0; x<size; x++) {
@@ -1373,29 +1386,35 @@ export function reactionDiffusion(params = {}) {
                     const a = A[i];
                     const b = B[i];
                     
-                    // Gray-Scott Model
                     const abb = a * b * b;
                     const lapA = getLaplacian(A, i, x, y, z);
                     const lapB = getLaplacian(B, i, x, y, z);
                     
                     nextA[i] = Math.max(0, Math.min(1, a + (1.0 * lapA - abb + feed * (1 - a)) * dt));
                     nextB[i] = Math.max(0, Math.min(1, b + (0.5 * lapB + abb - (kill + feed) * b) * dt));
+                    
+                    if (nextB[i] > 0.1) activeCount++;
                 }
             }
         }
         A = nextA;
         B = nextB;
+        
+        if (iter === iterations - 1) {
+             console.log(`RD Final Stats: Active Cells = ${activeCount}`);
+        }
     }
 
-    // 3. RETURN USING GRID CONVENTION (Like cellularAutomata)
-    // This ensures the array data survives the transfer to the mesher.
+    // 3. Return standard Grid Object
     return wrapGridAsObject(B, size, { 
         type: 'reaction-diffusion',
         voxelSize: 1,
+        bounds: 10, // Hint for the mesher
         feed, 
         kill 
     });
 }
+
 
 
 
@@ -1461,13 +1480,16 @@ export function modifyGeometry(params) {
 export function meshFromMarchingCubes(params = {}) {
     const { 
         resolution = 32, 
-        isovalue = 0.5, 
+        isovalue = 0.2, // Safe default
         bounds = 10, 
         field,             
         expression,        
         context = {},
         objectSpace = true 
     } = params;
+
+    // Safety: Ensure isovalue isn't impossible
+    const safeIso = (isovalue > 0.9) ? 0.1 : isovalue;
 
     const dummyMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const effect = new MarchingCubes(resolution, dummyMaterial, true, true, 100000);
@@ -1476,26 +1498,17 @@ export function meshFromMarchingCubes(params = {}) {
     let forceWorldSpace = false;
 
     // ========================================================================
-    // MODE 1: SEGMENTS (Now with Spatial Hash Optimization)
+    // MODE 1: SEGMENTS 
     // ========================================================================
     if (field && field.userData && field.userData.segments) {
         const segments = field.userData.segments;
-        console.log(`MarchingCubes: Optimization - Indexing ${segments.length} segments...`);
-        
         forceWorldSpace = true;
-
-        // --- SPATIAL HASH SETUP ---
-        // We bin segments into 3D cells so we only check neighbors
-        const cellSize = 2.0; // Tunable: Larger = safer, Smaller = faster. ~2x average segment length
+        const cellSize = 2.0; 
         const grid = new Map();
-        
         const getKey = (gx, gy, gz) => `${gx},${gy},${gz}`;
 
-        // 1. Build the Index
         for (const seg of segments) {
             const [s, e, thick] = seg;
-            // Find grid range this segment touches
-            // We add padding for thickness
             const padding = thick * 2; 
             const minX = Math.floor((Math.min(s.x, e.x) - padding) / cellSize);
             const maxX = Math.floor((Math.max(s.x, e.x) + padding) / cellSize);
@@ -1515,96 +1528,75 @@ export function meshFromMarchingCubes(params = {}) {
             }
         }
 
-        // 2. Define Fast Lookup Function
         fieldFn = (x, y, z) => {
             const p = new THREE.Vector3(x, y, z);
-            
-            // Which cell are we in?
             const gx = Math.floor(x / cellSize);
             const gy = Math.floor(y / cellSize);
             const gz = Math.floor(z / cellSize);
-            
-            let minDistSq = Infinity;
-            let minThick = 0.1;
-            
-            // Check this cell and immediate neighbors (3x3x3 area) to handle boundaries
-            // Optimization: Just checking center cell might be enough if cellSize is large relative to thickness
             const key = getKey(gx, gy, gz);
             const candidates = grid.get(key);
-
-            // If no segments nearby, return 0 immediately (Huge speedup for empty space)
             if (!candidates) return 0; 
+
+            let minDistSq = Infinity;
+            let minThick = 0.1;
 
             for (let i = 0; i < candidates.length; i++) {
                 const [start, end, thick] = candidates[i];
-                
                 const l2 = start.distanceToSquared(end);
                 if (l2 == 0) continue;
-                
                 let t = ((p.x - start.x) * (end.x - start.x) + 
                          (p.y - start.y) * (end.y - start.y) + 
                          (p.z - start.z) * (end.z - start.z)) / l2;
                 t = Math.max(0, Math.min(1, t));
-                
                 const proj = new THREE.Vector3(
                     start.x + t * (end.x - start.x),
                     start.y + t * (end.y - start.y),
                     start.z + t * (end.z - start.z)
                 );
-                
                 const d2 = p.distanceToSquared(proj);
                 if (d2 < minDistSq) {
                     minDistSq = d2;
                     minThick = thick;
                 }
             }
-            
-            const dist = Math.sqrt(minDistSq);
-            return minThick / (dist + 0.001);
+            return minThick / (Math.sqrt(minDistSq) + 0.001);
         };
     }
 
-      // ========================================================================
-    // MODE 1.5: VOXEL GRID (Reaction Diffusion / Cellular Automata)
+    // ========================================================================
+    // MODE 2: VOXEL GRID (Reaction Diffusion) - FIXED
     // ========================================================================
     else if (field && field.userData && (field.userData.grid || field.userData.voxels)) {
-        console.log("MarchingCubes: Meshing Voxel Grid");
+        console.log("MarchingCubes: Detected Voxel Grid");
         const data = field.userData;
         const gridArr = data.grid || data.voxels;
         const size = data.size;
-        // Handle potentially different dimensions
         const sx = Array.isArray(size) ? size[0] : size;
         const sy = Array.isArray(size) ? size[1] : size;
         const sz = Array.isArray(size) ? size[2] : size;
 
         fieldFn = (x, y, z) => {
-            // 1. Map World Coordinate (x,y,z) -> Grid Coordinate (ix, iy, iz)
-            // We assume the grid is centered at (0,0,0) and spans 'bounds'
-            // World range: [-bounds, +bounds]
-            // Grid range:  [0, size]
-            
-            // Normalize -bounds..bounds to 0..1
-            const u = (x + bounds) / (2 * bounds);
-            const v = (y + bounds) / (2 * bounds);
-            const w = (z + bounds) / (2 * bounds);
+            // Map World (-bounds to +bounds) -> UV (0 to 1)
+            // CLAMPING is crucial here to prevent edge artifacts/failures
+            let u = (x + bounds) / (2 * bounds);
+            let v = (y + bounds) / (2 * bounds);
+            let w = (z + bounds) / (2 * bounds);
 
-            // Check boundaries
+            // Strict bounds check vs Clamping
+            // We clamp to 0.001 - 0.999 to ensure we don't hit array index -1 or length
             if (u < 0 || u >= 1 || v < 0 || v >= 1 || w < 0 || w >= 1) return 0;
 
-            // Scale to grid integer coordinates
             const ix = Math.floor(u * sx);
             const iy = Math.floor(v * sy);
             const iz = Math.floor(w * sz);
-
-            // Look up value
-            // Note: Ensure your indexing matches reactionDiffusion (x + y*size + z*size*size)
+            
             const idx = ix + iy*sx + iz*sx*sy;
-            return gridArr[idx];
+            return gridArr[idx] || 0; // Safety fallback
         };
     }
 
     // ========================================================================
-    // MODE 2: VECTOR FIELD
+    // MODE 3: VECTOR FIELD
     // ========================================================================
     else if (field) {
         const vectorFn = resolveField(field);
@@ -1617,9 +1609,9 @@ export function meshFromMarchingCubes(params = {}) {
     }
 
     // ========================================================================
-    // MODE 3: EXPRESSION
+    // MODE 4: EXPRESSION
     // ========================================================================
-    if (expression && expression.trim() !== '') {
+    if (!fieldFn && expression && expression.trim() !== '') {
         try {
             const userFn = new Function('x', 'y', 'z', 'ctx', 'noise', 'utils', `
                 try { 
@@ -1631,28 +1623,28 @@ export function meshFromMarchingCubes(params = {}) {
         } catch (e) { console.error(e); }
     }
 
-    if (!fieldFn) fieldFn = (x, y, z) => noise.simplex3(x, y, z) + 0.5;
+    // Fallback to noise if nothing else matches
+    if (!fieldFn) {
+        console.warn("MarchingCubes: No valid field found, using Noise fallback");
+        fieldFn = (x, y, z) => noise.simplex3(x, y, z) + 0.5;
+    }
 
     // ========================================================================
-    // DATA GENERATION & MESHING
+    // MESH GENERATION
     // ========================================================================
-    effect.isolation = isovalue;
+    effect.isolation = safeIso; 
     const useObjectSpace = objectSpace && !forceWorldSpace;
+    const halfRes = resolution / 2;
 
     for (let k = 0; k < resolution; k++) {
         for (let j = 0; j < resolution; j++) {
             for (let i = 0; i < resolution; i++) {
-                let x, y, z;
-                if (useObjectSpace) {
-                    x = ((i - resolution / 2) / (resolution / 2)) * 2.0;
-                    y = ((j - resolution / 2) / (resolution / 2)) * 2.0;
-                    z = ((k - resolution / 2) / (resolution / 2)) * 2.0;
-                } else {
-                    const scaleFactor = 2 * bounds / resolution;
-                    x = (i - resolution / 2) * scaleFactor;
-                    y = (j - resolution / 2) * scaleFactor;
-                    z = (k - resolution / 2) * scaleFactor;
-                }
+                // We always want to query fieldFn with WORLD coordinates
+                // Map i,j,k (0..res) -> x,y,z (-bounds..bounds)
+                const x = (i - halfRes) / halfRes * bounds;
+                const y = (j - halfRes) / halfRes * bounds;
+                const z = (k - halfRes) / halfRes * bounds;
+                
                 effect.field[i + j * resolution + k * resolution * resolution] = fieldFn(x, y, z);
             }
         }
@@ -1662,17 +1654,16 @@ export function meshFromMarchingCubes(params = {}) {
         effect.update();
         if (effect.geometry) {
             const exportedGeom = effect.geometry.clone();
+            
+            // SCALE FIX
+            // Three.js MarchingCubes generates geometry in range [-1, 1].
+            // Our data represents [-bounds, bounds].
+            // So we MUST scale by 'bounds'.
+            
             if (useObjectSpace || !forceWorldSpace) {
                  exportedGeom.scale(bounds, bounds, bounds);
             } 
-            // Note: If forceWorldSpace is true (Segments mode), we generally DON'T scale 
-            // because the MarchingCubes grid was sampled at exact world coordinates.
-            // However, Three.js MarchingCubes creates geometry in [-1, 1]. 
-            // We MUST scale it to match the sampling volume size (2 * bounds).
-            else {
-                 exportedGeom.scale(bounds, bounds, bounds);
-            }
-
+            
             effect.geometry.dispose();
             dummyMaterial.dispose();
             return exportedGeom;
@@ -1681,6 +1672,7 @@ export function meshFromMarchingCubes(params = {}) {
 
     return new THREE.BufferGeometry();
 }
+
 
 
 
