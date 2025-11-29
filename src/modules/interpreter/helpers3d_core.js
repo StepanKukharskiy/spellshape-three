@@ -2360,7 +2360,6 @@ export function differentialGrowth3DSimple(params = {}) {
  * @param {Object} params - Simulation settings
  * @returns {THREE.BufferGeometry} - The grown geometry
  */
-import * as THREE from 'three';
 
 export function differentialSurfaceGrowth3D(params = {}) {
     // --- 1. INPUT HANDLING ---
