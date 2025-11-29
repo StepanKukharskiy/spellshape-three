@@ -1419,6 +1419,7 @@ export function reactionDiffusion(params = {}) {
         return B[ix + iy*size + iz*size*size]; 
     };
 
+
     // Return wrapped object
     return wrapFieldAsObject(fieldFn, 'Reaction-Diffusion B', { 
         type: 'reaction-diffusion', 
