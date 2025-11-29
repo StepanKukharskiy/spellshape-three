@@ -1664,31 +1664,62 @@ export function meshFromMarchingCubes(params = {}) {
 
     try {
         effect.update();
-        if (effect.geometry) {
-            const exportedGeom = effect.geometry.clone();
+        
+        // 1. Check if we actually generated anything
+        // 'count' is the number of indices/vertices used.
+        const count = effect.geometry.drawRange.count;
+        
+        if (count > 0) {
+            // 2. Extract ONLY the used data from the massive buffer
+            const rawPos = effect.geometry.attributes.position;
+            const rawNorm = effect.geometry.attributes.normal;
             
-            // SCALE FIX
-            // Three.js MarchingCubes generates geometry in range [-1, 1].
-            // Our data represents [-bounds, bounds].
-            // So we MUST scale by 'bounds'.
-            
+            const cleanPos = new Float32Array(count * 3);
+            const cleanNorm = new Float32Array(count * 3);
+
+            for (let i = 0; i < count; i++) {
+                // Manually copy coordinates to ensure we drop the garbage data
+                cleanPos[i*3]     = rawPos.getX(i);
+                cleanPos[i*3 + 1] = rawPos.getY(i);
+                cleanPos[i*3 + 2] = rawPos.getZ(i);
+
+                if (rawNorm) {
+                    cleanNorm[i*3]     = rawNorm.getX(i);
+                    cleanNorm[i*3 + 1] = rawNorm.getY(i);
+                    cleanNorm[i*3 + 2] = rawNorm.getZ(i);
+                }
+            }
+
+            // 3. Create a fresh, tight geometry
+            const cleanGeom = new THREE.BufferGeometry();
+            cleanGeom.setAttribute('position', new THREE.BufferAttribute(cleanPos, 3));
+            if (rawNorm) {
+                cleanGeom.setAttribute('normal', new THREE.BufferAttribute(cleanNorm, 3));
+            } else {
+                cleanGeom.computeVertexNormals();
+            }
+
+            // 4. Apply Scale (Bounds)
             if (useObjectSpace || !forceWorldSpace) {
-                 exportedGeom.scale(bounds, bounds, bounds);
+                 cleanGeom.scale(bounds, bounds, bounds);
             } 
-            
+
+            // 5. Log Real Stats
+            console.log(`✅ Marching Cubes Success: Extracted ${count} active vertices from buffer.`);
+
             effect.geometry.dispose();
             dummyMaterial.dispose();
-          // DEBUG STATS
-        const count = exportedGeom.attributes.position.count;
-        console.log(`✅ Marching Cubes Result: ${count} vertices. Bounds: ${bounds}`);
-          
-            return exportedGeom;
+            return cleanGeom;
+        } 
+        else {
+            console.warn("⚠️ Marching Cubes finished with 0 vertices. Try lowering isovalue.");
         }
-    } catch (e) { console.error("MarchingCubes update failed:", e); }
+    } catch (e) { 
+        console.error("MarchingCubes update failed:", e); 
+    }
 
     return new THREE.BufferGeometry();
 }
-
 
 
 
