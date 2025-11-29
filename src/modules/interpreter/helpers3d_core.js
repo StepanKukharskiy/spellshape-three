@@ -2182,52 +2182,71 @@ export function differentialGrowth3DSimple(params = {}) {
 
 // ✅ UPDATED: meshFromVoxelGrid now accepts wrapped grids
 export function meshFromVoxelGrid(params = {}) {
-    let { grid, voxelSize = 1 } = params;
-
-  // DEBUG: Check if the data survived
-    if (grid && grid.userData) {
-        console.log("✅ Mesher found userData with grid size:", grid.userData.size);
-    } else {
-        console.error("❌ Mesher received grid, but userData is MISSING!", grid);
-    }
+    let { grid, voxelSize = 1, size = null } = params;
 
     // --- 1. STANDARDIZE INPUT (Universal Accessor) ---
     let accessFn, sizeX, sizeY, sizeZ;
 
-    // Handle Wrapped Objects (Reaction Diffusion / Flat Arrays)
+    // DEBUG: Identify what we actually got
+    // console.log("meshFromVoxelGrid input:", grid?.constructor?.name || typeof grid);
+
+    // CASE A: Wrapped Object (userData pattern)
     if (grid && grid.userData) {
         const data = grid.userData;
-        if (data.grid instanceof Float32Array || data.grid instanceof Uint8Array) {
-            const flat = data.grid;
-            const s = data.size; 
-            sizeX = Array.isArray(s) ? s[0] : s;
-            sizeY = Array.isArray(s) ? s[1] : s;
-            sizeZ = Array.isArray(s) ? s[2] : s;
-            // Accessor for Flat Array
-            accessFn = (x, y, z) => flat[x + y*sizeX + z*sizeX*sizeY] > 0.1; 
-        } 
-        else if (Array.isArray(data.grid)) {
-            grid = data.grid; // Unwrap nested array
+        // If it contains a grid, extract it and recurse/continue
+        if (data.grid) {
+            grid = data.grid;
+            if (data.size) size = data.size;
             if (data.voxelSize) voxelSize = data.voxelSize;
         }
     }
 
-    // Handle Standard 3D Arrays
-    if (!accessFn && Array.isArray(grid)) {
+    // CASE B: Raw Flat Array (Float32Array, Uint8Array, or flat Array)
+    // This often happens if the executor auto-unwraps the 'grid' property
+    if (grid instanceof Float32Array || grid instanceof Uint8Array || (Array.isArray(grid) && !Array.isArray(grid[0]))) {
+        const len = grid.length;
+        
+        // 1. Use explicit size if provided
+        if (size) {
+            sizeX = Array.isArray(size) ? size[0] : size;
+            sizeY = Array.isArray(size) ? size[1] : size;
+            sizeZ = Array.isArray(size) ? size[2] : size;
+        } 
+        // 2. Auto-infer cubic size
+        else {
+            const cubicRoot = Math.round(Math.pow(len, 1/3));
+            if (Math.abs(cubicRoot * cubicRoot * cubicRoot - len) < 1) {
+                sizeX = sizeY = sizeZ = cubicRoot;
+                // console.log(`meshFromVoxelGrid: Inferred cubic size ${sizeX}`);
+            } else {
+                console.warn(`meshFromVoxelGrid: Array length ${len} is not cubic. Result may be skewed.`);
+                sizeX = sizeY = sizeZ = Math.floor(Math.pow(len, 1/3));
+            }
+        }
+
+        // Accessor: Flat index logic
+        // Check > 0.1 to filter out near-zero noise
+        accessFn = (x, y, z) => grid[x + y*sizeX + z*sizeX*sizeY] > 0.1; 
+    }
+
+    // CASE C: Standard Nested 3D Array ([[[]]])
+    else if (Array.isArray(grid) && Array.isArray(grid[0])) {
+        // Use resolver or manual check
         const resolved = resolveVoxelGrid(grid);
         if (resolved) {
             sizeX = resolved.length;
             sizeY = resolved[0]?.length || 0;
             sizeZ = resolved[0]?.[0]?.length || 0;
-            // Accessor for Nested Array
             accessFn = (x, y, z) => resolved[x][y][z];
         }
     }
 
-    if (!accessFn) return new THREE.BufferGeometry();
+    if (!accessFn) {
+        console.warn("meshFromVoxelGrid: Invalid input format. Returning empty geometry.");
+        return new THREE.BufferGeometry();
+    }
 
     // --- 2. FAST GEOMETRY GENERATION (Constructive) ---
-    // Instead of merging geometries, we push raw vertices.
     const vertices = [];
     const normals = [];
     const indices = [];
@@ -2235,13 +2254,13 @@ export function meshFromVoxelGrid(params = {}) {
 
     const hs = voxelSize / 2; // Half size
     
-    // Pre-calculated cube data (corners relative to center)
+    // Pre-calculated cube data
     const corners = [
-        [-hs, -hs,  hs], [ hs, -hs,  hs], [ hs,  hs,  hs], [-hs,  hs,  hs], // Front
-        [-hs, -hs, -hs], [-hs,  hs, -hs], [ hs,  hs, -hs], [ hs, -hs, -hs]  // Back
+        [-hs, -hs,  hs], [ hs, -hs,  hs], [ hs,  hs,  hs], [-hs,  hs,  hs], // Front (0,1,2,3)
+        [-hs, -hs, -hs], [-hs,  hs, -hs], [ hs,  hs, -hs], [ hs, -hs, -hs]  // Back  (4,5,6,7)
     ];
 
-    // Face definitions: [corner1, corner2, corner3, corner4, normal]
+    // Face definitions: [c1, c2, c3, c4, normal]
     const faces = [
         [0, 1, 2, 3, [ 0,  0,  1]], // Front
         [1, 7, 6, 2, [ 1,  0,  0]], // Right
@@ -2264,10 +2283,10 @@ export function meshFromVoxelGrid(params = {}) {
                     const cy = offsetY + y * voxelSize + hs;
                     const cz = offsetZ + z * voxelSize + hs;
 
-                    // Optimization: Check neighbors to cull internal faces
-                    // (If neighbor exists, don't draw the face between them)
+                    // Neighbor Checks for Culling
+                    // (Boundary checks included in condition)
                     const neighbors = [
-                        z < sizeZ-1 && accessFn(x,y,z+1), // Front neighbor
+                        z < sizeZ-1 && accessFn(x,y,z+1), // Front
                         x < sizeX-1 && accessFn(x+1,y,z), // Right
                         z > 0       && accessFn(x,y,z-1), // Back
                         x > 0       && accessFn(x-1,y,z), // Left
@@ -2276,7 +2295,7 @@ export function meshFromVoxelGrid(params = {}) {
                     ];
 
                     for (let f = 0; f < 6; f++) {
-                        // Culling: If neighbor exists, skip face
+                        // Cull internal faces
                         if (neighbors[f]) continue;
 
                         const [c1, c2, c3, c4, n] = faces[f];
@@ -2292,8 +2311,7 @@ export function meshFromVoxelGrid(params = {}) {
                         // Push Normals
                         for(let i=0; i<4; i++) normals.push(n[0], n[1], n[2]);
 
-                        // Push Indices (Two triangles per face)
-                        // 0, 1, 2 and 0, 2, 3
+                        // Push Indices
                         indices.push(
                             vertexCount, vertexCount + 1, vertexCount + 2,
                             vertexCount, vertexCount + 2, vertexCount + 3
@@ -2313,6 +2331,7 @@ export function meshFromVoxelGrid(params = {}) {
 
     return geometry;
 }
+
 
 
 
