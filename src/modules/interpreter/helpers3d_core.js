@@ -2158,7 +2158,7 @@ export function meshFromVoxelGrid(params = {}) {
             sizeY = Array.isArray(s) ? s[1] : s;
             sizeZ = Array.isArray(s) ? s[2] : s;
             // Accessor for Flat Array
-            accessFn = (x, y, z) => flat[x + y*sizeX + z*sizeX*sizeY] > 0.5; 
+            accessFn = (x, y, z) => flat[x + y*sizeX + z*sizeX*sizeY] > 0.1; 
         } 
         else if (Array.isArray(data.grid)) {
             grid = data.grid; // Unwrap nested array
