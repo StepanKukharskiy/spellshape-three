@@ -2127,32 +2127,26 @@ export function differentialSurfaceGrowth3D(params = {}) {
         iterations = 20,
         growthRate = 1.05,
         maxEdgeLength = 0.5,
-        repulsionRadius = 0.2,
-        stiffness = 0.5,
+        repulsionRadius = 0.3,   // INCREASED: Keeps folds apart
+        stiffness = 0.2,         // LOWERED: Softer springs allow bending
         growBoundariesOnly = true,
         dt = 0.1
     } = params;
 
-    if (!geometry || !geometry.isBufferGeometry) {
-        console.warn("differentialSurfaceGrowth: Invalid geometry input");
-        return new THREE.BufferGeometry();
-    }
+    if (!geometry || !geometry.isBufferGeometry) return new THREE.BufferGeometry();
 
-    // ========================================================================
-    // 1. BUILD HALF-EDGE STRUCTURE
-    // ========================================================================
-    const nodes = []; 
-    const faces = []; 
+    // --- 1. SETUP NODES & FACES ---
+    const nodes = [];
+    const faces = [];
     const posAttr = geometry.attributes.position;
     const indexAttr = geometry.index;
 
-    // Read Vertices & Apply Initial Jitter (Crucial for 3D buckling)
+    // Initialize Nodes with Z-Jitter to force 3D buckling
     for (let i = 0; i < posAttr.count; i++) {
         nodes.push({
             x: posAttr.getX(i),
             y: posAttr.getY(i),
-            // Add Z-noise to force the shape out of the 2D plane
-            z: posAttr.getZ(i) + (Math.random() - 0.5) * (maxEdgeLength * 0.2), 
+            z: posAttr.getZ(i) + (Math.random() - 0.5) * 0.1, // Force 3D
             vx: 0, vy: 0, vz: 0,
             neighbors: new Set(),
             isBoundary: false
@@ -2172,6 +2166,7 @@ export function differentialSurfaceGrowth3D(params = {}) {
         for (let i = 0; i < posAttr.count; i += 3) addFace(i, i + 1, i + 2);
     }
 
+    // Boundary Detection
     const detectBoundaries = () => {
         nodes.forEach(n => n.isBoundary = false);
         const edgeCounts = new Map();
@@ -2188,147 +2183,158 @@ export function differentialSurfaceGrowth3D(params = {}) {
     };
     detectBoundaries();
 
-    console.log(`Starting Growth: Nodes=${nodes.length}, Iters=${iterations}, Rate=${growthRate}`);
+    console.log(`Starting Floraform Sim: Nodes=${nodes.length}`);
 
-    // ========================================================================
-    // 2. SIMULATION
-    // ========================================================================
+    // --- 2. SIMULATION LOOP ---
     for (let iter = 0; iter < iterations; iter++) {
-        // --- A. SPLIT EDGES ---
-        const edgesToSplit = [];
-        const edgeSet = new Set();
         
+        // A. SPLITTING (Growth)
+        const edgesToSplit = [];
+        const processedEdges = new Set();
+        
+        // Only check a subset of faces or check all (performance tradeoff)
         for (let fIdx = 0; fIdx < faces.length; fIdx++) {
             const [a, b, c] = faces[fIdx];
             const faceEdges = [[a,b], [b,c], [c,a]];
+            
             for (const [u, v] of faceEdges) {
                 const k = u < v ? `${u},${v}` : `${v},${u}`;
-                if (edgeSet.has(k)) continue;
-                edgeSet.add(k);
+                if (processedEdges.has(k)) continue;
+                processedEdges.add(k);
 
                 const dx = nodes[u].x - nodes[v].x;
                 const dy = nodes[u].y - nodes[v].y;
                 const dz = nodes[u].z - nodes[v].z;
-                const lenSq = dx*dx + dy*dy + dz*dz;
+                const len = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-                const shouldGrow = !growBoundariesOnly || (nodes[u].isBoundary && nodes[v].isBoundary);
+                const isBoundaryEdge = nodes[u].isBoundary && nodes[v].isBoundary;
+                const shouldGrow = !growBoundariesOnly || isBoundaryEdge;
                 
-                // Split if too long (Length > maxEdgeLength)
-                if (shouldGrow && lenSq > maxEdgeLength * maxEdgeLength) {
+                // Floraform Logic: Boundaries grow MUCH faster than maxEdgeLength allows
+                if (shouldGrow && len > maxEdgeLength) {
                     edgesToSplit.push([u, v]);
                 }
             }
         }
 
-        const processedEdges = new Set();
+        // Execute Splits
         let splitCount = 0;
-        const MAX_SPLITS = 1000; // Safety limit
+        const MAX_SPLITS = nodes.length * 0.5; // Don't double in one frame
 
         for (const [u, v] of edgesToSplit) {
             if (splitCount > MAX_SPLITS) break;
-            const k = u < v ? `${u},${v}` : `${v},${u}`;
-            if (processedEdges.has(k)) continue;
-            processedEdges.add(k);
-
-            const mIdx = nodes.length;
+            
+            // Create Midpoint with Jitter (Crucial for Ruffles)
             const nu = nodes[u];
             const nv = nodes[v];
+            const mIdx = nodes.length;
             
-            // Midpoint + Noise
-            const noise = 0.1 * maxEdgeLength;
+            // Bias jitter along normal or random Z to create waves
+            const jitter = maxEdgeLength * 0.2; 
+            
             nodes.push({
-                x: (nu.x + nv.x) * 0.5 + (Math.random()-0.5)*noise,
-                y: (nu.y + nv.y) * 0.5 + (Math.random()-0.5)*noise,
-                z: (nu.z + nv.z) * 0.5 + (Math.random()-0.5)*noise,
+                x: (nu.x + nv.x) * 0.5,
+                y: (nu.y + nv.y) * 0.5,
+                z: (nu.z + nv.z) * 0.5 + (Math.random()-0.5) * jitter,
                 vx: 0, vy: 0, vz: 0,
                 neighbors: new Set(),
                 isBoundary: (nu.isBoundary && nv.isBoundary)
             });
 
+            // Retriangulate (Slow O(N) scan)
             const facesToRemove = [];
             const facesToAdd = [];
-
-            // Naive face search (Slow but robust)
             for (let i = 0; i < faces.length; i++) {
                 const [a, b, c] = faces[i];
-                if ((a===u && b===v) || (a===v && b===u)) { 
-                    facesToRemove.push(i); facesToAdd.push([a, mIdx, c], [mIdx, b, c]); 
-                } else if ((b===u && c===v) || (b===v && c===u)) { 
-                    facesToRemove.push(i); facesToAdd.push([a, b, mIdx], [a, mIdx, c]); 
-                } else if ((c===u && a===v) || (c===v && a===u)) { 
-                    facesToRemove.push(i); facesToAdd.push([a, b, mIdx], [b, mIdx, c]); 
-                }
+                if ((a===u && b===v) || (a===v && b===u)) { facesToRemove.push(i); facesToAdd.push([a,mIdx,c], [mIdx,b,c]); }
+                else if ((b===u && c===v) || (b===v && c===u)) { facesToRemove.push(i); facesToAdd.push([a,b,mIdx], [a,mIdx,c]); }
+                else if ((c===u && a===v) || (c===v && a===u)) { facesToRemove.push(i); facesToAdd.push([a,b,mIdx], [b,mIdx,c]); }
             }
-            facesToRemove.sort((a,b) => b-a).forEach(idx => faces.splice(idx, 1));
+            facesToRemove.sort((a,b)=>b-a).forEach(idx => faces.splice(idx,1));
             facesToAdd.forEach(f => addFace(f[0], f[1], f[2]));
             splitCount++;
         }
         if (splitCount > 0) detectBoundaries();
 
-        // --- B. PHYSICS ---
+
+        // B. PHYSICS (Relaxation & Smoothing)
         for (let i=0; i<nodes.length; i++) {
             const n = nodes[i];
             let fx = 0, fy = 0, fz = 0;
-            
+
+            // 1. Spring Forces (Maintain Edge Length)
             n.neighbors.forEach(nIdx => {
                 const neighbor = nodes[nIdx];
                 const dx = n.x - neighbor.x;
                 const dy = n.y - neighbor.y;
                 const dz = n.z - neighbor.z;
                 const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                
                 if (dist < 0.0001) return;
 
-                // Growth Force
-                const growthMult = (n.isBoundary && neighbor.isBoundary && growBoundariesOnly) ? growthRate : 1.0;
-                const target = maxEdgeLength * 0.8 * growthMult;
-                const force = (dist - target) * stiffness; 
+                // Target length is slightly larger than current to encourage expansion
+                const target = maxEdgeLength * 0.9;
+                const force = (dist - target) * stiffness;
                 
-                fx -= (dx / dist) * force;
-                fy -= (dy / dist) * force;
-                fz -= (dz / dist) * force;
+                fx -= (dx/dist) * force;
+                fy -= (dy/dist) * force;
+                fz -= (dz/dist) * force;
             });
 
-            // Smoothing (Relaxation)
-            if (!n.isBoundary) {
-                let avgX = 0, avgY = 0, avgZ = 0, c = 0;
-                n.neighbors.forEach(nIdx => { avgX+=nodes[nIdx].x; avgY+=nodes[nIdx].y; avgZ+=nodes[nIdx].z; c++; });
-                if (c > 0) {
-                    fx += (avgX/c - n.x) * 0.2;
-                    fy += (avgY/c - n.y) * 0.2;
-                    fz += (avgZ/c - n.z) * 0.2;
+            // 2. Laplacian Smoothing (The "Anti-Spike" Force)
+            // This aligns the vertex with the average plane of its neighbors
+            let avgX = 0, avgY = 0, avgZ = 0, count = 0;
+            n.neighbors.forEach(nIdx => {
+                avgX += nodes[nIdx].x;
+                avgY += nodes[nIdx].y;
+                avgZ += nodes[nIdx].z;
+                count++;
+            });
+            if (count > 0) {
+                const smoothStrength = 0.3; // Strong smoothing
+                fx += (avgX/count - n.x) * smoothStrength;
+                fy += (avgY/count - n.y) * smoothStrength;
+                fz += (avgZ/count - n.z) * smoothStrength;
+            }
+
+            // 3. Boundary Expansion (The "Ruffle" Force)
+            // Push boundary nodes OUTWARD from the center of the mesh
+            if (n.isBoundary && growBoundariesOnly) {
+                const distFromCenter = Math.sqrt(n.x*n.x + n.y*n.y);
+                if (distFromCenter > 0.1) {
+                    // Normalize and push
+                    fx += (n.x / distFromCenter) * 0.1; 
+                    fy += (n.y / distFromCenter) * 0.1;
                 }
             }
 
-            // Update
-            n.vx = (n.vx * 0.85) + fx * dt;
-            n.vy = (n.vy * 0.85) + fy * dt;
-            n.vz = (n.vz * 0.85) + fz * dt;
-            n.x += n.vx; n.y += n.vy; n.z += n.vz;
+            // Integration
+            n.vx = (n.vx * 0.9) + fx * dt;
+            n.vy = (n.vy * 0.9) + fy * dt;
+            n.vz = (n.vz * 0.9) + fz * dt;
+            n.x += n.vx;
+            n.y += n.vy;
+            n.z += n.vz;
         }
     }
 
-    // ========================================================================
-    // 3. BUILD OUTPUT
-    // ========================================================================
+    // --- 3. EXPORT ---
     const newGeo = new THREE.BufferGeometry();
     const positions = new Float32Array(nodes.length * 3);
     const indices = [];
-
     for (let i = 0; i < nodes.length; i++) {
         positions[i*3] = nodes[i].x;
         positions[i*3+1] = nodes[i].y;
         positions[i*3+2] = nodes[i].z;
     }
     faces.forEach(f => indices.push(...f));
-
     newGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     newGeo.setIndex(indices);
     newGeo.computeVertexNormals();
-
-    console.log(`Growth Done. Nodes: ${nodes.length}`);
+    
+    console.log(`Floraform Done. Nodes: ${nodes.length}`);
     return newGeo;
 }
+
 
 
 
