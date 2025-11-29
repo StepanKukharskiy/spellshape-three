@@ -2417,6 +2417,305 @@ export function differentialSurfaceGrowth(params = {}) {
 }
 
 
+// ============================================================================
+// DIFFERENTIAL SURFACE GROWTH (Floraform Simulator)
+// ============================================================================
+export function differentialSurfaceGrowth(params = {}) {
+    let {
+        geometry,
+        iterations = 20,
+        growthRate = 1.05,       // How fast edges expand per step (1.05 = 5%)
+        maxEdgeLength = 0.5,     // Split edge if longer than this
+        repulsionRadius = 0.2,   // Keeps mesh from self-intersecting (local only)
+        stiffness = 0.5,         // Spring stiffness
+        growBoundariesOnly = true, // Floraform style: true = ruffles, false = brain/walnut
+        dt = 0.1                 // Physics time step
+    } = params;
+
+    if (!geometry || !geometry.isBufferGeometry) {
+        console.warn("differentialSurfaceGrowth: Invalid geometry input");
+        return new THREE.BufferGeometry();
+    }
+
+    console.log(`Starting Differential Growth: ${iterations} iters, Rate: ${growthRate}`);
+
+    // ========================================================================
+    // 1. INTERNAL MESH STRUCTURE (Half-Edge Simplified)
+    // ========================================================================
+    // We need a structure that supports fast edge splitting and adjacency lookups
+    
+    const nodes = []; // { x,y,z, vx,vy,vz, neighbors: Set<int> }
+    const faces = []; // [a, b, c] (indices into nodes)
+    
+    // --- Import Geometry ---
+    const posAttr = geometry.attributes.position;
+    const indexAttr = geometry.index;
+
+    // Read Vertices
+    for (let i = 0; i < posAttr.count; i++) {
+        nodes.push({
+            x: posAttr.getX(i),
+            y: posAttr.getY(i),
+            z: posAttr.getZ(i),
+            vx: 0, vy: 0, vz: 0,
+            neighbors: new Set(), // For fast adjacency
+            isBoundary: false
+        });
+    }
+
+    // Read Faces & Build Adjacency
+    const addFace = (a, b, c) => {
+        faces.push([a, b, c]);
+        nodes[a].neighbors.add(b); nodes[a].neighbors.add(c);
+        nodes[b].neighbors.add(a); nodes[b].neighbors.add(c);
+        nodes[c].neighbors.add(a); nodes[c].neighbors.add(b);
+    };
+
+    if (indexAttr) {
+        for (let i = 0; i < indexAttr.count; i += 3) {
+            addFace(indexAttr.getX(i), indexAttr.getY(i), indexAttr.getZ(i));
+        }
+    } else {
+        for (let i = 0; i < posAttr.count; i += 3) {
+            addFace(i, i + 1, i + 2);
+        }
+    }
+
+    // --- Helper: Find Boundary Nodes ---
+    const detectBoundaries = () => {
+        // Reset
+        nodes.forEach(n => n.isBoundary = false);
+        const edgeCounts = new Map();
+        
+        const key = (a, b) => a < b ? `${a},${b}` : `${b},${a}`;
+        
+        for (const [a, b, c] of faces) {
+            const edges = [key(a,b), key(b,c), key(c,a)];
+            edges.forEach(k => edgeCounts.set(k, (edgeCounts.get(k) || 0) + 1));
+        }
+
+        for (const [k, count] of edgeCounts) {
+            if (count === 1) { // Boundary edge
+                const [a, b] = k.split(',').map(Number);
+                nodes[a].isBoundary = true;
+                nodes[b].isBoundary = true;
+            }
+        }
+    };
+
+    // Initial check
+    detectBoundaries();
+
+
+    // ========================================================================
+    // 2. SIMULATION LOOP
+    // ========================================================================
+    
+    for (let iter = 0; iter < iterations; iter++) {
+        
+        // A. GROWTH (Subdivision)
+        // We iterate edges, if an edge is too long (and should grow), we split it.
+        // Splitting implies: Adding a node, removing old face(s), adding new faces.
+        
+        // For performance/complexity in JS, we do a simpler pass:
+        // We collect all unique edges, check lengths, and split the worst offenders.
+        // Note: Full remeshing in JS array loops is slow, so we batch updates.
+        
+        const edgesToSplit = [];
+        const edgeSet = new Set(); // dedup
+        
+        for (let fIdx = 0; fIdx < faces.length; fIdx++) {
+            const [a, b, c] = faces[fIdx];
+            const faceEdges = [[a,b], [b,c], [c,a]];
+            
+            for (const [u, v] of faceEdges) {
+                const k = u < v ? `${u},${v}` : `${v},${u}`;
+                if (edgeSet.has(k)) continue;
+                edgeSet.add(k);
+
+                // Calculate Length
+                const dx = nodes[u].x - nodes[v].x;
+                const dy = nodes[u].y - nodes[v].y;
+                const dz = nodes[u].z - nodes[v].z;
+                const len = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+                // Growth Criteria
+                // If "Grow Boundaries Only", we only care if u or v is on boundary
+                const shouldGrow = !growBoundariesOnly || (nodes[u].isBoundary && nodes[v].isBoundary);
+                
+                // Dynamic Max Length: Grow rate effectively lowers the threshold relative to the scale
+                // Or we can physically push nodes apart (Expansion)
+                
+                if (shouldGrow && len > maxEdgeLength) {
+                    edgesToSplit.push([u, v]);
+                }
+            }
+        }
+
+        // Perform Splits (Limit per frame to prevent explosion)
+        // To split edge A-B:
+        // 1. Create Node M (midpoint)
+        // 2. Find all faces sharing A-B.
+        // 3. Replace Face(A,B,C) with Face(A,M,C) and Face(M,B,C)
+        
+        const processedEdges = new Set();
+        let splitCount = 0;
+        const MAX_SPLITS = 500; 
+
+        for (const [u, v] of edgesToSplit) {
+            if (splitCount > MAX_SPLITS) break;
+            
+            const k = u < v ? `${u},${v}` : `${v},${u}`;
+            if (processedEdges.has(k)) continue;
+            processedEdges.add(k);
+
+            // 1. Create Midpoint
+            const mIdx = nodes.length;
+            const nu = nodes[u];
+            const nv = nodes[v];
+            
+            // New node gets averaged position + slight noise to break symmetry (helps buckling)
+            const noise = 0.01 * maxEdgeLength;
+            nodes.push({
+                x: (nu.x + nv.x) * 0.5 + (Math.random()-0.5)*noise,
+                y: (nu.y + nv.y) * 0.5 + (Math.random()-0.5)*noise,
+                z: (nu.z + nv.z) * 0.5 + (Math.random()-0.5)*noise,
+                vx: 0, vy: 0, vz: 0,
+                neighbors: new Set(),
+                isBoundary: (nu.isBoundary && nv.isBoundary)
+            });
+            
+            // 2. Rebuild Faces
+            // We must find all faces containing u AND v
+            // This is O(Faces) which is slow. In a real half-edge this is O(1).
+            // Optimization: Build a face-lookup map once per frame if needed.
+            // For now, simple scan.
+            
+            const facesToRemove = [];
+            const facesToAdd = [];
+
+            for (let i = 0; i < faces.length; i++) {
+                const [a, b, c] = faces[i];
+                if ((a===u && b===v) || (a===v && b===u)) { // Edge AB
+                    facesToRemove.push(i);
+                    facesToAdd.push([a, mIdx, c]);
+                    facesToAdd.push([mIdx, b, c]);
+                }
+                else if ((b===u && c===v) || (b===v && c===u)) { // Edge BC
+                    facesToRemove.push(i);
+                    facesToAdd.push([a, b, mIdx]);
+                    facesToAdd.push([a, mIdx, c]);
+                }
+                else if ((c===u && a===v) || (c===v && a===u)) { // Edge CA
+                    facesToRemove.push(i);
+                    facesToAdd.push([a, b, mIdx]);
+                    facesToAdd.push([b, mIdx, c]);
+                }
+            }
+
+            // Apply Topology Changes (reverse order removal)
+            facesToRemove.sort((a,b) => b-a).forEach(idx => faces.splice(idx, 1));
+            facesToAdd.forEach(f => addFace(f[0], f[1], f[2]));
+            
+            splitCount++;
+        }
+        
+        // Re-detect boundaries after topology changes
+        if (splitCount > 0) detectBoundaries();
+
+
+        // B. PHYSICS (Position Based Dynamics)
+        // 1. Expansion Force (The "Growth")
+        // Push connected nodes apart if they match growth criteria
+        
+        for (let i=0; i<nodes.length; i++) {
+            const n = nodes[i];
+            
+            // Repulsion (Buckling Force) - simplified neighbor repulsion
+            // Real collision is too expensive. We just make sure neighbors don't collapse.
+            let fx = 0, fy = 0, fz = 0;
+            
+            n.neighbors.forEach(nIdx => {
+                const neighbor = nodes[nIdx];
+                const dx = n.x - neighbor.x;
+                const dy = n.y - neighbor.y;
+                const dz = n.z - neighbor.z;
+                const distSq = dx*dx + dy*dy + dz*dz;
+                const dist = Math.sqrt(distSq);
+                
+                if (dist < 0.001) return;
+
+                // Spring Force (Hooke's Law) aiming for optimal edge length
+                // "Growth" means we want the optimal length to be LARGER than current
+                const targetLen = maxEdgeLength * 0.8; 
+                const growthFactor = (n.isBoundary && neighbor.isBoundary && growBoundariesOnly) ? growthRate : 1.0;
+                
+                const currentTarget = targetLen * growthFactor;
+                
+                const force = (dist - currentTarget) * stiffness; // Negative = pull, Positive = push
+                
+                fx -= (dx / dist) * force;
+                fy -= (dy / dist) * force;
+                fz -= (dz / dist) * force;
+            });
+            
+            // Laplacian Smoothing (Prevents jagged spikes)
+            // Pulls vertex toward average of neighbors
+            if (!n.isBoundary) { // Boundaries are allowed to wave freely
+                let avgX = 0, avgY = 0, avgZ = 0;
+                let count = 0;
+                n.neighbors.forEach(nIdx => {
+                    avgX += nodes[nIdx].x;
+                    avgY += nodes[nIdx].y;
+                    avgZ += nodes[nIdx].z;
+                    count++;
+                });
+                if (count > 0) {
+                    const factor = 0.1; // Smooth strength
+                    fx += (avgX/count - n.x) * factor;
+                    fy += (avgY/count - n.y) * factor;
+                    fz += (avgZ/count - n.z) * factor;
+                }
+            }
+
+            // Integrate
+            n.vx = (n.vx * 0.9) + fx * dt; // Damping 0.9
+            n.vy = (n.vy * 0.9) + fy * dt;
+            n.vz = (n.vz * 0.9) + fz * dt;
+            
+            n.x += n.vx;
+            n.y += n.vy;
+            n.z += n.vz;
+        }
+    }
+
+    console.log(`Differential Growth Complete. Final Nodes: ${nodes.length}, Faces: ${faces.length}`);
+
+    // ========================================================================
+    // 3. EXPORT TO THREE.JS
+    // ========================================================================
+    const newGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(nodes.length * 3);
+    const indices = [];
+
+    for (let i = 0; i < nodes.length; i++) {
+        positions[i*3]     = nodes[i].x;
+        positions[i*3 + 1] = nodes[i].y;
+        positions[i*3 + 2] = nodes[i].z;
+    }
+
+    for (const [a, b, c] of faces) {
+        indices.push(a, b, c);
+    }
+
+    newGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    newGeo.setIndex(indices);
+    newGeo.computeVertexNormals();
+    
+    return newGeo;
+}
+
+
 
 
 // ✅ UPDATED: meshFromVoxelGrid now accepts wrapped grids
