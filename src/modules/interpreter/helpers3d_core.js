@@ -1564,6 +1564,45 @@ export function meshFromMarchingCubes(params = {}) {
         };
     }
 
+      // ========================================================================
+    // MODE 1.5: VOXEL GRID (Reaction Diffusion / Cellular Automata)
+    // ========================================================================
+    if (field && field.userData && (field.userData.grid || field.userData.voxels)) {
+        console.log("MarchingCubes: Meshing Voxel Grid");
+        const data = field.userData;
+        const gridArr = data.grid || data.voxels;
+        const size = data.size;
+        // Handle potentially different dimensions
+        const sx = Array.isArray(size) ? size[0] : size;
+        const sy = Array.isArray(size) ? size[1] : size;
+        const sz = Array.isArray(size) ? size[2] : size;
+
+        fieldFn = (x, y, z) => {
+            // 1. Map World Coordinate (x,y,z) -> Grid Coordinate (ix, iy, iz)
+            // We assume the grid is centered at (0,0,0) and spans 'bounds'
+            // World range: [-bounds, +bounds]
+            // Grid range:  [0, size]
+            
+            // Normalize -bounds..bounds to 0..1
+            const u = (x + bounds) / (2 * bounds);
+            const v = (y + bounds) / (2 * bounds);
+            const w = (z + bounds) / (2 * bounds);
+
+            // Check boundaries
+            if (u < 0 || u >= 1 || v < 0 || v >= 1 || w < 0 || w >= 1) return 0;
+
+            // Scale to grid integer coordinates
+            const ix = Math.floor(u * sx);
+            const iy = Math.floor(v * sy);
+            const iz = Math.floor(w * sz);
+
+            // Look up value
+            // Note: Ensure your indexing matches reactionDiffusion (x + y*size + z*size*size)
+            const idx = ix + iy*sx + iz*sx*sy;
+            return gridArr[idx];
+        };
+    }
+
     // ========================================================================
     // MODE 2: VECTOR FIELD
     // ========================================================================
