@@ -2121,7 +2121,7 @@ export function differentialGrowth3DSimple(params = {}) {
 // ============================================================================
 // DIFFERENTIAL SURFACE GROWTH (Floraform Simulator)
 // ============================================================================
-export function differentialSurfaceGrowth(params = {}) {
+export function differentialSurfaceGrowth3D(params = {}) {
     let {
         geometry,
         iterations = 20,
