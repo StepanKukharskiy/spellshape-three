@@ -1321,9 +1321,112 @@ export function cellularAutomata(params = {}) {
 }
 
 export function reactionDiffusion(params = {}) {
-    console.warn('reactionDiffusion: Complex simulation - use cellularAutomata or modifyGeometry');
-    return cellularAutomata({ ...params, iterations: 5 });
+    const { 
+        size = 32,         // Grid resolution
+        iterations = 50, 
+        feed = 0.055,      // F rate (Coral-like preset)
+        kill = 0.062,      // K rate
+        dt = 1.0           // Time step
+    } = params;
+
+    // Initialize Grid: A=1, B=0
+    // We use a flat array for performance: index = x + y*size + z*size*size
+    const len = size * size * size;
+    let A = new Float32Array(len).fill(1.0);
+    let B = new Float32Array(len).fill(0.0);
+    
+    // Seed with some B in the center to start reaction
+    const center = Math.floor(size/2);
+    const radius = 4;
+    for(let z=center-radius; z<=center+radius; z++) {
+        for(let y=center-radius; y<=center+radius; y++) {
+            for(let x=center-radius; x<=center+radius; x++) {
+                if ((x-center)**2 + (y-center)**2 + (z-center)**2 < radius**2) {
+                    const idx = x + y*size + z*size*size;
+                    B[idx] = 1.0;
+                }
+            }
+        }
+    }
+
+    // Helper for laplacian (neighbor check)
+    // Simplified 7-point stencil (Center + 6 neighbors)
+    function getLaplacian(arr, i, x, y, z) {
+        let sum = 0;
+        // Neighbors (wrap around edges)
+        const xm = x > 0 ? i-1 : i+size-1;
+        const xp = x < size-1 ? i+1 : i-size+1;
+        const ym = y > 0 ? i-size : i-size+(size*size);
+        const yp = y < size-1 ? i+size : i+size-(size*size);
+        const zm = z > 0 ? i-(size*size) : i+(size*size)*(size-1);
+        const zp = z < size-1 ? i+(size*size) : i-(size*size)*(size-1);
+        
+        sum += arr[xm] + arr[xp] + arr[ym] + arr[yp] + arr[zm] + arr[zp];
+        return (sum - 6 * arr[i]);
+    }
+
+    // Simulation Loop
+    for(let iter=0; iter<iterations; iter++) {
+        const nextA = new Float32Array(len);
+        const nextB = new Float32Array(len);
+        
+        for(let z=0; z<size; z++) {
+            for(let y=0; y<size; y++) {
+                for(let x=0; x<size; x++) {
+                    const i = x + y*size + z*size*size;
+                    
+                    const a = A[i];
+                    const b = B[i];
+                    const lapA = getLaplacian(A, i, x, y, z);
+                    const lapB = getLaplacian(B, i, x, y, z);
+                    
+                    // Gray-Scott Formulas
+                    // dA/dt = Da*LapA - AB^2 + f(1-A)
+                    // dB/dt = Db*LapB + AB^2 - (k+f)B
+                    const abb = a * b * b;
+                    
+                    // Diffusion rates: Da=1.0, Db=0.5
+                    nextA[i] = a + (1.0 * lapA - abb + feed * (1 - a)) * dt;
+                    nextB[i] = b + (0.5 * lapB + abb - (kill + feed) * b) * dt;
+                    
+                    // Clamp
+                    nextA[i] = Math.max(0, Math.min(1, nextA[i]));
+                    nextB[i] = Math.max(0, Math.min(1, nextB[i]));
+                }
+            }
+        }
+        A = nextA;
+        B = nextB;
+    }
+
+    // Output: Wrap as a Field Function for Marching Cubes
+    // We interpolate the grid values
+    const fieldFn = (x, y, z) => {
+        // Map world space (bounds ~10) to grid space (0..size)
+        // Assume world bounds -5 to 5
+        const gx = (x + 5) / 10 * size;
+        const gy = (y + 5) / 10 * size;
+        const gz = (z + 5) / 10 * size;
+        
+        const ix = Math.floor(gx); 
+        const iy = Math.floor(gy); 
+        const iz = Math.floor(gz);
+        
+        if (ix<0 || ix>=size || iy<0 || iy>=size || iz<0 || iz>=size) return 0;
+        
+        // Return concentration of Chemical B (The pattern)
+        // Invert/Threshold it for solid shape
+        return B[ix + iy*size + iz*size*size]; 
+    };
+
+    // Return wrapped object
+    return wrapFieldAsObject(fieldFn, 'Reaction-Diffusion B', { 
+        type: 'reaction-diffusion', 
+        grid: B, 
+        size 
+    });
 }
+
 
 // ============================================================================
 // 10. EMERGENT FEATURES (The AI Brain) - 2 helpers
