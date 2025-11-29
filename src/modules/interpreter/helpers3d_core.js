@@ -2360,7 +2360,25 @@ export function differentialGrowth3DSimple(params = {}) {
  * @param {Object} params - Simulation settings
  * @returns {THREE.BufferGeometry} - The grown geometry
  */
-export function  differentialSurfaceGrowth3D(inputGeometry, params = {}) {
+export function  differentialSurfaceGrowth3D(params = {}) {
+  // --- 1. ROBUST INPUT HANDLING ---
+    let geo = params.inputGeometry || params.geometry;
+    
+    // Unwrap wrapped objects from previous steps
+    if (geo && geo.userData && geo.isField) { 
+         // Special case if you accidentally passed a Field
+         console.warn("Passed Field to Growth solver. This requires Mesh Geometry.");
+         return new THREE.BufferGeometry();
+    }
+    
+    // Unwrap Mesh/Object3D wrappers
+    if (geo && geo.isObject3D && geo.geometry) geo = geo.geometry;
+    
+    // Check for direct BufferGeometry
+    if (!geo || !geo.isBufferGeometry) {
+        console.error("differentialSurfaceGrowth3D: Input is not a BufferGeometry", geo);
+        return new THREE.BufferGeometry();
+    }
     // --- CONFIGURATION ---
     const {
         iterations = 50,             // Total growth steps
