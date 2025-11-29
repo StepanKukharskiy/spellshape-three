@@ -2172,6 +2172,13 @@ export function differentialGrowth3DSimple(params = {}) {
 export function meshFromVoxelGrid(params = {}) {
     let { grid, voxelSize = 1 } = params;
 
+  // DEBUG: Check if the data survived
+    if (grid && grid.userData) {
+        console.log("✅ Mesher found userData with grid size:", grid.userData.size);
+    } else {
+        console.error("❌ Mesher received grid, but userData is MISSING!", grid);
+    }
+
     // --- 1. STANDARDIZE INPUT (Universal Accessor) ---
     let accessFn, sizeX, sizeY, sizeZ;
 
