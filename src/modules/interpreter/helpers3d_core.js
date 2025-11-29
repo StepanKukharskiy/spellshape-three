@@ -2354,6 +2354,156 @@ export function differentialSurfaceGrowth3D(params = {}) {
 }
 
 
+// ============================================================================
+// BUCKLE GEOMETRY (Fixed Topology Folding)
+// ============================================================================
+export function buckleGeometry(params = {}) {
+    let {
+        geometry,
+        iterations = 50,
+        expansion = 1.01,        // Target edge length multiplier (1.01 = 1% growth)
+        constraints = 'boundary', // 'boundary' (lock edges), 'center' (lock center), 'none'
+        noiseAmount = 0.1,       // Initial perturbation
+        smoothness = 0.5,        // Laplacian smoothing strength
+        dt = 0.2                 // Time step
+    } = params;
+
+    if (!geometry || !geometry.isBufferGeometry) return new THREE.BufferGeometry();
+
+    // Clone geometry to avoid mutating the original source if cached
+    const geo = geometry.clone();
+    const posAttr = geo.attributes.position;
+    const count = posAttr.count;
+
+    // 1. Build Adjacency (Neighbors)
+    // We need this to run physics
+    const neighbors = Array.from({length: count}, () => []);
+    const edges = [];
+    
+    // Read edges from index or implicit
+    const addEdge = (a, b) => {
+        neighbors[a].push(b);
+        neighbors[b].push(a);
+        edges.push([a, b]); // Store unique edge for length constraint
+    };
+
+    if (geo.index) {
+        const idx = geo.index;
+        for (let i = 0; i < idx.count; i += 3) {
+            const a = idx.getX(i), b = idx.getY(i), c = idx.getZ(i);
+            addEdge(a, b); addEdge(b, c); addEdge(c, a);
+        }
+    } else {
+        for (let i = 0; i < count; i += 3) {
+            addEdge(i, i+1); addEdge(i+1, i+2); addEdge(i+2, i);
+        }
+    }
+
+    // 2. Initialize Physics State
+    const nodes = [];
+    for (let i = 0; i < count; i++) {
+        const x = posAttr.getX(i);
+        const y = posAttr.getY(i);
+        const z = posAttr.getZ(i);
+        
+        // Detect Constraints
+        let isFixed = false;
+        const dist = Math.sqrt(x*x + y*y + z*z);
+        
+        if (constraints === 'boundary') {
+            // Naive boundary check: nodes with fewer neighbors often boundary
+            // Or check distance from center for Circle/Plane
+            if (dist > 4.8) isFixed = true; // Assuming Radius 5 circle
+        } else if (constraints === 'center') {
+            if (dist < 1.0) isFixed = true;
+        }
+
+        nodes.push({
+            x, y, 
+            // Add noise to Z to break symmetry and allow buckling
+            z: z + (Math.random() - 0.5) * noiseAmount, 
+            vx: 0, vy: 0, vz: 0,
+            isFixed
+        });
+    }
+
+    // Pre-calculate Rest Lengths (The "Target" Lengths)
+    // We set the target length to be LARGER than current length to force buckling
+    const edgeConstraints = edges.map(([a, b]) => {
+        const na = nodes[a], nb = nodes[b];
+        const curLen = Math.sqrt((na.x-nb.x)**2 + (na.y-nb.y)**2 + (na.z-nb.z)**2);
+        return { a, b, target: curLen * expansion };
+    });
+
+    console.log(`Starting Buckle Sim: ${count} verts, ${iterations} steps`);
+
+    // 3. Simulation Loop
+    for (let iter = 0; iter < iterations; iter++) {
+        
+        // A. Expansion Constraints (The "Growth")
+        for (const {a, b, target} of edgeConstraints) {
+            const na = nodes[a];
+            const nb = nodes[b];
+            
+            const dx = na.x - nb.x;
+            const dy = na.y - nb.y;
+            const dz = na.z - nb.z;
+            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            
+            if (dist === 0) continue;
+
+            // Hooke's Law / Constraint Projection
+            // We want dist to become target.
+            // Force pushes them apart if dist < target
+            const diff = (dist - target) / dist; // Normalized error
+            
+            // Apply half to A, half to B
+            const moveX = dx * diff * 0.5;
+            const moveY = dy * diff * 0.5;
+            const moveZ = dz * diff * 0.5;
+
+            if (!na.isFixed) { na.x -= moveX; na.y -= moveY; na.z -= moveZ; }
+            if (!nb.isFixed) { nb.x += moveX; nb.y += moveY; nb.z += moveZ; }
+        }
+
+        // B. Smoothing (The "Fabric" Feel)
+        // Without this, it looks like noise. With this, it looks like cloth.
+        const tempNodes = nodes.map(n => ({...n})); // Snapshot positions
+        
+        for (let i = 0; i < count; i++) {
+            const n = nodes[i];
+            if (n.isFixed) continue;
+
+            let avgX=0, avgY=0, avgZ=0, c=0;
+            for (const neighborIdx of neighbors[i]) {
+                const nb = tempNodes[neighborIdx];
+                avgX += nb.x;
+                avgY += nb.y;
+                avgZ += nb.z;
+                c++;
+            }
+            
+            if (c > 0) {
+                // Move towards average
+                n.x += (avgX/c - n.x) * smoothness;
+                n.y += (avgY/c - n.y) * smoothness;
+                n.z += (avgZ/c - n.z) * smoothness;
+            }
+        }
+    }
+
+    // 4. Update Geometry
+    for (let i = 0; i < count; i++) {
+        posAttr.setXYZ(i, nodes[i].x, nodes[i].y, nodes[i].z);
+    }
+    
+    posAttr.needsUpdate = true;
+    geo.computeVertexNormals();
+    
+    return geo;
+}
+
+
 
 
 
