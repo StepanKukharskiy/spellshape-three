@@ -1447,11 +1447,23 @@ export function reactionDiffusion(params = {}) {
 
 
     // Return wrapped object
-    return wrapFieldAsObject(fieldFn, 'Reaction-Diffusion B', { 
-        type: 'reaction-diffusion', 
-        grid: B, 
-        size 
-    });
+    // return wrapFieldAsObject(fieldFn, 'Reaction-Diffusion B', { 
+    //     type: 'reaction-diffusion', 
+    //     grid: B, 
+    //     size 
+    // });
+
+  // New Code: Return a raw object
+    // We attach the function too, just in case
+    return {
+        isVoxelGrid: true, // Marker
+        userData: {
+            type: 'reaction-diffusion', // Custom type
+            grid: B,
+            size: size,
+            fn: fieldFn // We keep the function handy inside userData
+        }
+    };
 }
 
 
