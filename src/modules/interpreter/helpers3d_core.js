@@ -1566,24 +1566,36 @@ export function meshFromMarchingCubes(params = {}) {
     // ========================================================================
     // MODE 2: VOXEL GRID (Reaction Diffusion) - FIXED
     // ========================================================================
-    else if (field && field.userData && (field.userData.grid || field.userData.voxels)) {
-        console.log("MarchingCubes: Detected Voxel Grid");
-        const data = field.userData;
-        const gridArr = data.grid || data.voxels;
-        const size = data.size;
-        const sx = Array.isArray(size) ? size[0] : size;
-        const sy = Array.isArray(size) ? size[1] : size;
-        const sz = Array.isArray(size) ? size[2] : size;
+    // We check if 'field' IS the data, or if 'field.userData' holds the data
+    let voxelData = null;
+    
+    if (field && field.userData && (field.userData.grid || field.userData.voxels)) {
+        voxelData = field.userData;
+    } else if (field && (field.grid || field.voxels)) {
+        // Handle case where wrapper returned the raw object directly
+        voxelData = field;
+    }
+
+    if (voxelData) {
+        console.log("MarchingCubes: Detected Voxel Grid (Active)"); // You MUST see this log
+        
+        const gridArr = voxelData.grid || voxelData.voxels;
+        const size = voxelData.size;
+        
+        // Robust Size Parsing
+        const sx = (Array.isArray(size)) ? size[0] : size;
+        const sy = (Array.isArray(size)) ? size[1] : size;
+        const sz = (Array.isArray(size)) ? size[2] : size;
+
+        // Robust Bounds from metadata or params
+        const gridBounds = voxelData.bounds || bounds;
 
         fieldFn = (x, y, z) => {
             // Map World (-bounds to +bounds) -> UV (0 to 1)
-            // CLAMPING is crucial here to prevent edge artifacts/failures
-            let u = (x + bounds) / (2 * bounds);
-            let v = (y + bounds) / (2 * bounds);
-            let w = (z + bounds) / (2 * bounds);
+            const u = (x + bounds) / (2 * bounds);
+            const v = (y + bounds) / (2 * bounds);
+            const w = (z + bounds) / (2 * bounds);
 
-            // Strict bounds check vs Clamping
-            // We clamp to 0.001 - 0.999 to ensure we don't hit array index -1 or length
             if (u < 0 || u >= 1 || v < 0 || v >= 1 || w < 0 || w >= 1) return 0;
 
             const ix = Math.floor(u * sx);
@@ -1591,7 +1603,7 @@ export function meshFromMarchingCubes(params = {}) {
             const iz = Math.floor(w * sz);
             
             const idx = ix + iy*sx + iz*sx*sy;
-            return gridArr[idx] || 0; // Safety fallback
+            return gridArr[idx] || 0; 
         };
     }
 
