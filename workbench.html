@@ -1471,6 +1471,12 @@
     category: 'Emergent', // Better category name than "Procedural"
     description: 'Simulates organic "Floraform" growth by expanding boundary edges and repelling vertices to create ruffles.',
     params: {
+      inputGeometry: {
+            type: 'geometry',
+            label: 'Input Mesh',
+            description: 'The starting geometry (e.g., a Plane or Disc) to grow.',
+            default: null // Required input
+        },
         // 1. Simulation Duration
         iterations: { 
             type: 'integer', 
