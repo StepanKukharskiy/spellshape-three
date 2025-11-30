@@ -1466,8 +1466,100 @@
         growBoundariesOnly: { type: 'boolean', default: true, label: 'Ruffle Edges Only' },
         repulsionRadius: { type: 'number', default: 0.2, min: 0.1, max: 1.0, step: 0.1, label: 'Self-Collision' }
     }
-}
-,
+},
+          differentialSurfaceGrowth3D: {
+    category: 'Emergent', // Better category name than "Procedural"
+    description: 'Simulates organic "Floraform" growth by expanding boundary edges and repelling vertices to create ruffles.',
+    params: {
+        // 1. Simulation Duration
+        iterations: { 
+            type: 'integer', 
+            default: 50, 
+            min: 10, 
+            max: 200, 
+            label: 'Growth Iterations',
+            description: 'More iterations = larger, more complex growth.'
+        },
+        
+        // 2. Edge Control (The "Detail" sliders)
+        maxEdgeLength: { 
+            type: 'number', 
+            default: 0.2, 
+            min: 0.05, 
+            max: 1.0, 
+            step: 0.01, 
+            label: 'Max Edge Length',
+            description: 'Splits edges longer than this. Smaller values = higher detail but slower.' 
+        },
+        minEdgeLength: { 
+            type: 'number', 
+            default: 0.05, 
+            min: 0.01, 
+            max: 0.5, 
+            step: 0.01, 
+            label: 'Min Edge Length',
+            description: 'Target length for internal springs. Should be ~25% of Max Edge Length.'
+        },
+
+        // 3. Forces (The "Physics" sliders)
+        repulsionRadius: { 
+            type: 'number', 
+            default: 0.25, 
+            min: 0.05, 
+            max: 1.0, 
+            step: 0.05, 
+            label: 'Collision Radius',
+            description: 'Radius of self-repulsion. Must be larger than Max Edge Length.'
+        },
+        repulsionStrength: { 
+            type: 'number', 
+            default: 1.0, 
+            min: 0.1, 
+            max: 5.0, 
+            step: 0.1, 
+            label: 'Repulsion Force',
+            description: 'How hard the mesh pushes away from itself to avoid intersection.'
+        },
+        springStiffness: { 
+            type: 'number', 
+            default: 0.4, 
+            min: 0.1, 
+            max: 1.0, 
+            step: 0.1, 
+            label: 'Structural Stiffness',
+            description: 'How strictly the mesh maintains its edge lengths.'
+        },
+        boundaryGrowthPush: { 
+            type: 'number', 
+            default: 0.2, 
+            min: 0.0, 
+            max: 1.0, 
+            step: 0.05, 
+            label: 'Ruffle Strength',
+            description: 'Force that pushes boundary edges apart to create excess length (ruffles).'
+        },
+
+        // 4. Stability & Variation
+        dt: { 
+            type: 'number', 
+            default: 0.04, 
+            min: 0.01, 
+            max: 0.1, 
+            step: 0.01, 
+            label: 'Time Step',
+            description: 'Lower values are more stable but grow slower.'
+        },
+        initialJitter: { 
+            type: 'number', 
+            default: 0.02, 
+            min: 0.0, 
+            max: 0.2, 
+            step: 0.01, 
+            label: 'Buckling Jitter',
+            description: 'Random vertical noise added at start to force 3D buckling.'
+        }
+    }
+},
           buckleGeometry: {
     category: 'Deformation',
     description: 'Forces a high-resolution mesh to fold and ruffle by expanding its surface area while constrained.',
