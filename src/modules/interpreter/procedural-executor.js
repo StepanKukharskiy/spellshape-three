@@ -1,8 +1,8 @@
 // ============================================================================
-// procedural-executor-diagnostic.js
+// procedural-executor-11.js - BULLETPROOF ITERATION
 // ============================================================================
-// DEBUG MODE: Wraps all Object.entries calls to catch null/undefined
-// Check your Console logs for "❌ CRITICAL: safeEntries failed"
+// Fixes: "TypeError: Cannot convert undefined or null to object"
+// Method: Replaces all Object.entries() with safe for...in loops.
 // ============================================================================
 
 import * as THREE from 'three';
@@ -17,142 +17,119 @@ export class ProceduralExecutor {
         this.context = {};
     }
 
-    /**
-     * Debug helper to safely iterate objects and log failures
-     */
-    safeEntries(obj, sourceName) {
-        if (obj === undefined || obj === null) {
-            console.error(`❌ CRITICAL: safeEntries failed for '${sourceName}'. Value is:`, obj);
-            return [];
+    // ✅ CORE FIX: A safe looping utility that CANNOT crash on null/undefined
+    safeLoop(obj, callback) {
+        if (obj === undefined || obj === null) return;
+        if (typeof obj !== 'object') return;
+
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                callback(key, obj[key]);
+            }
         }
-        if (typeof obj !== 'object') {
-            console.error(`❌ CRITICAL: safeEntries failed for '${sourceName}'. Expected object, got:`, typeof obj);
-            return [];
-        }
-        return Object.entries(obj);
     }
 
-    execute(schema, parameters = {}) {
-        console.group("🚀 ProceduralExecutor.execute()");
-        
-        // 1. Input Validation & Parsing
+    execute(schema, parameters) {
+        console.log("🚩 Checkpoint 1: Execute Start");
+
+        // 1. Input Sanitization
+        // Handle parameters explicitly being null (common JS pitfall)
+        const safeParams = (parameters && typeof parameters === 'object') ? parameters : {};
+
         if (typeof schema === 'string') {
-            console.log("ℹ️ Parsing schema from string...");
             try {
                 schema = JSON.parse(schema);
             } catch (e) {
-                console.error("❌ JSON Parse Error:", e);
-                console.groupEnd();
+                console.error("❌ Invalid JSON string");
                 return new THREE.Group();
             }
         }
 
         if (!schema || typeof schema !== 'object') {
-            console.error("❌ Invalid schema input:", schema);
-            console.groupEnd();
+            console.warn("❌ Invalid schema object");
             return new THREE.Group();
         }
 
-        // 2. Debug Log the Schema Structure
-        console.log("Schema Debug:", {
+        console.log("🚩 Checkpoint 2: Schema Validated", {
             version: schema.version,
-            hasMaterials: !!schema.materials,
-            hasDefinitions: !!schema.definitions,
-            hasActions: !!schema.actions,
-            materialsType: typeof schema.materials,
-            definitionsType: typeof schema.definitions
+            intent: schema.intent
         });
 
-        // 3. Reset State
+        // 2. Reset State
         this.geometries.clear();
         this.materials.clear();
         this.dynamicHelpers.clear();
         this.context = {};
 
-        // 4. Initialize Materials (Guarded)
+        // 3. Initialize Materials
         if (schema.materials) {
-            this.initializeMaterials(schema.materials);
+            this.safeLoop(schema.materials, (name, config) => {
+                if (!config) return;
+                this.materials.set(name, new THREE.MeshStandardMaterial({
+                    color: new THREE.Color(config.color || '#808080'),
+                    roughness: config.roughness ?? 0.5,
+                    metalness: config.metalness ?? 0.0,
+                    transparent: config.transparent ?? false,
+                    opacity: config.opacity ?? 1.0,
+                    side: THREE.DoubleSide
+                }));
+            });
         }
-        
-        // 5. Register Helpers (Guarded)
+
+        // 4. Register Helpers
         if (schema.definitions) {
             this.registerDynamicHelpers(schema.definitions);
         }
 
-        // 6. Run Versioned Executor
+        console.log("🚩 Checkpoint 3: Setup Complete. Running Logic...");
+
+        // 5. Execute Versioned Logic
         const version = parseFloat(schema.version || 3.2);
-        let result;
-        
         try {
             if (version >= 4.0) {
-                result = this.executeV4(schema, parameters);
+                return this.executeV4(schema, safeParams);
             } else {
-                result = this.executeV3(schema, parameters);
+                return this.executeV3(schema, safeParams);
             }
         } catch (err) {
-            console.error("❌ Execution Crash:", err);
-            result = new THREE.Group();
+            console.error("❌ Crash inside Versioned Execution:", err);
+            return new THREE.Group();
         }
-
-        console.groupEnd();
-        return result;
     }
 
     registerDynamicHelpers(definitions) {
-        // DEBUG: Use safeEntries
-        const entries = this.safeEntries(definitions, 'definitions');
-        
-        for (const [name, def] of entries) {
+        this.safeLoop(definitions, (name, def) => {
             try {
-                const body = def.code || def; 
-                if (!body || typeof body !== 'string') continue;
+                const body = (def && typeof def === 'object') ? def.code : def;
+                if (!body || typeof body !== 'string') return;
 
                 const func = new Function('params', 'THREE', 'helpers', body);
-                const boundFunc = (params) => func(params, THREE, helpers);
-                
+                const boundFunc = (p) => func(p, THREE, helpers);
                 this.dynamicHelpers.set(name, boundFunc);
-                console.log(`✅ Registered dynamic helper: ${name}`);
+                console.log(`✅ Registered helper: ${name}`);
             } catch (e) {
-                console.error(`❌ Failed to compile helper ${name}:`, e);
+                console.error(`❌ Helper compile error (${name}):`, e);
             }
-        }
-    }
-
-    initializeMaterials(materialsConfig) {
-        // DEBUG: Use safeEntries
-        const entries = this.safeEntries(materialsConfig, 'materials');
-
-        for (const [name, config] of entries) {
-            if (!config) continue;
-            this.materials.set(name, new THREE.MeshStandardMaterial({
-                color: new THREE.Color(config.color || '#808080'),
-                roughness: config.roughness ?? 0.5,
-                metalness: config.metalness ?? 0.0,
-                transparent: config.transparent ?? false,
-                opacity: config.opacity ?? 1.0,
-                side: THREE.DoubleSide
-            }));
-        }
+        });
     }
 
     // ========== V4.0 EXECUTOR ==========
     executeV4(schema, parameters) {
         // 1. Global Parameters
         if (schema.globalParameters) {
-            const entries = this.safeEntries(schema.globalParameters, 'globalParameters');
-            for (const [key, param] of entries) {
-                this.context[key] = parameters[key] ?? param.value ?? param;
-            }
+            this.safeLoop(schema.globalParameters, (key, param) => {
+                const defaultVal = (param && param.value !== undefined) ? param.value : param;
+                this.context[key] = parameters[key] ?? defaultVal;
+            });
         }
 
         // 2. Context
         if (schema.context) {
-            const entries = this.safeEntries(schema.context, 'context');
-            for (const [key, value] of entries) {
+            this.safeLoop(schema.context, (key, value) => {
                 if (this.context[key] === undefined) {
                     this.context[key] = value;
                 }
-            }
+            });
         }
 
         const group = new THREE.Group();
@@ -160,22 +137,20 @@ export class ProceduralExecutor {
 
         // 3. Actions
         if (Array.isArray(schema.actions)) {
-            schema.actions.forEach((action, index) => {
-                // Pass index for debugging
-                this.executeAction(action, group, index);
+            schema.actions.forEach((action, idx) => {
+                this.executeAction(action, group, idx);
             });
-        } else {
-            console.warn("⚠️ Schema has no 'actions' array");
         }
 
+        console.log("🚩 Checkpoint 4: V4 Execution Finished");
         return group;
     }
 
-    executeAction(action, group, index = 0) {
+    executeAction(action, group, index) {
         if (!action) return;
         const { thought, do: helperName, params, transform, material, as: storeName, visible } = action;
 
-        if (thought) console.log(`[Action ${index}] 📌 ${thought}`);
+        if (thought) console.log(`📌 ${thought}`);
 
         if (helperName === 'loop') return this.executeLoop(action, group);
         if (helperName === 'clone') return this.executeClone(action, group);
@@ -186,20 +161,18 @@ export class ProceduralExecutor {
         if (!helperFn && helpers.default) helperFn = helpers.default[helperName];
 
         if (!helperFn) {
-            console.warn(`[Action ${index}] ❌ Helper not found: ${helperName}`);
+            console.warn(`⚠️ Action ${index}: Helper '${helperName}' not found`);
             return;
         }
 
         // Parameter Evaluation
-        // DEBUG: Log params before evaluation
-        // console.log(`[Action ${index}] Params input:`, params);
-        const evalParams = this.evaluateParamsCarefully(params, `action_${index}_params`);
+        const evalParams = this.evaluateParamsCarefully(params);
 
         let result;
         try {
             result = helperFn(evalParams);
         } catch (error) {
-            console.error(`[Action ${index}] ❌ Error running ${helperName}:`, error);
+            console.error(`❌ Error in '${helperName}':`, error);
             return;
         }
 
@@ -210,34 +183,28 @@ export class ProceduralExecutor {
         if (transform) this.applyTransform(result, transform);
 
         const mat = this.getMaterial(material);
-        if (Array.isArray(result)) {
-            result.forEach(g => this.addToGroup(g, group, mat, visible));
-        } else {
-            this.addToGroup(result, group, mat, visible);
-        }
+        this.addToGroup(result, group, mat, visible);
     }
 
-    // ========== PARAMETER EVALUATION (Probable Crash Site) ==========
-    evaluateParamsCarefully(params, contextLabel = 'params') {
-        // Guard Clause
-        if (!params) return {}; 
+    // ========== SAFE PARAMETER EVALUATION ==========
+    evaluateParamsCarefully(params) {
+        if (!params || typeof params !== 'object') return {};
 
-        // DEBUG: Use safeEntries
-        const entries = this.safeEntries(params, contextLabel);
-        
         const evaluated = {};
-        for (const [key, value] of entries) {
+        
+        // USE SAFE LOOP instead of Object.entries
+        this.safeLoop(params, (key, value) => {
             if (Array.isArray(value)) {
                 evaluated[key] = value.map(item => this.evaluateValue(item));
             }
-            else if (typeof value === 'object' && value !== null) {
-                // Recursion: Update label to track nesting
-                evaluated[key] = this.evaluateParamsCarefully(value, `${contextLabel}.${key}`);
+            else if (value && typeof value === 'object') {
+                evaluated[key] = this.evaluateParamsCarefully(value);
             }
             else {
                 evaluated[key] = this.evaluateValue(value);
             }
-        }
+        });
+
         return evaluated;
     }
 
@@ -258,15 +225,14 @@ export class ProceduralExecutor {
     evaluateExpression(expr) {
         if (typeof expr !== 'string') return expr;
         try {
-            let processed = expr.replace(/ctx\.(\w+)/g, (_, v) => this.context[v] ?? 0);
+            const processed = expr.replace(/ctx\.(\w+)/g, (_, v) => this.context[v] ?? 0);
             return new Function('Math', 'ctx', `return ${processed};`)(Math, this.context);
         } catch (e) {
-            console.warn(`Expr Eval Failed: ${expr}`, e);
             return 0;
         }
     }
 
-    // ========== UTILS ==========
+    // ========== UTILITIES ==========
     getMaterial(name) {
         return this.materials.get(name) || this.materials.get('default') || new THREE.MeshStandardMaterial({ color: 0x808080 });
     }
@@ -274,6 +240,12 @@ export class ProceduralExecutor {
     addToGroup(obj, group, mat, visible) {
         if (!obj) return;
         const isVis = visible !== false;
+
+        if (Array.isArray(obj)) {
+            obj.forEach(item => this.addToGroup(item, group, mat, visible));
+            return;
+        }
+
         if (obj.isObject3D) {
             obj.visible = isVis;
             if (mat && obj.isMesh && !obj.material) obj.material = mat;
@@ -287,7 +259,11 @@ export class ProceduralExecutor {
 
     applyTransform(obj, transform) {
         if (!transform) return;
-        const t = (v) => this.evaluateArray(v);
+        const t = (v) => {
+             if (!Array.isArray(v)) return [0,0,0];
+             return v.map(val => typeof val === 'string' ? this.evaluateExpression(val) : val);
+        };
+
         if (transform.position) {
             const [x,y,z] = t(transform.position);
             obj.isBufferGeometry ? obj.translate(x,y,z) : obj.position.set(x,y,z);
@@ -302,17 +278,12 @@ export class ProceduralExecutor {
         }
     }
 
-    evaluateArray(arr) {
-        if (!Array.isArray(arr)) return [0,0,0];
-        return arr.map(v => typeof v === 'string' ? this.evaluateExpression(v) : v);
-    }
-
-    // ========== LEGACY & FLOW ==========
+    // ========== LOGIC HELPERS ==========
     executeLoop(action, group) {
         const { var: varName, from, to, body } = action;
         const start = this.evaluateExpression(from);
         const end = this.evaluateExpression(to);
-        if (Math.abs(end - start) > 1000) return; // Safety
+        if (Math.abs(end - start) > 1000) return;
         
         for (let i = start; i < end; i++) {
             this.context[varName] = i;
@@ -322,7 +293,6 @@ export class ProceduralExecutor {
     }
 
     executeClone(action, group) {
-        // Cloning logic same as before...
         if (!action.params?.id) return;
         const src = this.geometries.get(action.params.id);
         if (src && src.clone) {
@@ -331,9 +301,23 @@ export class ProceduralExecutor {
             this.addToGroup(c, group, this.getMaterial(action.material), true);
         }
     }
-
+    
     executeV3(schema, parameters) {
-        console.warn("V3 Legacy Executor not fully implemented in diagnostic mode");
-        return new THREE.Group();
+        // Basic legacy support
+        const group = new THREE.Group();
+        const procedure = schema.procedures?.[0];
+        if (procedure && procedure.steps) {
+             procedure.steps.forEach(step => {
+                 // Map V3 step to V4 action structure
+                 this.executeAction({
+                     do: step.helper,
+                     params: step.params,
+                     as: step.store,
+                     transform: step.transform,
+                     material: step.material
+                 }, group);
+             });
+        }
+        return group;
     }
 }
