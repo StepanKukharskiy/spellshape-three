@@ -1,0 +1,1269 @@
+[
+  {
+    "id": "noise",
+    "name": "noise",
+    "description": "Simplex noise utility for procedural generation and randomization.",
+    "category": "Deformation",
+    "paramsSchema": {},
+    "code": "simplex3,\n    seed: (s) => {\n        for(let i=0; i<256; i++) _p[i] = Math.floor((Math.sin(s + i) * 43758.5453) % 1 * 256);\n        for(let i=0; i<512; i++) {\n            _perm[i] = _p[i & 255];\n            _permMod12[i] = _perm[i] % 12;\n        }\n    }"
+  },
+  {
+    "id": "createBox",
+    "name": "createBox",
+    "description": "Creates a cube/box geometry with optional segments for subdivisions.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "width": {
+        "type": "number",
+        "default": 1
+      },
+      "height": {
+        "type": "number",
+        "default": 1
+      },
+      "depth": {
+        "type": "number",
+        "default": 1
+      },
+      "widthSegments": {
+        "type": "number",
+        "default": 1
+      },
+      "heightSegments": {
+        "type": "number",
+        "default": 1
+      },
+      "depthSegments": {
+        "type": "number",
+        "default": 1
+      }
+    },
+    "code": "const { width = 1, height = 1, depth = 1, widthSegments = 1, heightSegments = 1, depthSegments = 1 } = params;\n    return new THREE.BoxGeometry(width, height, depth, widthSegments, heightSegments, depthSegments);"
+  },
+  {
+    "id": "createSphere",
+    "name": "createSphere",
+    "description": "Generates a UV sphere with configurable radius and segments.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radius": {
+        "type": "number",
+        "default": 1
+      },
+      "widthSegments": {
+        "type": "number",
+        "default": 32
+      },
+      "heightSegments": {
+        "type": "number",
+        "default": 16
+      },
+      "phiStart": {
+        "type": "number",
+        "default": 0
+      },
+      "phiLength": {
+        "type": "string",
+        "default": "Math.PI * 2"
+      },
+      "thetaStart": {
+        "type": "number",
+        "default": 0
+      },
+      "thetaLength": {
+        "type": "string",
+        "default": "Math.PI"
+      }
+    },
+    "code": "const { radius = 1, widthSegments = 32, heightSegments = 16, phiStart = 0, phiLength = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI } = params;\n    return new THREE.SphereGeometry(radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength);"
+  },
+  {
+    "id": "createCylinder",
+    "name": "createCylinder",
+    "description": "Creates a cylinder with separate top/bottom radius for cones.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radiusTop": {
+        "type": "number",
+        "default": 1
+      },
+      "radiusBottom": {
+        "type": "number",
+        "default": 1
+      },
+      "height": {
+        "type": "number",
+        "default": 1
+      },
+      "radialSegments": {
+        "type": "number",
+        "default": 32
+      },
+      "heightSegments": {
+        "type": "number",
+        "default": 1
+      },
+      "openEnded": {
+        "type": "boolean",
+        "default": false
+      },
+      "thetaStart": {
+        "type": "number",
+        "default": 0
+      },
+      "thetaLength": {
+        "type": "string",
+        "default": "Math.PI * 2"
+      }
+    },
+    "code": "const { radiusTop = 1, radiusBottom = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false, thetaStart = 0, thetaLength = Math.PI * 2 } = params;\n    return new THREE.CylinderGeometry(radiusTop, radiusBottom, height, radialSegments, heightSegments, openEnded, thetaStart, thetaLength);"
+  },
+  {
+    "id": "createCone",
+    "name": "createCone",
+    "description": "Generates a cone (special cylinder with bottom radius = 0).",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radius": {
+        "type": "number",
+        "default": 1
+      },
+      "height": {
+        "type": "number",
+        "default": 1
+      },
+      "radialSegments": {
+        "type": "number",
+        "default": 32
+      },
+      "heightSegments": {
+        "type": "number",
+        "default": 1
+      },
+      "openEnded": {
+        "type": "boolean",
+        "default": false
+      }
+    },
+    "code": "const { radius = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false } = params;\n    return new THREE.ConeGeometry(radius, height, radialSegments, heightSegments, openEnded);"
+  },
+  {
+    "id": "createTorus",
+    "name": "createTorus",
+    "description": "Creates a torus (donut) with tube thickness control.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radius": {
+        "type": "number",
+        "default": 1
+      },
+      "tube": {
+        "type": "number",
+        "default": 0.4
+      },
+      "radialSegments": {
+        "type": "number",
+        "default": 16
+      },
+      "tubularSegments": {
+        "type": "number",
+        "default": 100
+      },
+      "arc": {
+        "type": "string",
+        "default": "Math.PI * 2"
+      }
+    },
+    "code": "const { radius = 1, tube = 0.4, radialSegments = 16, tubularSegments = 100, arc = Math.PI * 2 } = params;\n    return new THREE.TorusGeometry(radius, tube, radialSegments, tubularSegments, arc);"
+  },
+  {
+    "id": "createTorusKnot",
+    "name": "createTorusKnot",
+    "description": "Generates a 3D toroidal knot with p and q parameters.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radius": {
+        "type": "number",
+        "default": 1
+      },
+      "tube": {
+        "type": "number",
+        "default": 0.4
+      },
+      "tubularSegments": {
+        "type": "number",
+        "default": 64
+      },
+      "radialSegments": {
+        "type": "number",
+        "default": 8
+      },
+      "p": {
+        "type": "number",
+        "default": 2
+      },
+      "q": {
+        "type": "number",
+        "default": 3
+      }
+    },
+    "code": "const { radius = 1, tube = 0.4, tubularSegments = 64, radialSegments = 8, p = 2, q = 3 } = params;\n    return new THREE.TorusKnotGeometry(radius, tube, tubularSegments, radialSegments, p, q);"
+  },
+  {
+    "id": "createPlane",
+    "name": "createPlane",
+    "description": "Creates a flat 2D plane with optional segments.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "width": {
+        "type": "number",
+        "default": 1
+      },
+      "height": {
+        "type": "number",
+        "default": 1
+      },
+      "widthSegments": {
+        "type": "number",
+        "default": 1
+      },
+      "heightSegments": {
+        "type": "number",
+        "default": 1
+      }
+    },
+    "code": "const { width = 1, height = 1, widthSegments = 1, heightSegments = 1 } = params;\n    return new THREE.PlaneGeometry(width, height, widthSegments, heightSegments);"
+  },
+  {
+    "id": "createCircle",
+    "name": "createCircle",
+    "description": "Generates a flat circular disk geometry.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radius": {
+        "type": "number",
+        "default": 1
+      },
+      "segments": {
+        "type": "number",
+        "default": 32
+      },
+      "thetaStart": {
+        "type": "number",
+        "default": 0
+      },
+      "thetaLength": {
+        "type": "string",
+        "default": "Math.PI * 2"
+      }
+    },
+    "code": "const { radius = 1, segments = 32, thetaStart = 0, thetaLength = Math.PI * 2 } = params;\n    return new THREE.CircleGeometry(radius, segments, thetaStart, thetaLength);"
+  },
+  {
+    "id": "createRing",
+    "name": "createRing",
+    "description": "Creates an annular (ring-shaped) 2D geometry.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "innerRadius": {
+        "type": "number",
+        "default": 0.5
+      },
+      "outerRadius": {
+        "type": "number",
+        "default": 1
+      },
+      "thetaSegments": {
+        "type": "number",
+        "default": 32
+      },
+      "phiSegments": {
+        "type": "number",
+        "default": 1
+      },
+      "thetaStart": {
+        "type": "number",
+        "default": 0
+      },
+      "thetaLength": {
+        "type": "string",
+        "default": "Math.PI * 2"
+      }
+    },
+    "code": "const { innerRadius = 0.5, outerRadius = 1, thetaSegments = 32, phiSegments = 1, thetaStart = 0, thetaLength = Math.PI * 2 } = params;\n    return new THREE.RingGeometry(innerRadius, outerRadius, thetaSegments, phiSegments, thetaStart, thetaLength);"
+  },
+  {
+    "id": "createIcosahedron",
+    "name": "createIcosahedron",
+    "description": "Creates a regular icosahedron (20-faced polyhedron).",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radius": {
+        "type": "number",
+        "default": 1
+      },
+      "detail": {
+        "type": "number",
+        "default": 0
+      }
+    },
+    "code": "const { radius = 1, detail = 0 } = params;\n    return new THREE.IcosahedronGeometry(radius, detail);"
+  },
+  {
+    "id": "createOctahedron",
+    "name": "createOctahedron",
+    "description": "Creates a regular octahedron (8-faced polyhedron).",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radius": {
+        "type": "number",
+        "default": 1
+      },
+      "detail": {
+        "type": "number",
+        "default": 0
+      }
+    },
+    "code": "const { radius = 1, detail = 0 } = params;\n    return new THREE.OctahedronGeometry(radius, detail);"
+  },
+  {
+    "id": "createTetrahedron",
+    "name": "createTetrahedron",
+    "description": "Creates a regular tetrahedron (4-faced polyhedron).",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radius": {
+        "type": "number",
+        "default": 1
+      },
+      "detail": {
+        "type": "number",
+        "default": 0
+      }
+    },
+    "code": "const { radius = 1, detail = 0 } = params;\n    return new THREE.TetrahedronGeometry(radius, detail);"
+  },
+  {
+    "id": "createDodecahedron",
+    "name": "createDodecahedron",
+    "description": "Creates a regular dodecahedron (12-faced polyhedron).",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radius": {
+        "type": "number",
+        "default": 1
+      },
+      "detail": {
+        "type": "number",
+        "default": 0
+      }
+    },
+    "code": "const { radius = 1, detail = 0 } = params;\n    return new THREE.DodecahedronGeometry(radius, detail);"
+  },
+  {
+    "id": "createPolyhedron",
+    "name": "createPolyhedron",
+    "description": "Creates a custom polyhedron from vertices and indices.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radius": {
+        "type": "number",
+        "default": 1
+      },
+      "detail": {
+        "type": "number",
+        "default": 0
+      }
+    },
+    "code": "const { vertices, indices, radius = 1, detail = 0 } = params;\n    return new THREE.PolyhedronGeometry(vertices, indices, radius, detail);"
+  },
+  {
+    "id": "createExtrude",
+    "name": "createExtrude",
+    "description": "Extrudes a 2D profile along the Z axis with optional bevel.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "depth": {
+        "type": "number",
+        "default": 1
+      },
+      "bevelEnabled": {
+        "type": "boolean",
+        "default": false
+      },
+      "bevelThickness": {
+        "type": "number",
+        "default": 0.2
+      },
+      "bevelSize": {
+        "type": "number",
+        "default": 0.1
+      },
+      "bevelSegments": {
+        "type": "number",
+        "default": 3
+      },
+      "steps": {
+        "type": "number",
+        "default": 1
+      },
+      "curveSegments": {
+        "type": "number",
+        "default": 12
+      }
+    },
+    "code": "const { profile, depth = 1, bevelEnabled = false, bevelThickness = 0.2, bevelSize = 0.1, bevelSegments = 3, steps = 1, curveSegments = 12 } = params;\n\n    if (!profile) {\n        console.warn('createExtrude: No profile provided');\n        return new THREE.BoxGeometry(1, 1, 1);\n    }\n\n    let shape;\n    if (profile instanceof THREE.Shape) {\n        shape = profile;\n    } else if (Array.isArray(profile)) {\n        shape = new THREE.Shape(profile.map(([x, y]) => new THREE.Vector2(x, y)));\n    } else {\n        console.warn('createExtrude: Invalid profile format');\n        return new THREE.BoxGeometry(1, 1, 1);\n    }\n\n    const extrudeSettings = { depth, bevelEnabled, bevelThickness, bevelSize, bevelSegments, steps, curveSegments };\n    return new THREE.ExtrudeGeometry(shape, extrudeSettings);"
+  },
+  {
+    "id": "createLoft",
+    "name": "createLoft",
+    "description": "Interpolates between multiple profiles to create a lofted surface.",
+    "category": "Basic Geometry",
+    "paramsSchema": {},
+    "code": "let { profiles = [], heights = null, segments = 32, closed = false } = params;\n\n  // ========================================================================\n  // STEP 0: AUTO-UNWRAP DATA\n  // ========================================================================\n  if (profiles && profiles.userData && profiles.userData.profiles) {\n      console.log('createLoft: Unwrapping profiles from userData');\n      profiles = profiles.userData.profiles;\n      closed = true; \n  }\n\n  if (!Array.isArray(profiles)) profiles = [profiles];\n\n  // ========================================================================\n  // STEP 1: Sample curves\n  // ========================================================================\n  profiles = profiles.map((profile, idx) => {\n    let unwrappedCurve = profile;\n    if (profile?.userData?.curve) unwrappedCurve = profile.userData.curve;\n    if (unwrappedCurve && typeof unwrappedCurve.getPoint === 'function') {\n      const points = [];\n      for (let i = 0; i < segments; i++) {\n        const t = i / (segments - 1);\n        const point = unwrappedCurve.getPoint(t);\n        if (point) points.push([point.x, point.y, point.z]);\n      }\n      return points;\n    }\n    if (Array.isArray(profile)) return profile;\n    return [];\n  });\n\n  profiles = profiles.filter(p => p.length > 0);\n\n  if (profiles.length < 2) {\n    console.error('\u274c createLoft: Need at least 2 profiles');\n    return new THREE.BufferGeometry();\n  }\n\n  // ========================================================================\n  // STEP 3: Resample (Arc-Length)\n  // ========================================================================\n  const resampleProfile = (points, targetCount) => {\n      if (points.length < 2) return points;\n      const dists = [0];\n      let totalLen = 0;\n      for (let i = 0; i < points.length - 1; i++) {\n          const [x1, y1, z1] = points[i];\n          const [x2, y2, z2] = points[i+1];\n          const d = Math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2);\n          totalLen += d;\n          dists.push(totalLen);\n      }\n\n      const result = [];\n      result.push(points[0]);\n      for (let i = 1; i < targetCount - 1; i++) {\n          const targetDist = (i / (targetCount - 1)) * totalLen;\n          let idx = 0;\n          while (dists[idx+1] < targetDist && idx < dists.length - 2) idx++;\n          \n          const segmentLen = dists[idx+1] - dists[idx];\n          const t = segmentLen === 0 ? 0 : (targetDist - dists[idx]) / segmentLen;\n          \n          const p1 = points[idx];\n          const p2 = points[idx+1];\n          \n          result.push([\n              p1[0] + (p2[0] - p1[0]) * t,\n              p1[1] + (p2[1] - p1[1]) * t,\n              p1[2] + (p2[2] - p1[2]) * t\n          ]);\n      }\n      result.push(points[points.length - 1]);\n      return result;\n  };\n\n  // Use finalPointCount instead of pointsPerProfile\n  const finalPointCount = Math.max(segments, ...profiles.map(p => p.length));\n  profiles = profiles.map(profile => resampleProfile(profile, finalPointCount));\n\n  // ========================================================================\n  // STEP 4: Create Interpolation Curves\n  // ========================================================================\n  const interpCurves = [];\n  for (let j = 0; j < finalPointCount; j++) { // \u2705 FIX: Used correct variable\n    const columnPoints = profiles.map((profile) => {\n      const [x, y, z] = profile[j];\n      return new THREE.Vector3(x, y, z);\n    });\n\n    if (columnPoints.length >= 2) {\n      const curve = new THREE.CatmullRomCurve3(columnPoints, false);\n      interpCurves.push(curve);\n    }\n  }\n\n  // ========================================================================\n  // STEP 5: Build Mesh\n  // ========================================================================\n  const vertices = []; // \u2705 FIX: Defined arrays\n  const indices = [];\n  const samplesPerCurve = Math.max(16, profiles.length * 2); \n  \n  for (let j = 0; j < interpCurves.length; j++) {\n    for (let k = 0; k < samplesPerCurve; k++) {\n      const t = k / (samplesPerCurve - 1);\n      const point = interpCurves[j].getPoint(t);\n      vertices.push(point.x, point.y, point.z);\n    }\n  }\n\n  // Create faces\n  for (let j = 0; j < interpCurves.length - 1; j++) {\n    for (let k = 0; k < samplesPerCurve - 1; k++) {\n      const a = j * samplesPerCurve + k;\n      const b = j * samplesPerCurve + k + 1;\n      const c = (j + 1) * samplesPerCurve + k + 1;\n      const d = (j + 1) * samplesPerCurve + k;\n      indices.push(a, b, d);\n      indices.push(b, c, d);\n    }\n  }\n\n  // Close loop\n  if (closed && interpCurves.length > 1) {\n    const lastIdx = interpCurves.length - 1;\n    for (let k = 0; k < samplesPerCurve - 1; k++) {\n      const a = lastIdx * samplesPerCurve + k;\n      const b = lastIdx * samplesPerCurve + k + 1;\n      const c = k + 1;\n      const d = k;\n      indices.push(a, b, d);\n      indices.push(b, c, d);\n    }\n  }\n\n  // ========================================================================\n  // STEP 6: Create Geometry\n  // ========================================================================\n  const geometry = new THREE.BufferGeometry();\n  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));\n  geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));\n  geometry.computeVertexNormals();\n\n  console.log('\u2705 createLoft success:', {\n    profileCount: profiles.length,\n    vertexCount: vertices.length / 3\n  });\n\n  return geometry;"
+  },
+  {
+    "id": "createLathe",
+    "name": "createLathe",
+    "description": "Creates a surface of revolution from a 2D profile curve.",
+    "category": "Basic Geometry",
+    "paramsSchema": {},
+    "code": "let { points = [], segments = 12, phiStart = 0, phiLength = Math.PI * 2 } = params;\n\n    // \u2705 RESOLVER: Handles array, curve, or wrapped object\n    const resolvedPoints2D = resolvePoints2D(points, segments);\n\n    if (resolvedPoints2D.length === 0) {\n        console.warn('createLathe: No valid points resolved');\n        return new THREE.BufferGeometry();\n    }\n\n    // Convert to THREE.Vector2 if needed\n    const lathePoints = resolvedPoints2D.map(p => \n        p instanceof THREE.Vector2 ? p : new THREE.Vector2(p.x || p[0], p.y || p[1])\n    );\n\n    try {\n        return new THREE.LatheGeometry(lathePoints, segments, phiStart, phiLength);\n    } catch (e) {\n        console.error('LatheGeometry creation failed:', e);\n        return new THREE.BufferGeometry();"
+  },
+  {
+    "id": "createConvexHull",
+    "name": "createConvexHull",
+    "description": "Computes the convex hull of a point set.",
+    "category": "Basic Geometry",
+    "paramsSchema": {},
+    "code": "const { points } = params;\n\n    if (!points || points.length < 4) {\n        console.warn('createConvexHull: Need at least 4 points');\n        return new THREE.BufferGeometry();\n    }\n\n    const vectors = points.map(p => Array.isArray(p) ? new THREE.Vector3(...p) : p);\n    return new ConvexGeometry(vectors);"
+  },
+  {
+    "id": "createParametricSurface",
+    "name": "createParametricSurface",
+    "description": "Creates a surface from a parametric function u,v \u2192 (x,y,z).",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "slices": {
+        "type": "number",
+        "default": 32
+      },
+      "stacks": {
+        "type": "number",
+        "default": 32
+      }
+    },
+    "code": "const { func, slices = 32, stacks = 32 } = params;\n    return new THREE.ParametricGeometry(func, slices, stacks);"
+  },
+  {
+    "id": "createText3D",
+    "name": "createText3D",
+    "description": "Renders 3D text geometry from a string.",
+    "category": "Basic Geometry",
+    "paramsSchema": {},
+    "code": "console.warn('createText3D: Requires THREE.TextGeometry and loaded font');\n    return new THREE.BoxGeometry(1, 1, 0.2);"
+  },
+  {
+    "id": "createLinePath",
+    "name": "createLinePath",
+    "description": "Creates a linear path from a sequence of points.",
+    "category": "Basic Geometry",
+    "paramsSchema": {},
+    "code": "const { points } = params;\n\n    if (!points || points.length < 2) {\n        console.warn('createLinePath: Need at least 2 points');\n        return new THREE.BufferGeometry();\n    }\n\n    const vectors = points.map(p => Array.isArray(p) ? new THREE.Vector3(...p) : p);\n    const curve = new THREE.LineCurve3(vectors[0], vectors[1]);\n\n    // \u2705 WRAPPED: Return visual with math object attached\n    return wrapCurveAsLine(curve, 32);"
+  },
+  {
+    "id": "createSplinePath",
+    "name": "createSplinePath",
+    "description": "Creates a smooth spline curve through control points.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "tension": {
+        "type": "number",
+        "default": 0.5
+      }
+    },
+    "code": "const { points, tension = 0.5 } = params;\n\n    if (!points || points.length < 2) {\n        console.warn('createSplinePath: Need at least 2 points');\n        return new THREE.BufferGeometry();\n    }\n\n    const vectors = points.map(p => Array.isArray(p) ? new THREE.Vector3(...p) : p);\n    const curve = new THREE.CatmullRomCurve3(vectors, false, 'catmullrom', tension);\n\n    // \u2705 WRAPPED: Return visual with math object attached\n    return wrapCurveAsLine(curve, 64);"
+  },
+  {
+    "id": "createArcPath",
+    "name": "createArcPath",
+    "description": "Creates a circular arc path.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "center": {
+        "type": "array",
+        "default": []
+      },
+      "radius": {
+        "type": "number",
+        "default": 1
+      },
+      "startAngle": {
+        "type": "number",
+        "default": 0
+      },
+      "endAngle": {
+        "type": "string",
+        "default": "Math.PI"
+      },
+      "segments": {
+        "type": "number",
+        "default": 32
+      }
+    },
+    "code": "const { center = [0, 0, 0], radius = 1, startAngle = 0, endAngle = Math.PI, segments = 32 } = params;\n    const points = [];\n\n    for (let i = 0; i <= segments; i++) {\n        const theta = startAngle + (endAngle - startAngle) * i / segments;\n        const x = center[0] + radius * Math.cos(theta);\n        const y = center[1] + radius * Math.sin(theta);\n        points.push(new THREE.Vector3(x, y, center[2]));\n    }\n\n    const curve = new THREE.CatmullRomCurve3(points, false);\n\n    // \u2705 WRAPPED: Return visual with math object attached\n    return wrapCurveAsLine(curve, segments);"
+  },
+  {
+    "id": "createHelixPath",
+    "name": "createHelixPath",
+    "description": "Creates a helical (spiral) path in 3D space.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radius": {
+        "type": "number",
+        "default": 1
+      },
+      "height": {
+        "type": "number",
+        "default": 3
+      },
+      "turns": {
+        "type": "number",
+        "default": 3
+      },
+      "segments": {
+        "type": "number",
+        "default": 128
+      }
+    },
+    "code": "const { radius = 1, height = 3, turns = 3, segments = 128 } = params;\n    const points = [];\n\n    for (let i = 0; i <= segments; i++) {\n        const t = i / segments;\n        const theta = 2 * Math.PI * turns * t;\n        const x = radius * Math.cos(theta);\n        const y = height * t;\n        const z = radius * Math.sin(theta);\n        points.push(new THREE.Vector3(x, y, z));\n    }\n\n    const curve = new THREE.CatmullRomCurve3(points, false);\n\n    // \u2705 WRAPPED: Return visual with math object attached\n    return wrapCurveAsLine(curve, segments);"
+  },
+  {
+    "id": "createBezierPath",
+    "name": "createBezierPath",
+    "description": "Creates a cubic B\u00e9zier curve from 4 control points.",
+    "category": "Basic Geometry",
+    "paramsSchema": {},
+    "code": "const { start, control1, control2, end } = params;\n\n    const curve = new THREE.CubicBezierCurve3(\n        new THREE.Vector3(...start),\n        new THREE.Vector3(...control1),\n        new THREE.Vector3(...control2),\n        new THREE.Vector3(...end)\n    );\n\n    // \u2705 WRAPPED: Return visual with math object attached\n    return wrapCurveAsLine(curve, 64);"
+  },
+  {
+    "id": "createPipe",
+    "name": "createPipe",
+    "description": "Extrudes a tube along a curve path.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "radius": {
+        "type": "number",
+        "default": 0.2
+      },
+      "tubularSegments": {
+        "type": "number",
+        "default": 64
+      },
+      "radialSegments": {
+        "type": "number",
+        "default": 8
+      },
+      "closed": {
+        "type": "boolean",
+        "default": false
+      }
+    },
+    "code": "const { path, radius = 0.2, tubularSegments = 64, radialSegments = 8, closed = false } = params;\n\n    // \u2705 RESOLVER: Handle wrapped curves\n    const curve = resolveCurve(path);\n    if (!curve) {\n        console.warn('createPipe: No valid curve');\n        return new THREE.BufferGeometry();\n    }\n\n    return new THREE.TubeGeometry(curve, tubularSegments, radius, radialSegments, closed);"
+  },
+  {
+    "id": "twistGeometry",
+    "name": "twistGeometry",
+    "description": "Applies a twisting deformation around an axis.",
+    "category": "Deformation",
+    "paramsSchema": {
+      "angle": {
+        "type": "string",
+        "default": "Math.PI / 4"
+      },
+      "axis": {
+        "type": "array",
+        "default": []
+      },
+      "height": {
+        "type": "string",
+        "default": "null"
+      }
+    },
+    "code": "const { geometry, angle = Math.PI / 4, axis = [0, 1, 0], height = null } = params;\n\n    const geom = geometry.clone();\n    const positions = geom.attributes.position;\n    const count = positions.count;\n\n    geom.computeBoundingBox();\n    const bbox = geom.boundingBox;\n\n    const axisNorm = new THREE.Vector3(...axis).normalize();\n    const isYAxis = Math.abs(axisNorm.y) > 0.99;\n\n    const minH = isYAxis ? bbox.min.y : bbox.min.z;\n    const maxH = isYAxis ? bbox.max.y : bbox.max.z;\n    const range = height || (maxH - minH);\n\n    for (let i = 0; i < count; i++) {\n        const x = positions.getX(i);\n        const y = positions.getY(i);\n        const z = positions.getZ(i);\n        const h = isYAxis ? y : z;\n        const t = (h - minH) / (range || 1);\n        const theta = angle * t;\n\n        if (isYAxis) {\n            const newX = x * Math.cos(theta) - z * Math.sin(theta);\n            const newZ = x * Math.sin(theta) + z * Math.cos(theta);\n            positions.setXYZ(i, newX, y, newZ);\n        } else {\n            const newX = x * Math.cos(theta) - y * Math.sin(theta);\n            const newY = x * Math.sin(theta) + y * Math.cos(theta);\n            positions.setXYZ(i, newX, newY, z);\n        }\n    }\n\n    positions.needsUpdate = true;\n    geom.computeVertexNormals();\n    return geom;"
+  },
+  {
+    "id": "taperGeometry",
+    "name": "taperGeometry",
+    "description": "Scales geometry along an axis to create a taper effect.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "topScale": {
+        "type": "array",
+        "default": []
+      },
+      "axis": {
+        "type": "array",
+        "default": []
+      },
+      "height": {
+        "type": "string",
+        "default": "null"
+      }
+    },
+    "code": "const { geometry, topScale = [0.5, 0.5], axis = [0, 1, 0], height = null } = params;\n\n    const geom = geometry.clone();\n    const positions = geom.attributes.position;\n    const count = positions.count;\n\n    geom.computeBoundingBox();\n    const bbox = geom.boundingBox;\n\n    const axisNorm = new THREE.Vector3(...axis).normalize();\n    const isYAxis = Math.abs(axisNorm.y) > 0.99;\n\n    const minH = isYAxis ? bbox.min.y : bbox.min.z;\n    const maxH = isYAxis ? bbox.max.y : bbox.max.z;\n    const range = height || (maxH - minH);\n\n    for (let i = 0; i < count; i++) {\n        const x = positions.getX(i);\n        const y = positions.getY(i);\n        const z = positions.getZ(i);\n        const h = isYAxis ? y : z;\n        const t = (h - minH) / (range || 1);\n        const scaleX = 1.0 + (topScale[0] - 1.0) * t;\n        const scaleZ = 1.0 + (topScale[1] - 1.0) * t;\n\n        positions.setXYZ(i, x * scaleX, y, z * scaleZ);\n    }\n\n    positions.needsUpdate = true;\n    geom.computeVertexNormals();\n    return geom;"
+  },
+  {
+    "id": "bendGeometry",
+    "name": "bendGeometry",
+    "description": "Bends geometry around a specified direction.",
+    "category": "Deformation",
+    "paramsSchema": {
+      "angle": {
+        "type": "string",
+        "default": "Math.PI / 4"
+      },
+      "direction": {
+        "type": "array",
+        "default": []
+      }
+    },
+    "code": "const { geometry, angle = Math.PI / 4, direction = [1, 0, 0] } = params;\n\n    const geom = geometry.clone();\n    const positions = geom.attributes.position;\n\n    geom.computeBoundingBox();\n    const bbox = geom.boundingBox;\n    const range = bbox.max.x - bbox.min.x;\n\n    for (let i = 0; i < positions.count; i++) {\n        const x = positions.getX(i);\n        const y = positions.getY(i);\n        const z = positions.getZ(i);\n        const t = (x - bbox.min.x) / range;\n        const theta = angle * t;\n        const radius = range / angle;\n        const newX = Math.sin(theta) * radius;\n        const newZ = z + radius - Math.cos(theta) * radius;\n\n        positions.setXYZ(i, newX, y, newZ);\n    }\n\n    positions.needsUpdate = true;\n    geom.computeVertexNormals();\n    return geom;"
+  },
+  {
+    "id": "deformByNoise",
+    "name": "deformByNoise",
+    "description": "Deforms geometry surface using Simplex noise.",
+    "category": "Deformation",
+    "paramsSchema": {
+      "amount": {
+        "type": "number",
+        "default": 0.2
+      },
+      "frequency": {
+        "type": "number",
+        "default": 1.0
+      },
+      "axis": {
+        "type": "array",
+        "default": []
+      }
+    },
+    "code": "const { geometry, amount = 0.2, frequency = 1.0, axis = [0, 1, 0] } = params;\n\n    const geom = geometry.clone();\n    const positions = geom.attributes.position;\n    const axisVec = new THREE.Vector3(...axis).normalize();\n\n    for (let i = 0; i < positions.count; i++) {\n        const x = positions.getX(i);\n        const y = positions.getY(i);\n        const z = positions.getZ(i);\n        const noiseVal = noise.simplex3(x * frequency, y * frequency, z * frequency);\n        const offset = axisVec.clone().multiplyScalar(noiseVal * amount);\n\n        positions.setXYZ(i, x + offset.x, y + offset.y, z + offset.z);\n    }\n\n    positions.needsUpdate = true;\n    geom.computeVertexNormals();\n    return geom;"
+  },
+  {
+    "id": "deformByVectorField",
+    "name": "deformByVectorField",
+    "description": "Deforms geometry according to a vector field.",
+    "category": "Deformation",
+    "paramsSchema": {
+      "amount": {
+        "type": "number",
+        "default": 1.0
+      }
+    },
+    "code": "const { geometry, field, amount = 1.0 } = params;\n\n    // \u2705 RESOLVER: Handle wrapped fields\n    const fieldFn = resolveField(field);\n\n    const geom = geometry.clone();\n    const positions = geom.attributes.position;\n\n    for (let i = 0; i < positions.count; i++) {\n        const x = positions.getX(i);\n        const y = positions.getY(i);\n        const z = positions.getZ(i);\n        const vec = fieldFn(x, y, z);\n\n        positions.setXYZ(i, x + vec.x * amount, y + vec.y * amount, z + vec.z * amount);\n    }\n\n    positions.needsUpdate = true;\n    geom.computeVertexNormals();\n    return geom;"
+  },
+  {
+    "id": "mergeGeometries",
+    "name": "mergeGeometries",
+    "description": "Merges multiple geometries into a single combined geometry.",
+    "category": "Boolean Operations",
+    "paramsSchema": {
+      "geometries": {
+        "type": "array",
+        "default": []
+      }
+    },
+    "code": "const { geometries = [] } = params;\n    const validGeoms = geometries.filter(g => g && g.isBufferGeometry);\n\n    if (validGeoms.length === 0) return new THREE.BufferGeometry();\n    return BufferGeometryUtils.mergeGeometries(validGeoms, false);"
+  },
+  {
+    "id": "unionGeometry",
+    "name": "unionGeometry",
+    "description": "Boolean union operation (requires CSG library).",
+    "category": "Boolean Operations",
+    "paramsSchema": {},
+    "code": "console.warn('unionGeometry: CSG operations require three-csg-ts library');\n    return mergeGeometries(params);"
+  },
+  {
+    "id": "subtractGeometry",
+    "name": "subtractGeometry",
+    "description": "Boolean subtraction operation (requires CSG library).",
+    "category": "Boolean Operations",
+    "paramsSchema": {
+      "geometryA": {
+        "type": "string",
+        "default": "new"
+      }
+    },
+    "code": "console.warn('subtractGeometry: CSG operations require three-csg-ts library');\n    return params.geometryA || new THREE.BufferGeometry();"
+  },
+  {
+    "id": "intersectGeometry",
+    "name": "intersectGeometry",
+    "description": "Boolean intersection operation (requires CSG library).",
+    "category": "Boolean Operations",
+    "paramsSchema": {
+      "geometryA": {
+        "type": "string",
+        "default": "new"
+      }
+    },
+    "code": "console.warn('intersectGeometry: CSG operations require three-csg-ts library');\n    return params.geometryA || new THREE.BufferGeometry();"
+  },
+  {
+    "id": "repeatLinear3d",
+    "name": "repeatLinear3d",
+    "description": "Repeats geometry in a linear array along an axis.",
+    "category": "Curves & Paths",
+    "paramsSchema": {
+      "count": {
+        "type": "number",
+        "default": 3
+      },
+      "spacing": {
+        "type": "number",
+        "default": 1
+      },
+      "axis": {
+        "type": "string",
+        "default": "'x'"
+      },
+      "centered": {
+        "type": "boolean",
+        "default": false
+      },
+      "autoMerge": {
+        "type": "boolean",
+        "default": true
+      }
+    },
+    "code": "const { geometry, count = 3, spacing = 1, axis = 'x', centered = false, autoMerge = true } = params;\n\n    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];\n\n    const results = [];\n    const axisVec = axis === 'y' ? new THREE.Vector3(0, 1, 0) :\n                    (axis === 'z' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0));\n    const offset = centered ? -spacing * (count - 1) / 2 : 0;\n\n    for (let i = 0; i < count; i++) {\n        const clone = geometry.clone();\n        clone.translate(\n            axisVec.x * (offset + i * spacing),\n            axisVec.y * (offset + i * spacing),\n            axisVec.z * (offset + i * spacing)\n        );\n        results.push(clone);\n    }\n\n    return autoMerge ? mergeGeometries({ geometries: results }) : results;"
+  },
+  {
+    "id": "repeatRadial3d",
+    "name": "repeatRadial3d",
+    "description": "Repeats geometry in a radial array around an axis.",
+    "category": "Distribution",
+    "paramsSchema": {
+      "count": {
+        "type": "number",
+        "default": 8
+      },
+      "radius": {
+        "type": "number",
+        "default": 5
+      },
+      "startAngle": {
+        "type": "number",
+        "default": 0
+      },
+      "endAngle": {
+        "type": "string",
+        "default": "Math.PI * 2"
+      },
+      "axis": {
+        "type": "string",
+        "default": "'y'"
+      },
+      "faceCenter": {
+        "type": "boolean",
+        "default": true
+      },
+      "autoMerge": {
+        "type": "boolean",
+        "default": true
+      }
+    },
+    "code": "const { geometry, count = 8, radius = 5, startAngle = 0, endAngle = Math.PI * 2, axis = 'y', faceCenter = true, autoMerge = true } = params;\n\n    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];\n\n    const results = [];\n    for (let i = 0; i < count; i++) {\n        const t = count === 1 ? 0 : i / (count - 1);\n        const angle = startAngle + (endAngle - startAngle) * t;\n        const x = radius * Math.cos(angle);\n        const z = radius * Math.sin(angle);\n        const clone = geometry.clone();\n\n        if (axis === 'y') {\n            clone.translate(x, 0, z);\n            if (faceCenter) clone.rotateY(angle + Math.PI / 2);\n        }\n\n        results.push(clone);\n    }\n\n    return autoMerge ? mergeGeometries({ geometries: results }) : results;"
+  },
+  {
+    "id": "repeatAlongCurve3d",
+    "name": "repeatAlongCurve3d",
+    "description": "Repeats geometry at intervals along a curve path.",
+    "category": "Curves & Paths",
+    "paramsSchema": {
+      "count": {
+        "type": "number",
+        "default": 10
+      },
+      "align": {
+        "type": "boolean",
+        "default": true
+      },
+      "autoMerge": {
+        "type": "boolean",
+        "default": true
+      }
+    },
+    "code": "const { geometry, curve, count = 10, align = true, autoMerge = true } = params;\n\n    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];\n\n    // \u2705 RESOLVER: Unwraps wrapped curves automatically\n    const resolvedCurve = resolveCurve(curve);\n    if (!resolvedCurve) {\n        console.warn('repeatAlongCurve3d: No valid curve');\n        return autoMerge ? new THREE.BufferGeometry() : [];\n    }\n\n    const results = [];\n    for (let i = 0; i < count; i++) {\n        const t = count === 1 ? 0.5 : i / (count - 1);\n        const pos = resolvedCurve.getPoint(t);\n        const clone = geometry.clone();\n        clone.translate(pos.x, pos.y, pos.z);\n\n        if (align) {\n            const tangent = resolvedCurve.getTangent(t).normalize();\n            const up = new THREE.Vector3(0, 1, 0);\n            const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();\n            const orthogonalUp = new THREE.Vector3().crossVectors(normal, tangent).normalize();\n            const rotMatrix = new THREE.Matrix4().makeBasis(tangent, orthogonalUp, normal);\n            clone.applyMatrix4(rotMatrix);\n        }\n\n        results.push(clone);\n    }\n\n    return autoMerge ? mergeGeometries({ geometries: results }) : results;"
+  },
+  {
+    "id": "distributeOnGrid3d",
+    "name": "distributeOnGrid3d",
+    "description": "Distributes geometry in a rectangular grid pattern.",
+    "category": "Distribution",
+    "paramsSchema": {
+      "rows": {
+        "type": "number",
+        "default": 3
+      },
+      "cols": {
+        "type": "number",
+        "default": 3
+      },
+      "spacing": {
+        "type": "array",
+        "default": []
+      },
+      "centered": {
+        "type": "boolean",
+        "default": true
+      },
+      "autoMerge": {
+        "type": "boolean",
+        "default": true
+      }
+    },
+    "code": "const { geometry, rows = 3, cols = 3, spacing = [2, 0, 2], centered = true, autoMerge = true } = params;\n\n    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];\n\n    const [spacingX, spacingY, spacingZ] = Array.isArray(spacing) ? spacing : [spacing, 0, spacing];\n    const offsetX = centered ? -spacingX * (cols - 1) / 2 : 0;\n    const offsetZ = centered ? -spacingZ * (rows - 1) / 2 : 0;\n\n    const results = [];\n    for (let row = 0; row < rows; row++) {\n        for (let col = 0; col < cols; col++) {\n            const clone = geometry.clone();\n            clone.translate(offsetX + col * spacingX, row * spacingY, offsetZ + row * spacingZ);\n            results.push(clone);\n        }\n    }\n\n    return autoMerge ? mergeGeometries({ geometries: results }) : results;"
+  },
+  {
+    "id": "distributeRandom3d",
+    "name": "distributeRandom3d",
+    "description": "Randomly distributes geometry within a bounding box.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "bounds": {
+        "type": "array",
+        "default": []
+      },
+      "count": {
+        "type": "number",
+        "default": 50
+      },
+      "seed": {
+        "type": "number",
+        "default": 42
+      },
+      "autoMerge": {
+        "type": "boolean",
+        "default": true
+      }
+    },
+    "code": "const { geometry, bounds = [[0, 0, 0], [1, 1, 1]], count = 50, seed = 42, autoMerge = true } = params;\n\n    const random = (() => {\n        let a = seed;\n        return () => {\n            let t = a += 0x6D2B79F5;\n            t = Math.imul(t ^ t >>> 15, t | 1);\n            t ^= t + Math.imul(t ^ t >>> 7, t | 61);\n            return ((t ^ t >>> 14) >>> 0) / 4294967296;\n        };\n    })();\n\n    const [min, max] = bounds;\n    const results = [];\n\n    for (let i = 0; i < count; i++) {\n        const x = min[0] + (max[0] - min[0]) * random();\n        const y = min[1] + (max[1] - min[1]) * random();\n        const z = min[2] + (max[2] - min[2]) * random();\n        const clone = geometry.clone();\n        clone.translate(x, y, z);\n        results.push(clone);\n    }\n\n    return autoMerge ? mergeGeometries({ geometries: results }) : results;"
+  },
+  {
+    "id": "createVectorField",
+    "name": "createVectorField",
+    "description": "Creates an attractor or repeller vector field.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "type": {
+        "type": "string",
+        "default": "'attractor'"
+      },
+      "center": {
+        "type": "array",
+        "default": []
+      },
+      "strength": {
+        "type": "number",
+        "default": 1.0
+      }
+    },
+    "code": "const { type = 'attractor', center = [0, 0, 0], strength = 1.0 } = params;\n    const centerVec = new THREE.Vector3(...center);\n\n    let fieldFn;\n    if (type === 'attractor') {\n        fieldFn = (x, y, z) => {\n            const pos = new THREE.Vector3(x, y, z);\n            const dir = centerVec.clone().sub(pos);\n            const dist = dir.length();\n            return dir.normalize().multiplyScalar(strength / (1 + dist));\n        };\n    } else if (type === 'repeller') {\n        fieldFn = (x, y, z) => {\n            const pos = new THREE.Vector3(x, y, z);\n            const dir = pos.clone().sub(centerVec);\n            const dist = dir.length();\n            return dir.normalize().multiplyScalar(strength / (1 + dist));\n        };\n    } else if (type === 'vortex') {\n        fieldFn = (x, y, z) => {\n            const pos = new THREE.Vector3(x, y, z);\n            const dir = pos.clone().sub(centerVec);\n            const tangent = new THREE.Vector3(-dir.z, 0, dir.x).normalize();\n            return tangent.multiplyScalar(strength);\n        };\n    } else {\n        fieldFn = () => new THREE.Vector3(0, 0, 0);\n    }\n\n    // \u2705 WRAPPED OUTPUT with field attached\n    return wrapFieldAsObject(fieldFn, `${type} field at [${center}]`);"
+  },
+  {
+    "id": "flowField",
+    "name": "flowField",
+    "description": "Creates physics-based flow fields (laminar, turbulent, chaotic).",
+    "category": "Basic Geometry",
+    "paramsSchema": {},
+    "code": "const {\n    type = 'laminar',           \n    mode, // Left undefined by default to allow auto-detection\n    \n    // For expression mode (defaults set to '0' to avoid NaN/undefined issues)\n    vx = '0', \n    vy = '0', \n    vz = '0',\n    \n    // For noise mode\n    noiseType = 'curl-noise',  // 'curl-noise', 'turbulence', 'fractal'\n    frequency = 1.0,\n    octaves = 3, \n    \n    // For attractor mode\n    attractors = [],           // [{pos: [x,y,z], strength: 1.0}, ...]\n    repellers = [],            // [{pos: [x,y,z], strength: 1.0}, ...]\n    \n    // Global parameters\n    strength = 1.0,\n    scale = 0.1,\n    time = 0,\n    damping = 0.0              // 0-1: damps velocity magnitude over distance\n  } = params;\n\n  // 1. Determine Effective Mode\n  // Priority: Explicit 'mode' param > Deduce from 'type' > Fallback\n  let effectiveMode = mode;\n  if (!effectiveMode) {\n    if (['laminar', 'turbulent', 'chaotic', 'wave'].includes(type)) {\n        effectiveMode = 'preset-' + type;\n    } else if (['noise', 'curl-noise'].includes(type)) {\n        effectiveMode = 'noise';\n    } else if (['attractor', 'repeller', 'vortex'].includes(type)) {\n        effectiveMode = 'attractor';\n    } else {\n        effectiveMode = 'expression';\n    }\n  }\n\n  console.log(`\u2705 flowField: type='${type}', mode='${mode}' -> effective='${effectiveMode}'`);\n\n  let fieldFn;\n\n  // =========================================================================\n  // MODE: EXPRESSION (Custom Formulas)\n  // =========================================================================\n  if (effectiveMode === 'expression') {\n    try {\n      const ctx = {\n        Math, sin: Math.sin, cos: Math.cos, sqrt: Math.sqrt,\n        abs: Math.abs, tan: Math.tan, exp: Math.exp, log: Math.log,\n        max: Math.max, min: Math.min, pow: Math.pow, PI: Math.PI,\n        time\n      };\n      \n      // Helper to ensure we have a valid return statement\n      const parse = (val) => {\n          if (typeof val === 'number') return `return ${val}`;\n          if (!val.includes('return')) return `return ${val}`;\n          return val;\n      };\n\n      const fnX = new Function('x, y, z, ctx', parse(vx));\n      const fnY = new Function('x, y, z, ctx', parse(vy));\n      const fnZ = new Function('x, y, z, ctx', parse(vz));\n      \n      fieldFn = (x, y, z) => {\n        let velX = 0, velY = 0, velZ = 0;\n        try { velX = fnX(x, y, z, ctx); } catch(e) {}\n        try { velY = fnY(x, y, z, ctx); } catch(e) {}\n        try { velZ = fnZ(x, y, z, ctx); } catch(e) {}\n        \n        const vel = new THREE.Vector3(velX, velY, velZ).multiplyScalar(strength * scale);\n        \n        // Apply global damping\n        if (damping > 0) {\n          const dist = Math.sqrt(x*x + y*y + z*z);\n          const damp = Math.exp(-damping * dist);\n          vel.multiplyScalar(damp);\n        }\n        \n        return vel;\n      };\n    } catch (e) {\n      console.error('Expression parsing failed:', e);\n      fieldFn = () => new THREE.Vector3(0, 0, 0);\n    }\n  }\n\n  // =========================================================================\n  // MODE: NOISE (Perlin/Simplex)\n  // =========================================================================\n  else if (effectiveMode === 'noise') {\n    if (noiseType === 'curl-noise') {\n      // 3D CURL NOISE (Divergence Free - Twisting Pipes in all directions)\n      fieldFn = (x, y, z) => {\n        const f = frequency;\n        const eps = 0.1; \n\n        // Sample 3 \"potential\" fields by offsetting the noise space\n        // This ensures we generate a valid vector potential A\n        const n1 = (dx, dy, dz) => noise.simplex3(x * f + dx, y * f + dy, z * f + dz);\n        const n2 = (dx, dy, dz) => noise.simplex3(x * f + dx + 123.4, y * f + dy + 123.4, z * f + dz + 123.4);\n        const n3 = (dx, dy, dz) => noise.simplex3(x * f + dx + 234.5, y * f + dy + 234.5, z * f + dz + 234.5);\n\n        // Calculate Curl (\u2207 \u00d7 A)\n        // vx = \u2202Az/\u2202y - \u2202Ay/\u2202z\n        const dy_n3 = (n3(0, eps, 0) - n3(0, -eps, 0)) / (2 * eps);\n        const dz_n2 = (n2(0, 0, eps) - n2(0, 0, -eps)) / (2 * eps);\n        const vx = dy_n3 - dz_n2;\n\n        // vy = \u2202Ax/\u2202z - \u2202Az/\u2202x\n        const dz_n1 = (n1(0, 0, eps) - n1(0, -eps, 0)) / (2 * eps);\n        const dx_n3 = (n3(eps, 0, 0) - n3(-eps, 0, 0)) / (2 * eps);\n        const vy = dz_n1 - dx_n3;\n\n        // vz = \u2202Ay/\u2202x - \u2202Ax/\u2202y\n        const dx_n2 = (n2(eps, 0, 0) - n2(-eps, 0, 0)) / (2 * eps);\n        const dy_n1 = (n1(0, eps, 0) - n1(0, -eps, 0)) / (2 * eps);\n        const vz = dx_n2 - dy_n1;\n        \n        return new THREE.Vector3(vx, vy, vz).multiplyScalar(strength * scale);\n      };\n    }\n    \n    else if (noiseType === 'turbulence') {\n      fieldFn = (x, y, z) => {\n        let vx = 0, vy = 0, vz = 0;\n        let amp = 1;\n        let freq = frequency;\n        \n        for (let i = 0; i < octaves; i++) {\n          vx += noise.simplex3(x * freq, y * freq, z * freq) * amp;\n          vy += noise.simplex3(x * freq + 1000, y * freq + 1000, z * freq) * amp;\n          vz += noise.simplex3(x * freq + 2000, y * freq, z * freq + 2000) * amp;\n          \n          freq *= 2;\n          amp *= 0.5;\n        }\n        \n        return new THREE.Vector3(vx, vy, vz).multiplyScalar(strength * scale);\n      };\n    }\n    \n    else { // Simple directional noise\n      fieldFn = (x, y, z) => {\n        let result = 0;\n        let amp = 1;\n        let freq = frequency;\n        \n        for (let i = 0; i < octaves; i++) {\n          result += noise.simplex3(x * freq, y * freq, z * freq) * amp;\n          freq *= 2;\n          amp *= 0.5;\n        }\n        \n        // Direction radiates from center, modulated by noise\n        const dir = new THREE.Vector3(x, y, z).normalize();\n        return dir.multiplyScalar(result * strength * scale);\n      };\n    }\n  }\n\n  // =========================================================================\n  // MODE: ATTRACTOR (Gravity/Magnetism)\n  // =========================================================================\n  else if (effectiveMode === 'attractor') {\n    fieldFn = (x, y, z) => {\n      const pos = new THREE.Vector3(x, y, z);\n      let totalForce = new THREE.Vector3(0, 0, 0);\n      \n      // Default single attractor if none provided\n      const effectiveAttractors = attractors.length > 0 ? attractors : [{pos: [0,0,0], strength: 1.0}];\n\n      // Attractors\n      for (const attr of effectiveAttractors) {\n        const center = new THREE.Vector3(...(attr.pos || [0,0,0]));\n        const str = attr.strength !== undefined ? attr.strength : 1.0;\n        const dir = center.clone().sub(pos);\n        const dist = dir.length();\n        if (dist > 0.01) {\n          totalForce.add(dir.normalize().multiplyScalar(str / (1 + dist * damping)));\n        }\n      }\n      \n      // Repellers\n      for (const rep of repellers) {\n        const center = new THREE.Vector3(...(rep.pos || [0,0,0]));\n        const str = rep.strength !== undefined ? rep.strength : 1.0;\n        const dir = pos.clone().sub(center); // Direction AWAY from center\n        const dist = dir.length();\n        if (dist > 0.01) {\n          totalForce.add(dir.normalize().multiplyScalar(str / (1 + dist * damping)));\n        }\n      }\n      \n      return totalForce.multiplyScalar(strength * scale);\n    };\n  }\n\n  // =========================================================================\n  // MODE: PRESETS\n  // =========================================================================\n  else if (effectiveMode === 'preset-laminar') {\n    // Simple linear flow along X\n    fieldFn = () => new THREE.Vector3(strength * scale, 0, 0);\n  }\n  \n  else if (effectiveMode === 'preset-turbulent') {\n    // Multi-octave noise preset\n    fieldFn = (x, y, z) => {\n      let vel = new THREE.Vector3(0, 0, 0);\n      let amp = 1;\n      let freq = frequency;\n      \n      for (let i = 0; i < octaves; i++) {\n        const nx = noise.simplex3(x * freq, y * freq, z * freq) * amp;\n        const ny = noise.simplex3(x * freq + 500, y * freq + 500, z * freq) * amp;\n        const nz = noise.simplex3(x * freq + 1000, y * freq + 1000, z * freq) * amp;\n        \n        vel.add(new THREE.Vector3(nx, ny, nz));\n        freq *= 2;\n        amp *= 0.5;\n      }\n      \n      return vel.multiplyScalar(strength * scale);\n    };\n  }\n  \n  else if (effectiveMode === 'preset-chaotic') {\n    // Lorenz attractor\n    const sigma = 10, rho = 28, beta = 8/3;\n    fieldFn = (x, y, z) => {\n      const vx = sigma * (y - x);\n      const vy = x * (rho - z) - y;\n      const vz = x * y - beta * z;\n      \n      // Normalize strictly for chaotic fields to prevent explosion\n      return new THREE.Vector3(vx, vy, vz).normalize().multiplyScalar(strength * scale);\n    };\n  }\n  \n  else if (effectiveMode === 'preset-wave') {\n    // Expanding/contracting waves\n    const center = new THREE.Vector3(0, 0, 0);\n    fieldFn = (x, y, z) => {\n      const pos = new THREE.Vector3(x, y, z);\n      const dist = pos.sub(center).length();\n      const wave = Math.sin(dist * frequency - time);\n      const dir = pos.clone().normalize();\n      \n      return dir.multiplyScalar(wave * strength * scale);\n    };\n  }\n\n  else {\n      // Final safety fallback\n      fieldFn = () => new THREE.Vector3(0, 0, 0);\n  }\n\n  // \u2705 WRAP for downstream use\n  return wrapFieldAsObject(fieldFn, `${type} flow field`, {\n    type,\n    mode: effectiveMode,\n    strength,\n    scale,\n    frequency,\n    octaves,\n    damping\n  });"
+  },
+  {
+    "id": "createStreamlines",
+    "name": "createStreamlines",
+    "description": "Generates streamlines visualizing vector field flow.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "box": {
+        "type": "array",
+        "default": []
+      },
+      "count": {
+        "type": "number",
+        "default": 50
+      },
+      "steps": {
+        "type": "number",
+        "default": 50
+      },
+      "stepSize": {
+        "type": "number",
+        "default": 0.1
+      }
+    },
+    "code": "const { \n        field, \n        box = [-5, -5, -5, 5, 5, 5], \n        count = 50, \n        steps = 50, \n        stepSize = 0.1 \n    } = params;\n\n    const fieldFn = resolveField(field);\n    if (typeof fieldFn !== 'function') {\n        console.warn('createStreamlines: No valid field found');\n        return new THREE.BufferGeometry();\n    }\n\n    const [minX, minY, minZ, maxX, maxY, maxZ] = box;\n    \n    // We will collect all segments into a single array for LineSegments (Better Performance)\n    const positions = [];\n    \n    // Also store raw segments for Marching Cubes (start, end, thickness)\n    const rawSegments = []; \n    const defaultThickness = 0.05;\n\n    for (let i = 0; i < count; i++) {\n        let pos = new THREE.Vector3(\n            minX + Math.random() * (maxX - minX),\n            minY + Math.random() * (maxY - minY),\n            minZ + Math.random() * (maxZ - minZ)\n        );\n\n        for (let j = 0; j < steps; j++) {\n            const dir = fieldFn(pos.x, pos.y, pos.z);\n            if (!dir || dir.length() < 0.001) break;\n            \n            const nextPos = pos.clone().add(dir.clone().multiplyScalar(stepSize));\n            \n            // Visual: Add to positions array (pairs of points)\n            positions.push(pos.x, pos.y, pos.z);\n            positions.push(nextPos.x, nextPos.y, nextPos.z);\n            \n            // Data: Save segment for downstream processing\n            rawSegments.push([pos.clone(), nextPos.clone(), defaultThickness]);\n            \n            pos = nextPos;\n        }\n    }\n\n    if (positions.length === 0) return new THREE.BufferGeometry();\n\n    // Create a single BufferGeometry for all lines\n    const geometry = new THREE.BufferGeometry();\n    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));\n    \n    // \u2705 WRAP IN LINE OBJECT: This ensures it renders as lines, not invisible triangles\n    // We return a THREE.LineSegments object which the executor will add to the scene.\n    // The executor will apply the user's material (color), which works on lines too.\n    const lineObject = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xffffff }));\n\n    // \u2705 Attach data for Marching Cubes\n    lineObject.userData = {\n        type: 'streamlines',\n        segments: rawSegments\n    };\n\n    return lineObject;"
+  },
+  {
+    "id": "createFlowPipes",
+    "name": "createFlowPipes",
+    "description": "Creates tube-like pipes following vector field streamlines.",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "box": {
+        "type": "array",
+        "default": []
+      },
+      "count": {
+        "type": "number",
+        "default": 20
+      },
+      "steps": {
+        "type": "number",
+        "default": 40
+      },
+      "stepSize": {
+        "type": "number",
+        "default": 0.1
+      },
+      "radius": {
+        "type": "number",
+        "default": 0.1
+      }
+    },
+    "code": "const { \n        field,\n        box = [-5, -5, -5, 5, 5, 5],\n        count = 20,\n        steps = 40,\n        stepSize = 0.1,\n        radius = 0.1\n    } = params;\n\n    const fieldFn = resolveField(field);\n\n    if (typeof fieldFn !== 'function') {\n        console.warn('createFlowPipes: No valid field');\n        return new THREE.BufferGeometry();\n    }\n\n    const [minX, minY, minZ, maxX, maxY, maxZ] = box;\n    const pipes = [];\n\n    for (let i = 0; i < count; i++) {\n        let pos = new THREE.Vector3(\n            minX + Math.random() * (maxX - minX),\n            minY + Math.random() * (maxY - minY),\n            minZ + Math.random() * (maxZ - minZ)\n        );\n\n        const points = [pos.clone()];\n\n        for (let j = 0; j < steps; j++) {\n            const dir = fieldFn(pos.x, pos.y, pos.z);\n            if (!dir || dir.length() < 0.001) break;\n\n            pos.add(dir.clone().multiplyScalar(stepSize));\n            points.push(pos.clone());\n        }\n\n        if (points.length > 2) {\n            const curve = new THREE.CatmullRomCurve3(points, false);\n            const tubeGeom = new THREE.TubeGeometry(curve, 8, radius, 4, false);\n            pipes.push(tubeGeom);\n        }\n    }\n\n    return pipes.length > 0 ? mergeGeometries({ geometries: pipes }) : new THREE.BufferGeometry();"
+  },
+  {
+    "id": "cellularAutomata",
+    "name": "cellularAutomata",
+    "description": "Generates patterns using cellular automata rules.",
+    "category": "Procedural",
+    "paramsSchema": {},
+    "code": "}) {\n    const { gridSize = 10, iterations = 10, rules = { survive: [2, 3], born: [3] } } = params;\n\n    const grid = new Array(gridSize);\n    for (let x = 0; x < gridSize; x++) {\n        grid[x] = new Array(gridSize);\n        for (let y = 0; y < gridSize; y++) {\n            grid[x][y] = new Array(gridSize);\n            for (let z = 0; z < gridSize; z++) {\n                grid[x][y][z] = Math.random() > 0.5 ? 1 : 0;\n            }\n        }\n    }\n\n    for (let iter = 0; iter < iterations; iter++) {\n        const newGrid = JSON.parse(JSON.stringify(grid));\n\n        for (let x = 0; x < gridSize; x++) {\n            for (let y = 0; y < gridSize; y++) {\n                for (let z = 0; z < gridSize; z++) {\n                    let neighbors = 0;\n\n                    for (let dx = -1; dx <= 1; dx++) {\n                        for (let dy = -1; dy <= 1; dy++) {\n                            for (let dz = -1; dz <= 1; dz++) {\n                                if (dx === 0 && dy === 0 && dz === 0) continue;\n                                const nx = x + dx, ny = y + dy, nz = z + dz;\n                                if (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize && nz >= 0 && nz < gridSize) {\n                                    neighbors += grid[nx][ny][nz];\n                                }\n                            }\n                        }\n                    }\n\n                    if (grid[x][y][z] === 1) {\n                        newGrid[x][y][z] = rules.survive.includes(neighbors) ? 1 : 0;\n                    } else {\n                        newGrid[x][y][z] = rules.born.includes(neighbors) ? 1 : 0;\n                    }\n                }\n            }\n        }\n\n        Object.assign(grid, newGrid);\n    }\n\n    // \u2705 WRAPPED OUTPUT: Returns data object, not geometry\n    return wrapGridAsObject(grid, gridSize, { iterations, rules });"
+  },
+  {
+    "id": "reactionDiffusion",
+    "name": "reactionDiffusion",
+    "description": "Simulates reaction-diffusion systems (Turing patterns).",
+    "category": "Basic Geometry",
+    "paramsSchema": {
+      "size": {
+        "type": "number",
+        "default": 32
+      },
+      "iterations": {
+        "type": "number",
+        "default": 50
+      },
+      "feed": {
+        "type": "number",
+        "default": 0.055
+      },
+      "kill": {
+        "type": "number",
+        "default": 0.062
+      },
+      "dt": {
+        "type": "number",
+        "default": 0.2
+      }
+    },
+    "code": "const { \n        size = 32,\n        iterations = 50, \n        feed = 0.055,\n        kill = 0.062,\n        dt = 0.2 \n    } = params;\n\n    // 1. Initialize Grid\n    // Flattened array: x + y*size + z*size*size\n    const len = size * size * size;\n    let A = new Float32Array(len).fill(1.0);\n    let B = new Float32Array(len).fill(0.0);\n    \n    // 2. Seed Center\n    const center = Math.floor(size/2);\n    const radius = Math.max(2, Math.floor(size/8));\n    \n    console.log(`Starting RD Simulation: ${size}^3, ${iterations} steps, dt=${dt}`);\n\n    // Pre-seed pattern\n    for(let z=center-radius; z<=center+radius; z++) {\n        for(let y=center-radius; y<=center+radius; y++) {\n            for(let x=center-radius; x<=center+radius; x++) {\n                if ((x-center)**2 + (y-center)**2 + (z-center)**2 < radius**2) {\n                    if (x>=0 && x<size && y>=0 && y<size && z>=0 && z<size) {\n                        B[x + y*size + z*size*size] = 1.0;\n                    }\n                }\n            }\n        }\n    }\n\n    // 3. Simulation Helpers\n    const strideY = size;\n    const strideZ = size * size;\n\n    function getLaplacian(arr, i, x, y, z) {\n        // Toroidal (Wrap-around) Neighbors\n        const xm = (x > 0 ? i-1 : i+size-1);\n        const xp = (x < size-1 ? i+1 : i-size+1);\n        const ym = (y > 0 ? i-strideY : i-strideY+strideZ);\n        const yp = (y < size-1 ? i+strideY : i+strideY-strideZ);\n        const zm = (z > 0 ? i-strideZ : i-strideZ+len); \n        const zp = (z < size-1 ? i+strideZ : i-strideZ*(size-1));\n\n        return (arr[xm] + arr[xp] + arr[ym] + arr[yp] + arr[zm] + arr[zp] - 6 * arr[i]);\n    }\n\n    // 4. Simulation Loop\n    for(let iter=0; iter<iterations; iter++) {\n        const nextA = new Float32Array(len);\n        const nextB = new Float32Array(len);\n        let activeCount = 0;\n\n        for(let z=0; z<size; z++) {\n            for(let y=0; y<size; y++) {\n                for(let x=0; x<size; x++) {\n                    const i = x + y*size + z*size*size;\n                    const a = A[i];\n                    const b = B[i];\n                    \n                    const abb = a * b * b;\n                    const lapA = getLaplacian(A, i, x, y, z);\n                    const lapB = getLaplacian(B, i, x, y, z);\n                    \n                    // Gray-Scott Formulas\n                    nextA[i] = Math.max(0, Math.min(1, a + (1.0 * lapA - abb + feed * (1 - a)) * dt));\n                    nextB[i] = Math.max(0, Math.min(1, b + (0.5 * lapB + abb - (kill + feed) * b) * dt));\n                    \n                    if (nextB[i] > 0.01) activeCount++;\n                }\n            }\n        }\n        A = nextA;\n        B = nextB;\n\n        if (iter === iterations - 1) {\n             console.log(`RD Stats: Active Cells (>0.01) = ${activeCount}/${len}`);\n        }\n    }\n\n    // 5. Return Wrapped Object\n    // We explicitly set 'grid' and 'size' to ensure compatibility\n    return wrapGridAsObject(B, size, { \n        type: 'reaction-diffusion',\n        voxelSize: 1,\n        feed, \n        kill \n    });"
+  },
+  {
+    "id": "modifyGeometry",
+    "name": "modifyGeometry",
+    "description": "Applies custom operations to geometry with expressions.",
+    "category": "Deformation",
+    "paramsSchema": {},
+    "code": "console.log('modifyGeometry', params);\n\n    let { geometry, operations = [], expression, context = {} } = params;\n\n    if (expression) {\n        operations.push({ expression }); // Convert legacy single expression to array\n    }\n\n    if (!geometry) {\n        console.warn(\"modifyGeometry: No geometry\");\n        return null;\n    }\n\n    const geom = geometry.clone();\n    const positionAttribute = geom.attributes.position;\n    const normalAttribute = geom.attributes.normal;\n\n    if (!positionAttribute) return geom;\n\n    const count = positionAttribute.count;\n    const p = new THREE.Vector3();\n    const n = new THREE.Vector3();\n    const utils = Math;\n\n    // Pre-compile all operation functions\n    const funcs = operations.map(op => {\n        try {\n            return new Function('p', 'n', 'i', 'ctx', 'utils', 'v', op.expression);\n        } catch (e) {\n            console.error(\"modifyGeometry: Failed to compile expression\", op.expression, e);\n            return null;\n        }\n    });\n\n    // Iterate Vertices\n    for (let i = 0; i < count; i++) {\n        p.fromBufferAttribute(positionAttribute, i);\n        if (normalAttribute) n.fromBufferAttribute(normalAttribute, i);\n\n        // Run the pipeline\n        funcs.forEach(fn => {\n            if (fn) {\n                fn(p, n, i, context, utils, p);\n            }\n        });\n\n        positionAttribute.setXYZ(i, p.x, p.y, p.z);\n    }\n\n    geom.computeVertexNormals();\n    positionAttribute.needsUpdate = true;\n    return geom;"
+  },
+  {
+    "id": "meshFromMarchingCubes",
+    "name": "meshFromMarchingCubes",
+    "description": "Converts a scalar field to mesh using marching cubes.",
+    "category": "Curves & Paths",
+    "paramsSchema": {},
+    "code": "const { \n        resolution = 32, \n        isovalue = 0.1, \n        bounds = 10, \n        field,             \n        expression,        \n        context = {},\n        objectSpace = true \n    } = params;\n\n    const dummyMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });\n    // Disable colors/UVs for performance and simplicity\n    const effect = new MarchingCubes(resolution, dummyMaterial, false, false, 200000);\n\n    let fieldFn;\n    let forceWorldSpace = false;\n    let mode = 'unknown';\n\n    // --- DATA EXTRACTION ---\n    // Handle both wrapped object and direct userData\n    let voxelData = null;\n    if (field && field.userData && (field.userData.grid || field.userData.voxels)) {\n        voxelData = field.userData;\n    } else if (field && (field.grid || field.voxels)) {\n        voxelData = field;\n    }\n\n    // ========================================================================\n    // MODE: VOXEL GRID (Reaction Diffusion)\n    // ========================================================================\n    if (voxelData) {\n        mode = 'grid';\n        \n        const gridArr = voxelData.grid || voxelData.voxels;\n        const sizeVal = voxelData.size || voxelData.gridSize || resolution;\n        \n        // Robust Dimensions\n        const sx = Array.isArray(sizeVal) ? sizeVal[0] : sizeVal;\n        const sy = Array.isArray(sizeVal) ? sizeVal[1] : sizeVal;\n        const sz = Array.isArray(sizeVal) ? sizeVal[2] : sizeVal;\n\n        // \ud83d\udd0d DATA AUDIT: Check if the data is actually there\n        let maxVal = -Infinity;\n        let minVal = Infinity;\n        let nonZero = 0;\n        for(let i=0; i<gridArr.length; i++) {\n            const v = gridArr[i];\n            if (v > maxVal) maxVal = v;\n            if (v < minVal) minVal = v;\n            if (v > 0.01) nonZero++;\n        }\n        console.log(`MarchingCubes Data Check: Mode=${mode}, Size=[${sx},${sy},${sz}], MaxVal=${maxVal.toFixed(4)}, Active=${nonZero}`);\n\n        if (maxVal < isovalue) {\n            console.warn(`\u26a0\ufe0f ISOVALUE WARNING: Max data value (${maxVal}) is lower than isovalue (${isovalue}). Output will be empty.`);\n        }\n\n        // Field Function with Clamped Mapping\n        fieldFn = (x, y, z) => {\n            // Map World Space (-bounds..bounds) to Unit Space (0..1)\n            const u = (x + bounds) / (2 * bounds);\n            const v = (y + bounds) / (2 * bounds);\n            const w = (z + bounds) / (2 * bounds);\n\n            // Strict bounds check\n            if (u < 0 || u >= 1 || v < 0 || v >= 1 || w < 0 || w >= 1) return 0;\n\n            // Map to Grid Indices\n            const ix = Math.floor(u * sx);\n            const iy = Math.floor(v * sy);\n            const iz = Math.floor(w * sz);\n\n            // Safety Clamp (Prevent Array Overflow)\n            if (ix < 0 || ix >= sx || iy < 0 || iy >= sy || iz < 0 || iz >= sz) return 0;\n\n            return gridArr[ix + iy*sx + iz*sx*sy];\n        };\n    }\n\n    // ========================================================================\n    // MODE: VECTOR FIELD\n    // ========================================================================\n    else if (field && (resolveField(field) || typeof field === 'function')) {\n        mode = 'field';\n        const vectorFn = resolveField(field) || field;\n        fieldFn = (x, y, z) => {\n            const vec = vectorFn(x, y, z);\n            return vec && typeof vec.length === 'function' ? vec.length() : 0;\n        };\n    }\n\n    // ========================================================================\n    // FALLBACK\n    // ========================================================================\n    if (!fieldFn) {\n        console.warn(\"MarchingCubes: No valid field found, using Noise fallback\");\n        fieldFn = (x, y, z) => noise.simplex3(x, y, z) + 0.5;\n    }\n\n    // ========================================================================\n    // GENERATE\n    // ========================================================================\n    effect.isolation = isovalue;\n    const halfRes = resolution / 2;\n\n    // Fill Marching Cubes Buffer\n    for (let k = 0; k < resolution; k++) {\n        for (let j = 0; j < resolution; j++) {\n            for (let i = 0; i < resolution; i++) {\n                // Generate sample coordinates matching the bounds\n                const x = (i - halfRes) / halfRes * bounds;\n                const y = (j - halfRes) / halfRes * bounds;\n                const z = (k - halfRes) / halfRes * bounds;\n                \n                effect.field[i + j * resolution + k * resolution * resolution] = fieldFn(x, y, z);\n            }\n        }\n    }\n\n    try {\n        effect.update();\n        \n        // EXTRACT VALID GEOMETRY\n        // 1. Check count\n        const count = effect.geometry.drawRange.count;\n        \n        if (count > 0) {\n            // 2. Copy ONLY active data to new geometry\n            const rawPos = effect.geometry.attributes.position;\n            const rawNorm = effect.geometry.attributes.normal;\n            \n            const cleanPos = new Float32Array(count * 3);\n            const cleanNorm = new Float32Array(count * 3);\n\n            for (let i = 0; i < count; i++) {\n                cleanPos[i*3]     = rawPos.getX(i);\n                cleanPos[i*3 + 1] = rawPos.getY(i);\n                cleanPos[i*3 + 2] = rawPos.getZ(i);\n\n                if (rawNorm) {\n                    cleanNorm[i*3]     = rawNorm.getX(i);\n                    cleanNorm[i*3 + 1] = rawNorm.getY(i);\n                    cleanNorm[i*3 + 2] = rawNorm.getZ(i);\n                }\n            }\n\n            const cleanGeom = new THREE.BufferGeometry();\n            cleanGeom.setAttribute('position', new THREE.BufferAttribute(cleanPos, 3));\n            if (rawNorm) {\n                cleanGeom.setAttribute('normal', new THREE.BufferAttribute(cleanNorm, 3));\n            } else {\n                cleanGeom.computeVertexNormals();\n            }\n\n            // 3. Scale to World Size\n            // MC output is roughly -1..1 (relative to resolution). \n            // We match it to our 'bounds'.\n            if (objectSpace || !forceWorldSpace) {\n                 cleanGeom.scale(bounds, bounds, bounds);\n            }\n\n            console.log(`\u2705 Marching Cubes: Generated ${count/3} triangles.`);\n            effect.geometry.dispose();\n            dummyMaterial.dispose();\n            return cleanGeom;\n\n        } else {\n            console.warn(`\u26a0\ufe0f Marching Cubes finished with 0 vertices. Max Grid Value: ${voxelData ? voxelData.grid[0] : '?'}`);\n        }\n\n    } catch (e) { console.error(\"MarchingCubes update failed:\", e); }\n\n    return new THREE.BufferGeometry();"
+  },
+  {
+    "id": "lSystemGeometry",
+    "name": "lSystemGeometry",
+    "description": "Generates L-system fractal structures (plants, trees, ferns).",
+    "category": "Procedural",
+    "paramsSchema": {},
+    "code": "const { \n        axiom = 'F', \n        rules = { 'F': 'FF+[+F-F-F]-[-F+F+F]' }, \n        iterations = 3, \n        angle = 25, \n        length = 1, \n        thickness = 0.1,\n        mode = '2d' // '2d' (Z-rotation) or '3d' (Quaternion Pitch/Roll/Yaw)\n    } = params;\n\n    // ========================================================================\n    // 1. GENERATE L-SYSTEM STRING\n    // ========================================================================\n    let current = axiom;\n    for (let i = 0; i < iterations; i++) {\n        let next = '';\n        for (const char of current) {\n            next += rules[char] || char;\n        }\n        current = next;\n    }\n\n    // ========================================================================\n    // 2. EXECUTE TURTLE GRAPHICS (Generate Segments)\n    // ========================================================================\n    const segments = [];\n    const angleRad = angle * Math.PI / 180;\n    let position = new THREE.Vector3(0, 0, 0);\n\n    // --- MODE: 2D (Classic Z-Rotation) ---\n    if (mode === '2d') {\n        const stack = [];\n        let direction = new THREE.Vector3(0, 1, 0); // Up\n\n        for (const char of current) {\n            if (char === 'F') {\n                const newPos = position.clone().add(direction.clone().multiplyScalar(length));\n                segments.push([position.clone(), newPos.clone(), thickness]);\n                position.copy(newPos);\n            } else if (char === '+') {\n                direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), angleRad);\n            } else if (char === '-') {\n                direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), -angleRad);\n            } else if (char === '[') {\n                stack.push([position.clone(), direction.clone()]);\n            } else if (char === ']') {\n                if (stack.length > 0) {\n                    const [pos, dir] = stack.pop();\n                    position.copy(pos);\n                    direction.copy(dir);\n                }\n            }\n        }\n    }\n    \n    // --- MODE: 3D (Full Quaternion Pitch/Roll/Yaw) ---\n    else {\n        const stack = [];\n        let rotation = new THREE.Quaternion(); \n        \n        // Helper to rotate the turtle locally\n        const rotateTurtle = (axis, rads) => {\n            const rotQuat = new THREE.Quaternion();\n            rotQuat.setFromAxisAngle(axis, rads);\n            rotation.multiply(rotQuat);\n        };\n\n        for (const char of current) {\n            if (char === 'F') {\n                const direction = new THREE.Vector3(0, 1, 0).applyQuaternion(rotation);\n                const newPos = position.clone().add(direction.multiplyScalar(length));\n                segments.push([position.clone(), newPos.clone(), thickness]);\n                position.copy(newPos);\n            } else if (char === '+') { // Turn Left (Z)\n                rotateTurtle(new THREE.Vector3(0, 0, 1), angleRad);\n            } else if (char === '-') { // Turn Right (Z)\n                rotateTurtle(new THREE.Vector3(0, 0, 1), -angleRad);\n            } else if (char === '&') { // Pitch Down (X)\n                rotateTurtle(new THREE.Vector3(1, 0, 0), angleRad);\n            } else if (char === '^') { // Pitch Up (X)\n                rotateTurtle(new THREE.Vector3(1, 0, 0), -angleRad);\n            } else if (char === '\\\\') { // Roll Left (Y)\n                rotateTurtle(new THREE.Vector3(0, 1, 0), angleRad);\n            } else if (char === '/') { // Roll Right (Y)\n                rotateTurtle(new THREE.Vector3(0, 1, 0), -angleRad);\n            } else if (char === '[') {\n                stack.push({ pos: position.clone(), rot: rotation.clone() });\n            } else if (char === ']') {\n                if (stack.length > 0) {\n                    const state = stack.pop();\n                    position.copy(state.pos);\n                    rotation.copy(state.rot);\n                }\n            }\n        }\n    }\n\n    // ========================================================================\n    // 3. OUTPUT VISUAL MESH\n    // ========================================================================\n    const geometries = [];\n    // Optimization: Use low-poly tubes for the visual preview\n    for (const [start, end, thick] of segments) {\n        const curve = new THREE.LineCurve3(start, end);\n        const tubeGeom = new THREE.TubeGeometry(curve, 1, thick, 4, false);\n        geometries.push(tubeGeom);\n    }\n\n    const finalGeom = geometries.length > 0 ? mergeGeometries({ geometries }) : new THREE.BufferGeometry();\n\n    // \u2705 EXPORT DATA: Attach raw segments to geometry\n    // This allows downstream helpers (like meshFromMarchingCubes) to read the skeleton\n    finalGeom.userData = {\n        type: 'l-system',\n        segments: segments // Array of [start, end, thickness]\n    };\n\n    return finalGeom;"
+  },
+  {
+    "id": "differentialGrowth",
+    "name": "differentialGrowth",
+    "description": "Simulates organic growth by expanding edges with self-repulsion.",
+    "category": "Organic Growth",
+    "paramsSchema": {
+      "// Optional: Start from existing curve/edges\n        pointsCount": {
+        "type": "number",
+        "default": 50
+      },
+      "// Start with a circle of this many points\n        radius": {
+        "type": "number",
+        "default": 2.0
+      },
+      "// Radius of starting circle\n        iterations": {
+        "type": "number",
+        "default": 100
+      },
+      "// Growth steps\n        maxEdgeLength": {
+        "type": "number",
+        "default": 0.2
+      },
+      "// Threshold to add new points\n        repulsionRadius": {
+        "type": "number",
+        "default": 1.0
+      },
+      "// How far nodes push each other\n        repulsionForce": {
+        "type": "number",
+        "default": 0.5
+      },
+      "attractionForce": {
+        "type": "number",
+        "default": 0.8
+      },
+      "// Spring force keeping line together\n        noiseForce": {
+        "type": "number",
+        "default": 0.1
+      },
+      "// Random motion to break symmetry\n        outputType": {
+        "type": "string",
+        "default": "'line'  // 'line' or 'mesh' (ribbon)"
+      }
+    },
+    "code": "const { \n        geometry,            // Optional: Start from existing curve/edges\n        pointsCount = 50,    // Start with a circle of this many points\n        radius = 2.0,        // Radius of starting circle\n        iterations = 100,    // Growth steps\n        maxEdgeLength = 0.2, // Threshold to add new points\n        repulsionRadius = 1.0, // How far nodes push each other\n        repulsionForce = 0.5,\n        attractionForce = 0.8, // Spring force keeping line together\n        noiseForce = 0.1,    // Random motion to break symmetry\n        outputType = 'line'  // 'line' or 'mesh' (ribbon)\n    } = params;\n\n    // 1. Initialize Nodes (Circle)\n    let nodes = [];\n    \n    // If input geometry is a Line/Curve, extract points\n    if (geometry && geometry.isBufferGeometry) {\n        const pos = geometry.attributes.position;\n        for(let i=0; i<pos.count; i++) {\n            nodes.push(new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)));\n        }\n    } else {\n        // Create Circle\n        for (let i = 0; i < pointsCount; i++) {\n            const theta = (i / pointsCount) * Math.PI * 2;\n            nodes.push(new THREE.Vector3(\n                Math.cos(theta) * radius, \n                Math.sin(theta) * radius, \n                0\n            ));\n        }\n    }\n\n    // 2. Simulation Loop\n    for (let iter = 0; iter < iterations; iter++) {\n        const newPositions = nodes.map(n => n.clone());\n        const count = nodes.length;\n\n        // Build Spatial Hash (Simple grid) for optimization\n        // (Skipping full implementation for brevity, doing brute force with optimization check)\n        \n        for (let i = 0; i < count; i++) {\n            const p = nodes[i];\n            let force = new THREE.Vector3();\n\n            // A. Repulsion (Push away from non-neighbors)\n            // Check random subset or nearby nodes to save perf\n            for (let j = 0; j < count; j++) {\n                if (i === j) continue;\n                // Ignore immediate neighbors (handled by springs)\n                // const isNeighbor = (j === (i + 1) % count) || (j === (i - 1 + count) % count);\n                // Actually, in Diff Growth, even neighbors push to expand circle!\n                \n                const other = nodes[j];\n                const distSq = p.distanceToSquared(other);\n                \n                if (distSq < repulsionRadius * repulsionRadius && distSq > 0) {\n                    const dist = Math.sqrt(distSq);\n                    const dir = p.clone().sub(other).normalize();\n                    // Force stronger when closer\n                    force.add(dir.multiplyScalar((repulsionRadius - dist) * repulsionForce));\n                }\n            }\n\n            // B. Spring / Attraction (Stay close to neighbors)\n            const prev = nodes[(i - 1 + count) % count];\n            const next = nodes[(i + 1) % count];\n            \n            const vecToPrev = prev.clone().sub(p);\n            const vecToNext = next.clone().sub(p);\n            \n            // Move towards midpoint of neighbors (Laplacian smoothing)\n            const smooth = vecToPrev.add(vecToNext).multiplyScalar(attractionForce * 0.5);\n            force.add(smooth);\n            \n            // C. Brownian Motion (Noise)\n            force.x += (Math.random() - 0.5) * noiseForce;\n            force.y += (Math.random() - 0.5) * noiseForce;\n\n            // Apply\n            newPositions[i].add(force.multiplyScalar(0.1)); // Time step\n            // Constrain Z (Planar growth often looks better)\n            newPositions[i].z *= 0.9; \n        }\n        \n        nodes = newPositions;\n\n        // 3. Subdivision (Growth)\n        // If edge is too long, split it\n        const nextNodes = [];\n        for (let i = 0; i < nodes.length; i++) {\n            const p1 = nodes[i];\n            const p2 = nodes[(i + 1) % nodes.length]; // Loop\n            \n            nextNodes.push(p1);\n            \n            if (p1.distanceTo(p2) > maxEdgeLength) {\n                // Add new node in middle\n                const mid = p1.clone().add(p2).multiplyScalar(0.5);\n                nextNodes.push(mid);\n            }\n        }\n        nodes = nextNodes;\n        \n        // Limit runaway growth\n        if (nodes.length > 2000) break;\n    }\n\n    // 4. Output\n    if (outputType === 'mesh') {\n        // Extrude logic (Simple Ribbon)\n        const shape = new THREE.Shape();\n        shape.moveTo(nodes[0].x, nodes[0].y);\n        for(let i=1; i<nodes.length; i++) shape.lineTo(nodes[i].x, nodes[i].y);\n        shape.closePath();\n        \n        return new THREE.ExtrudeGeometry(shape, { depth: 0.5, bevelEnabled: false });\n    } else {\n        // Line Loop\n        const geom = new THREE.BufferGeometry().setFromPoints([...nodes, nodes[0]]);\n        // Return as Line Loop visual\n        return new THREE.Line(geom, new THREE.LineBasicMaterial({ color: 0xffffff }));\n    }"
+  },
+  {
+    "id": "differentialGrowthSurface",
+    "name": "differentialGrowthSurface",
+    "description": "Helper function: differentialGrowthSurface",
+    "category": "Organic Growth",
+    "paramsSchema": {
+      "pointsCount": {
+        "type": "number",
+        "default": 80
+      },
+      "radius": {
+        "type": "number",
+        "default": 0.5
+      },
+      "generations": {
+        "type": "number",
+        "default": 15
+      },
+      "stepsPerGen": {
+        "type": "number",
+        "default": 10
+      },
+      "maxEdgeLength": {
+        "type": "number",
+        "default": 0.3
+      },
+      "repulsionRadius": {
+        "type": "number",
+        "default": 0.8
+      },
+      "repulsionForce": {
+        "type": "number",
+        "default": 0.8
+      },
+      "heightPerGen": {
+        "type": "number",
+        "default": 0.1
+      }
+    },
+    "code": "const { \n        pointsCount = 80, \n        radius = 0.5,\n        generations = 15, \n        stepsPerGen = 10, \n        maxEdgeLength = 0.3, \n        repulsionRadius = 0.8, \n        repulsionForce = 0.8,\n        heightPerGen = 0.1 \n    } = params;\n\n    console.log(`Growing Surface: ${generations} gens, start radius ${radius}`);\n\n    let nodes = [];\n    // Init Circle\n    for (let i = 0; i < pointsCount; i++) {\n        const theta = (i / pointsCount) * Math.PI * 2;\n        nodes.push(new THREE.Vector3(Math.cos(theta)*radius, Math.sin(theta)*radius, 0));\n    }\n\n    const profiles = []; // To be used by createLoft\n\n    // Evolution Loop\n    for (let gen = 0; gen < generations; gen++) {\n        \n        // 1. Capture Snapshot (Profile)\n        // Deep copy and apply height offset\n        const ring = nodes.map(n => {\n            const v = n.clone();\n            v.z = gen * heightPerGen; \n            return [v.x, v.y, v.z]; // Export as array [x,y,z] for universality\n        });\n        \n        // Close the loop explicitly for lofting if needed, \n        // though createLoft 'closed' param handles connections.\n        profiles.push(ring);\n\n        // 2. Simulate Growth (The \"Folding\")\n        for (let step = 0; step < stepsPerGen; step++) {\n            const newPositions = nodes.map(n => n.clone());\n            const count = nodes.length;\n\n            // A. Forces\n            for (let i = 0; i < count; i++) {\n                const p = nodes[i];\n                let force = new THREE.Vector3();\n                \n                // Simple Repulsion (Check localized sample to save perf)\n                // Scan every 5th node to approximate density pressure\n                for (let j = 0; j < count; j+=5) { \n                    const other = nodes[j];\n                    if (p === other) continue;\n                    const d2 = p.distanceToSquared(other);\n                    if (d2 < repulsionRadius*repulsionRadius) {\n                        const d = Math.sqrt(d2);\n                        const push = p.clone().sub(other).normalize();\n                        force.add(push.multiplyScalar((repulsionRadius - d) * repulsionForce));\n                    }\n                }\n                \n                // Laplacian Smoothing (Keep curve fair)\n                const prev = nodes[(i - 1 + count) % count];\n                const next = nodes[(i + 1) % count];\n                const smooth = prev.clone().add(next).sub(p.clone().multiplyScalar(2)).multiplyScalar(0.5);\n                force.add(smooth);\n\n                newPositions[i].add(force.multiplyScalar(0.1));\n            }\n            nodes = newPositions;\n\n            // B. Subdivision (Add Geometry)\n            const nextNodes = [];\n            for(let i=0; i<nodes.length; i++) {\n                const p1 = nodes[i];\n                const p2 = nodes[(i+1)%nodes.length];\n                nextNodes.push(p1);\n                if (p1.distanceTo(p2) > maxEdgeLength) {\n                    nextNodes.push(p1.clone().add(p2).multiplyScalar(0.5));\n                }\n            }\n            nodes = nextNodes;\n        }\n    }\n\n    // Return as a wrapped object that createLoft can understand\n    // We use a dummy geometry to carry the data through the pipeline\n    const dummyGeom = new THREE.BufferGeometry();\n    dummyGeom.userData = {\n        type: 'profiles',\n        profiles: profiles // Array of Array of Points\n    };\n    return dummyGeom;"
+  },
+  {
+    "id": "differentialGrowth3DSimple",
+    "name": "differentialGrowth3DSimple",
+    "description": "Helper function: differentialGrowth3DSimple",
+    "category": "Organic Growth",
+    "paramsSchema": {
+      "iterations": {
+        "type": "number",
+        "default": 20
+      },
+      "repulsionRadius": {
+        "type": "number",
+        "default": 0.5
+      },
+      "growthForce": {
+        "type": "number",
+        "default": 0.1
+      },
+      "// Expansion speed\n        smoothing": {
+        "type": "number",
+        "default": 0.5
+      },
+      "// Laplacian smoothing strength\n        mode": {
+        "type": "string",
+        "default": "'line'      // 'line' (curve growth) or 'mesh' (surface folding)"
+      }
+    },
+    "code": "const { \n        geometry, \n        iterations = 20, \n        repulsionRadius = 0.5, \n        growthForce = 0.1, // Expansion speed\n        smoothing = 0.5,   // Laplacian smoothing strength\n        mode = 'line'      // 'line' (curve growth) or 'mesh' (surface folding)\n    } = params;\n\n    // ========================================================================\n    // MODE 1: LINE / RIBBON (Previous Implementation)\n    // ========================================================================\n    if (mode === 'line' || !geometry || !geometry.isBufferGeometry) {\n        // ... (Keep your existing Line/Ribbon logic here) ...\n        // [Paste the previous curve-based logic if you want to keep it]\n        return new THREE.BufferGeometry(); \n    }\n\n    // ========================================================================\n    // MODE 2: MESH SURFACE GROWTH (New)\n    // ========================================================================\n    // Clone to avoid modifying original\n    const geom = geometry.clone();\n    \n    // Ensure we have topological data (Index)\n    if (!geom.index) {\n        geom = BufferGeometryUtils.mergeVertices(geom); // Create index if missing\n    }\n    \n    const positions = geom.attributes.position;\n    const normals = geom.attributes.normal;\n    const vertexCount = positions.count;\n\n    // 1. Build Adjacency Graph (Neighbor lookup)\n    // This is expensive but needed for smoothing\n    const neighbors = new Array(vertexCount).fill(0).map(() => []);\n    const index = geom.index.array;\n    for (let i = 0; i < index.length; i += 3) {\n        const a = index[i], b = index[i+1], c = index[i+2];\n        if(!neighbors[a].includes(b)) neighbors[a].push(b);\n        if(!neighbors[a].includes(c)) neighbors[a].push(c);\n        if(!neighbors[b].includes(a)) neighbors[b].push(a);\n        if(!neighbors[b].includes(c)) neighbors[b].push(c);\n        if(!neighbors[c].includes(a)) neighbors[c].push(a);\n        if(!neighbors[c].includes(b)) neighbors[c].push(b);\n    }\n\n    // 2. Simulation Loop\n    const tempPos = new Float32Array(positions.array);\n    const p = new THREE.Vector3();\n    const n = new THREE.Vector3();\n    const neighborP = new THREE.Vector3();\n    const avgP = new THREE.Vector3();\n    \n    for (let iter = 0; iter < iterations; iter++) {\n        \n        for (let i = 0; i < vertexCount; i++) {\n            p.set(tempPos[i*3], tempPos[i*3+1], tempPos[i*3+2]);\n            n.set(normals.getX(i), normals.getY(i), normals.getZ(i));\n\n            // A. Laplacian Smoothing (Relaxation)\n            // Pull vertex towards average of neighbors to remove spikes\n            avgP.set(0,0,0);\n            const myNeighbors = neighbors[i];\n            if (myNeighbors.length === 0) continue;\n            \n            for(const nid of myNeighbors) {\n                neighborP.set(tempPos[nid*3], tempPos[nid*3+1], tempPos[nid*3+2]);\n                avgP.add(neighborP);\n            }\n            avgP.divideScalar(myNeighbors.length);\n            \n            // Vector to average\n            const smoothVec = avgP.sub(p); \n            \n            // B. Growth / Buckling Force\n            // We push vertices OUT along their normal, but constrained by smoothing.\n            // The conflict between expanding (Normal) and staying connected (Smooth) creates folds.\n            \n            // Tangential Repulsion approximation:\n            // If neighbors are too close, push away? \n            // For simple folding, just expanding surface area works well.\n            \n            // Apply forces\n            p.addScaledVector(smoothVec, smoothing); // Pull together\n            p.addScaledVector(n, growthForce);       // Push out (Expand)\n            \n            // Optional: Collision/Self-intersection check is too slow for JS\n            \n            // Store result\n            positions.setXYZ(i, p.x, p.y, p.z);\n        }\n        \n        // Recompute normals every few frames to guide growth\n        if (iter % 2 === 0) {\n            geom.computeVertexNormals();\n        }\n        \n        // Update temp array for next step dependency\n        for(let k=0; k<positions.array.length; k++) tempPos[k] = positions.array[k];\n    }\n\n    positions.needsUpdate = true;\n    geom.computeVertexNormals();\n    return geom;"
+  },
+  {
+    "id": "differentialSurfaceGrowth3D",
+    "name": "differentialSurfaceGrowth3D",
+    "description": "Advanced 3D Floraform growth simulation with boundary expansion.",
+    "category": "Organic Growth",
+    "paramsSchema": {
+      "inputGeometry": {
+        "type": "string",
+        "default": "params.geometry"
+      },
+      "iterations": {
+        "type": "number",
+        "default": 50
+      },
+      "maxEdgeLength": {
+        "type": "number",
+        "default": 0.2
+      },
+      "minEdgeLength": {
+        "type": "number",
+        "default": 0.05
+      },
+      "repulsionRadius": {
+        "type": "number",
+        "default": 0.25
+      },
+      "repulsionStrength": {
+        "type": "number",
+        "default": 1.0
+      },
+      "springStiffness": {
+        "type": "number",
+        "default": 0.4
+      },
+      "boundaryGrowthPush": {
+        "type": "number",
+        "default": 0.2
+      },
+      "dt": {
+        "type": "number",
+        "default": 0.04
+      },
+      "maxVertices": {
+        "type": "number",
+        "default": 30000
+      },
+      "maxVelocity": {
+        "type": "number",
+        "default": 0.5
+      },
+      "initialJitter": {
+        "type": "number",
+        "default": 0.02
+      }
+    },
+    "code": "// --- 1. INPUT HANDLING & ORIENTATION FIX ---\n    let inputGeometry = params.inputGeometry || params.geometry;\n    if (inputGeometry && inputGeometry.isObject3D && inputGeometry.geometry) {\n        inputGeometry = inputGeometry.geometry;\n    }\n    if (!inputGeometry || !inputGeometry.isBufferGeometry) {\n        console.error(\"differentialSurfaceGrowth3D: Invalid geometry.\");\n        return new THREE.BufferGeometry();\n    }\n\n    // CLONE & ROTATE: Ensure we start flat on the XZ plane (Horizontal)\n    // Three.js CircleGeometry defaults to XY plane (facing Z). \n    // We rotate it -90 deg around X to make it lie flat on XZ.\n    const workingGeometry = inputGeometry.clone();\n    workingGeometry.rotateX(-Math.PI / 2); \n    // Now Y is \"Up\".\n\n    // --- 2. CONFIGURATION ---\n    const {\n        iterations = 50,\n        maxEdgeLength = 0.2,\n        minEdgeLength = 0.05,\n        repulsionRadius = 0.25,\n        repulsionStrength = 1.0,\n        springStiffness = 0.4,\n        boundaryGrowthPush = 0.2,\n        dt = 0.04,\n        maxVertices = 30000,\n        maxVelocity = 0.5,\n        initialJitter = 0.02\n    } = params;\n\n    // --- 3. DATA INITIALIZATION ---\n    let nodes = [];\n    let faces = [];\n    \n    const posAttr = workingGeometry.attributes.position;\n    const indexAttr = workingGeometry.index;\n\n    // Import Nodes with VERTICAL JITTER\n    for (let i = 0; i < posAttr.count; i++) {\n        const x = posAttr.getX(i);\n        const y = posAttr.getY(i);\n        const z = posAttr.getZ(i);\n        \n        // CRITICAL FIX: Apply noise primarily to Y (Up/Down) to force buckling\n        // The initial circle is on XZ plane (y=0). \n        // We disturb Y to break the 2D symmetry immediately.\n        const jitterY = (Math.random() - 0.5) * initialJitter * 2.0; \n        \n        nodes.push({\n            x: x,\n            y: y + jitterY, \n            z: z, \n            vx: 0, vy: 0, vz: 0, \n            fx: 0, fy: 0, fz: 0,\n            isBoundary: false\n        });\n    }\n\n    // Import Faces\n    if (indexAttr) {\n        for (let i = 0; i < indexAttr.count; i += 3) {\n            faces.push([indexAttr.getX(i), indexAttr.getY(i), indexAttr.getZ(i)]);\n        }\n    } else {\n        for (let i = 0; i < posAttr.count; i += 3) {\n            faces.push([i, i + 1, i + 2]);\n        }\n    }\n\n    // Spatial Hash Class (Same as before)\n    class SpatialHash {\n        constructor(cellSize) {\n            this.cellSize = cellSize;\n            this.cells = new Map();\n        }\n        key(x, y, z) {\n            return `${Math.floor(x/this.cellSize)},${Math.floor(y/this.cellSize)},${Math.floor(z/this.cellSize)}`;\n        }\n        add(idx, x, y, z) {\n            const k = this.key(x, y, z);\n            if (!this.cells.has(k)) this.cells.set(k, []);\n            this.cells.get(k).push(idx);\n        }\n        query(x, y, z) {\n            const k = this.key(x, y, z);\n            const [cx, cy, cz] = k.split(',').map(Number);\n            const neighbors = [];\n            for(let i=cx-1; i<=cx+1; i++) {\n                for(let j=cy-1; j<=cy+1; j++) {\n                    for(let l=cz-1; l<=cz+1; l++) {\n                        const cell = this.cells.get(`${i},${j},${l}`);\n                        if(cell) neighbors.push(...cell);\n                    }\n                }\n            }\n            return neighbors;\n        }\n    }\n\n    // --- SIMULATION LOOP ---\n    console.time(\"Differential Growth\");\n    \n    for (let iter = 0; iter < iterations; iter++) {\n        if (nodes.length >= maxVertices) break;\n\n        // A. TOPOLOGY (Same as before)\n        const edgeMap = new Map(); \n        nodes.forEach(n => n.isBoundary = false);\n        faces.forEach((f, fIdx) => {\n            const edges = [[f[0], f[1]], [f[1], f[2]], [f[2], f[0]]];\n            edges.forEach(([a, b]) => {\n                const key = a < b ? `${a},${b}` : `${b},${a}`;\n                if (!edgeMap.has(key)) edgeMap.set(key, []);\n                edgeMap.get(key).push(fIdx);\n            });\n        });\n        for (const [key, fIndices] of edgeMap) {\n            if (fIndices.length === 1) {\n                const [u, v] = key.split(',').map(Number);\n                nodes[u].isBoundary = true;\n                nodes[v].isBoundary = true;\n            }\n        }\n\n        // B. PHYSICS\n        const spatialHash = new SpatialHash(repulsionRadius);\n        nodes.forEach((n, i) => {\n            n.fx = 0; n.fy = 0; n.fz = 0;\n            spatialHash.add(i, n.x, n.y, n.z);\n        });\n\n        // 1. Repulsion\n        for (let i = 0; i < nodes.length; i++) {\n            const n = nodes[i];\n            const neighbors = spatialHash.query(n.x, n.y, n.z);\n            for (const otherIdx of neighbors) {\n                if (otherIdx === i) continue;\n                const other = nodes[otherIdx];\n                const dx = n.x - other.x, dy = n.y - other.y, dz = n.z - other.z;\n                const d2 = dx*dx + dy*dy + dz*dz;\n                if (d2 < repulsionRadius*repulsionRadius && d2 > 1e-6) {\n                    const d = Math.sqrt(d2);\n                    const f = (repulsionRadius - d) / d * repulsionStrength;\n                    n.fx += dx * f; n.fy += dy * f; n.fz += dz * f;\n                }\n            }\n        }\n\n        // 2. Springs & Boundary Push\n        for (const [key, fIndices] of edgeMap) {\n            const [u, v] = key.split(',').map(Number);\n            const n1 = nodes[u], n2 = nodes[v];\n            const dx = n2.x - n1.x, dy = n2.y - n1.y, dz = n2.z - n1.z;\n            const d = Math.sqrt(dx*dx + dy*dy + dz*dz);\n            \n            if (d > 1e-6) {\n                const isBoundary = (fIndices.length === 1);\n                const targetLen = isBoundary ? maxEdgeLength * 1.1 : minEdgeLength;\n                const force = (d - targetLen) * springStiffness;\n                \n                const fx = (dx/d) * force, fy = (dy/d) * force, fz = (dz/d) * force;\n                n1.fx += fx; n1.fy += fy; n1.fz += fz;\n                n2.fx -= fx; n2.fy -= fy; n2.fz -= fz;\n\n                if (isBoundary && boundaryGrowthPush > 0) {\n                    const push = boundaryGrowthPush;\n                    n2.fx += (dx/d)*push; n2.fy += (dy/d)*push; n2.fz += (dz/d)*push;\n                    n1.fx -= (dx/d)*push; n1.fy -= (dy/d)*push; n1.fz -= (dz/d)*push;\n                }\n            }\n        }\n\n        // 3. Integrate\n        const maxVelSq = maxVelocity * maxVelocity;\n        for (let i = 0; i < nodes.length; i++) {\n            const n = nodes[i];\n            n.vx = (n.vx + n.fx * dt) * 0.9;\n            n.vy = (n.vy + n.fy * dt) * 0.9;\n            n.vz = (n.vz + n.fz * dt) * 0.9;\n            \n            const vSq = n.vx*n.vx + n.vy*n.vy + n.vz*n.vz;\n            if (vSq > maxVelSq) {\n                const scale = maxVelocity / Math.sqrt(vSq);\n                n.vx *= scale; n.vy *= scale; n.vz *= scale;\n            }\n            n.x += n.vx; n.y += n.vy; n.z += n.vz;\n        }\n\n        // C. GROWTH (With Buckling Offset)\n        const edgesToSplit = [];\n        for (const [key, fIndices] of edgeMap) {\n            const [u, v] = key.split(',').map(Number);\n            const n1 = nodes[u], n2 = nodes[v];\n            const d2 = (n1.x - n2.x)**2 + (n1.y - n2.y)**2 + (n1.z - n2.z)**2;\n            if (d2 > maxEdgeLength * maxEdgeLength) {\n                edgesToSplit.push({ u, v, fIndices, isBoundary: fIndices.length===1 });\n            }\n        }\n        edgesToSplit.sort((a,b) => (b.isBoundary ? 1 : 0) - (a.isBoundary ? 1 : 0));\n\n        const processedFaces = new Set();\n        const facesToRemove = new Set();\n        const facesToAdd = [];\n        let splitsDone = 0;\n        const MAX_SPLITS = 200;\n\n        for (const split of edgesToSplit) {\n            if (splitsDone >= MAX_SPLITS) break;\n            if (split.fIndices.some(fIdx => processedFaces.has(fIdx))) continue;\n\n            const { u, v, fIndices } = split;\n            const n1 = nodes[u], n2 = nodes[v];\n            \n            // BUCKLING LOGIC:\n            // Instead of perfectly centering the new node, move it slightly \"Up\" or \"Down\" (Y axis)\n            // or along the surface normal (more expensive to compute).\n            // Simple Y-randomness works well for this \"Plate to Flower\" case.\n            const buckle = (Math.random() - 0.5) * 0.05; // Small offset\n            \n            nodes.push({\n                x: (n1.x + n2.x) * 0.5,\n                y: (n1.y + n2.y) * 0.5 + buckle, // Add offset here!\n                z: (n1.z + n2.z) * 0.5,\n                vx: (n1.vx+n2.vx)*0.5, vy: (n1.vy+n2.vy)*0.5, vz: (n1.vz+n2.vz)*0.5,\n                fx:0, fy:0, fz:0,\n                isBoundary: n1.isBoundary && n2.isBoundary\n            });\n            const midIdx = nodes.length - 1;\n\n            fIndices.forEach(fIdx => {\n                processedFaces.add(fIdx);\n                facesToRemove.add(fIdx);\n                const oldFace = faces[fIdx];\n                const t1 = [...oldFace]; t1[t1.indexOf(v)] = midIdx;\n                const t2 = [...oldFace]; t2[t2.indexOf(u)] = midIdx;\n                facesToAdd.push(t1, t2);\n            });\n            splitsDone++;\n        }\n\n        if (facesToAdd.length > 0) {\n            const nextFaces = [];\n            for(let i=0; i<faces.length; i++) {\n                if(!facesToRemove.has(i)) nextFaces.push(faces[i]);\n            }\n            faces = nextFaces.concat(facesToAdd);\n        }\n    }\n    \n    console.timeEnd(\"Differential Growth\");\n\n    // --- EXPORT ---\n    const newGeo = new THREE.BufferGeometry();\n    const positions = new Float32Array(nodes.length * 3);\n    for (let i = 0; i < nodes.length; i++) {\n        positions[i*3] = nodes[i].x;\n        positions[i*3+1] = nodes[i].y;\n        positions[i*3+2] = nodes[i].z;\n    }\n\n    const indices = [];\n    faces.forEach(f => indices.push(...f));\n\n    newGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));\n    newGeo.setIndex(indices);\n    newGeo.computeVertexNormals();\n    newGeo.computeBoundingSphere();\n\n    return newGeo;"
+  },
+  {
+    "id": "buckleGeometry",
+    "name": "buckleGeometry",
+    "description": "Forces mesh to fold and ruffle by expanding area under constraints.",
+    "category": "Deformation",
+    "paramsSchema": {},
+    "code": "let {\n        geometry,\n        iterations = 50,\n        expansion = 1.01,        // Target edge length multiplier (1.01 = 1% growth)\n        constraints = 'boundary', // 'boundary' (lock edges), 'center' (lock center), 'none'\n        noiseAmount = 0.1,       // Initial perturbation\n        smoothness = 0.5,        // Laplacian smoothing strength\n        dt = 0.2                 // Time step\n    } = params;\n\n    if (!geometry || !geometry.isBufferGeometry) return new THREE.BufferGeometry();\n\n    // Clone geometry to avoid mutating the original source if cached\n    const geo = geometry.clone();\n    const posAttr = geo.attributes.position;\n    const count = posAttr.count;\n\n    // 1. Build Adjacency (Neighbors)\n    // We need this to run physics\n    const neighbors = Array.from({length: count}, () => []);\n    const edges = [];\n    \n    // Read edges from index or implicit\n    const addEdge = (a, b) => {\n        neighbors[a].push(b);\n        neighbors[b].push(a);\n        edges.push([a, b]); // Store unique edge for length constraint\n    };\n\n    if (geo.index) {\n        const idx = geo.index;\n        for (let i = 0; i < idx.count; i += 3) {\n            const a = idx.getX(i), b = idx.getY(i), c = idx.getZ(i);\n            addEdge(a, b); addEdge(b, c); addEdge(c, a);\n        }\n    } else {\n        for (let i = 0; i < count; i += 3) {\n            addEdge(i, i+1); addEdge(i+1, i+2); addEdge(i+2, i);\n        }\n    }\n\n    // 2. Initialize Physics State\n    const nodes = [];\n    for (let i = 0; i < count; i++) {\n        const x = posAttr.getX(i);\n        const y = posAttr.getY(i);\n        const z = posAttr.getZ(i);\n        \n        // Detect Constraints\n        let isFixed = false;\n        const dist = Math.sqrt(x*x + y*y + z*z);\n        \n        if (constraints === 'boundary') {\n            // Naive boundary check: nodes with fewer neighbors often boundary\n            // Or check distance from center for Circle/Plane\n            if (dist > 4.8) isFixed = true; // Assuming Radius 5 circle\n        } else if (constraints === 'center') {\n            if (dist < 1.0) isFixed = true;\n        }\n\n        nodes.push({\n            x, y, \n            // Add noise to Z to break symmetry and allow buckling\n            z: z + (Math.random() - 0.5) * noiseAmount, \n            vx: 0, vy: 0, vz: 0,\n            isFixed\n        });\n    }\n\n    // Pre-calculate Rest Lengths (The \"Target\" Lengths)\n    // We set the target length to be LARGER than current length to force buckling\n    const edgeConstraints = edges.map(([a, b]) => {\n        const na = nodes[a], nb = nodes[b];\n        const curLen = Math.sqrt((na.x-nb.x)**2 + (na.y-nb.y)**2 + (na.z-nb.z)**2);\n        return { a, b, target: curLen * expansion };\n    });\n\n    console.log(`Starting Buckle Sim: ${count} verts, ${iterations} steps`);\n\n    // 3. Simulation Loop\n    for (let iter = 0; iter < iterations; iter++) {\n        \n        // A. Expansion Constraints (The \"Growth\")\n        for (const {a, b, target} of edgeConstraints) {\n            const na = nodes[a];\n            const nb = nodes[b];\n            \n            const dx = na.x - nb.x;\n            const dy = na.y - nb.y;\n            const dz = na.z - nb.z;\n            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);\n            \n            if (dist === 0) continue;\n\n            // Hooke's Law / Constraint Projection\n            // We want dist to become target.\n            // Force pushes them apart if dist < target\n            const diff = (dist - target) / dist; // Normalized error\n            \n            // Apply half to A, half to B\n            const moveX = dx * diff * 0.5;\n            const moveY = dy * diff * 0.5;\n            const moveZ = dz * diff * 0.5;\n\n            if (!na.isFixed) { na.x -= moveX; na.y -= moveY; na.z -= moveZ; }\n            if (!nb.isFixed) { nb.x += moveX; nb.y += moveY; nb.z += moveZ; }\n        }\n\n        // B. Smoothing (The \"Fabric\" Feel)\n        // Without this, it looks like noise. With this, it looks like cloth.\n        const tempNodes = nodes.map(n => ({...n})); // Snapshot positions\n        \n        for (let i = 0; i < count; i++) {\n            const n = nodes[i];\n            if (n.isFixed) continue;\n\n            let avgX=0, avgY=0, avgZ=0, c=0;\n            for (const neighborIdx of neighbors[i]) {\n                const nb = tempNodes[neighborIdx];\n                avgX += nb.x;\n                avgY += nb.y;\n                avgZ += nb.z;\n                c++;\n            }\n            \n            if (c > 0) {\n                // Move towards average\n                n.x += (avgX/c - n.x) * smoothness;\n                n.y += (avgY/c - n.y) * smoothness;\n                n.z += (avgZ/c - n.z) * smoothness;\n            }\n        }\n    }\n\n    // 4. Update Geometry\n    for (let i = 0; i < count; i++) {\n        posAttr.setXYZ(i, nodes[i].x, nodes[i].y, nodes[i].z);\n    }\n    \n    posAttr.needsUpdate = true;\n    geo.computeVertexNormals();\n    \n    return geo;"
+  },
+  {
+    "id": "meshFromVoxelGrid",
+    "name": "meshFromVoxelGrid",
+    "description": "Converts a voxel grid to polygonal mesh.",
+    "category": "Distribution",
+    "paramsSchema": {},
+    "code": "let { grid, voxelSize = 1, size = null } = params;\n\n    // --- 1. STANDARDIZE INPUT (Universal Accessor) ---\n    let accessFn, sizeX, sizeY, sizeZ;\n\n    // DEBUG: Identify what we actually got\n    // console.log(\"meshFromVoxelGrid input:\", grid?.constructor?.name || typeof grid);\n\n    // CASE A: Wrapped Object (userData pattern)\n    if (grid && grid.userData) {\n        const data = grid.userData;\n        // If it contains a grid, extract it and recurse/continue\n        if (data.grid) {\n            grid = data.grid;\n            if (data.size) size = data.size;\n            if (data.voxelSize) voxelSize = data.voxelSize;\n        }\n    }\n\n    // CASE B: Raw Flat Array (Float32Array, Uint8Array, or flat Array)\n    // This often happens if the executor auto-unwraps the 'grid' property\n    if (grid instanceof Float32Array || grid instanceof Uint8Array || (Array.isArray(grid) && !Array.isArray(grid[0]))) {\n        const len = grid.length;\n        \n        // 1. Use explicit size if provided\n        if (size) {\n            sizeX = Array.isArray(size) ? size[0] : size;\n            sizeY = Array.isArray(size) ? size[1] : size;\n            sizeZ = Array.isArray(size) ? size[2] : size;\n        } \n        // 2. Auto-infer cubic size\n        else {\n            const cubicRoot = Math.round(Math.pow(len, 1/3));\n            if (Math.abs(cubicRoot * cubicRoot * cubicRoot - len) < 1) {\n                sizeX = sizeY = sizeZ = cubicRoot;\n                // console.log(`meshFromVoxelGrid: Inferred cubic size ${sizeX}`);\n            } else {\n                console.warn(`meshFromVoxelGrid: Array length ${len} is not cubic. Result may be skewed.`);\n                sizeX = sizeY = sizeZ = Math.floor(Math.pow(len, 1/3));\n            }\n        }\n\n        // Accessor: Flat index logic\n        // Check > 0.1 to filter out near-zero noise\n        accessFn = (x, y, z) => grid[x + y*sizeX + z*sizeX*sizeY] > 0.1; \n    }\n\n    // CASE C: Standard Nested 3D Array ([[[]]])\n    else if (Array.isArray(grid) && Array.isArray(grid[0])) {\n        // Use resolver or manual check\n        const resolved = resolveVoxelGrid(grid);\n        if (resolved) {\n            sizeX = resolved.length;\n            sizeY = resolved[0]?.length || 0;\n            sizeZ = resolved[0]?.[0]?.length || 0;\n            accessFn = (x, y, z) => resolved[x][y][z];\n        }\n    }\n\n    if (!accessFn) {\n        console.warn(\"meshFromVoxelGrid: Invalid input format. Returning empty geometry.\");\n        return new THREE.BufferGeometry();\n    }\n\n    // --- 2. FAST GEOMETRY GENERATION (Constructive) ---\n    const vertices = [];\n    const normals = [];\n    const indices = [];\n    let vertexCount = 0;\n\n    const hs = voxelSize / 2; // Half size\n    \n    // Pre-calculated cube data\n    const corners = [\n        [-hs, -hs,  hs], [ hs, -hs,  hs], [ hs,  hs,  hs], [-hs,  hs,  hs], // Front (0,1,2,3)\n        [-hs, -hs, -hs], [-hs,  hs, -hs], [ hs,  hs, -hs], [ hs, -hs, -hs]  // Back  (4,5,6,7)\n    ];\n\n    // Face definitions: [c1, c2, c3, c4, normal]\n    const faces = [\n        [0, 1, 2, 3, [ 0,  0,  1]], // Front\n        [1, 7, 6, 2, [ 1,  0,  0]], // Right\n        [7, 4, 5, 6, [ 0,  0, -1]], // Back\n        [4, 0, 3, 5, [-1,  0,  0]], // Left\n        [3, 2, 6, 5, [ 0,  1,  0]], // Top\n        [4, 7, 1, 0, [ 0, -1,  0]]  // Bottom\n    ];\n\n    const offsetX = -sizeX * voxelSize / 2;\n    const offsetY = -sizeY * voxelSize / 2;\n    const offsetZ = -sizeZ * voxelSize / 2;\n\n    for (let x = 0; x < sizeX; x++) {\n        for (let y = 0; y < sizeY; y++) {\n            for (let z = 0; z < sizeZ; z++) {\n                \n                if (accessFn(x, y, z)) {\n                    const cx = offsetX + x * voxelSize + hs;\n                    const cy = offsetY + y * voxelSize + hs;\n                    const cz = offsetZ + z * voxelSize + hs;\n\n                    // Neighbor Checks for Culling\n                    // (Boundary checks included in condition)\n                    const neighbors = [\n                        z < sizeZ-1 && accessFn(x,y,z+1), // Front\n                        x < sizeX-1 && accessFn(x+1,y,z), // Right\n                        z > 0       && accessFn(x,y,z-1), // Back\n                        x > 0       && accessFn(x-1,y,z), // Left\n                        y < sizeY-1 && accessFn(x,y+1,z), // Top\n                        y > 0       && accessFn(x,y-1,z)  // Bottom\n                    ];\n\n                    for (let f = 0; f < 6; f++) {\n                        // Cull internal faces\n                        if (neighbors[f]) continue;\n\n                        const [c1, c2, c3, c4, n] = faces[f];\n                        \n                        // Push Vertices\n                        vertices.push(\n                            cx + corners[c1][0], cy + corners[c1][1], cz + corners[c1][2],\n                            cx + corners[c2][0], cy + corners[c2][1], cz + corners[c2][2],\n                            cx + corners[c3][0], cy + corners[c3][1], cz + corners[c3][2],\n                            cx + corners[c4][0], cy + corners[c4][1], cz + corners[c4][2]\n                        );\n\n                        // Push Normals\n                        for(let i=0; i<4; i++) normals.push(n[0], n[1], n[2]);\n\n                        // Push Indices\n                        indices.push(\n                            vertexCount, vertexCount + 1, vertexCount + 2,\n                            vertexCount, vertexCount + 2, vertexCount + 3\n                        );\n\n                        vertexCount += 4;\n                    }\n                }\n            }\n        }\n    }\n\n    const geometry = new THREE.BufferGeometry();\n    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));\n    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));\n    geometry.setIndex(indices);\n\n    return geometry;"
+  },
+  {
+    "id": "pointSetCentroid",
+    "name": "pointSetCentroid",
+    "description": "Computes centroid (center of mass) of a point set.",
+    "category": "Complex Algorithms",
+    "paramsSchema": {},
+    "code": "const { points } = params;\n\n    if (!points || points.length === 0) return new THREE.Vector3();\n\n    const centroid = new THREE.Vector3();\n    for (const p of points) {\n        const vec = Array.isArray(p) ? new THREE.Vector3(...p) : p;\n        centroid.add(vec);\n    }\n\n    centroid.divideScalar(points.length);\n    return centroid;"
+  },
+  {
+    "id": "pointSetBoundingBox",
+    "name": "pointSetBoundingBox",
+    "description": "Computes axis-aligned bounding box of points.",
+    "category": "Basic Geometry",
+    "paramsSchema": {},
+    "code": "}) {\n    const { points } = params;\n\n    if (!points || points.length === 0) return new THREE.Box3();\n\n    const box = new THREE.Box3();\n    for (const p of points) {\n        const vec = Array.isArray(p) ? new THREE.Vector3(...p) : p;\n        box.expandByPoint(vec);\n    }\n\n    return box;"
+  },
+  {
+    "id": "closestPointOnCurve",
+    "name": "closestPointOnCurve",
+    "description": "Finds the closest point on a curve to a given point.",
+    "category": "Curves & Paths",
+    "paramsSchema": {
+      "samples": {
+        "type": "number",
+        "default": 100
+      }
+    },
+    "code": "const { curve, point, samples = 100 } = params;\n\n    if (!curve || !point) return new THREE.Vector3();\n\n    // \u2705 RESOLVER: Handle wrapped curves\n    const resolvedCurve = resolveCurve(curve);\n    if (!resolvedCurve) return new THREE.Vector3();\n\n    const targetPoint = Array.isArray(point) ? new THREE.Vector3(...point) : point;\n    let closestPoint = resolvedCurve.getPoint(0);\n    let minDist = closestPoint.distanceTo(targetPoint);\n\n    for (let i = 1; i <= samples; i++) {\n        const t = i / samples;\n        const p = resolvedCurve.getPoint(t);\n        const dist = p.distanceTo(targetPoint);\n\n        if (dist < minDist) {\n            minDist = dist;\n            closestPoint = p;\n        }\n    }\n\n    return closestPoint;"
+  },
+  {
+    "id": "signedDistanceToMesh",
+    "name": "signedDistanceToMesh",
+    "description": "Computes signed distance from a point to mesh surface.",
+    "category": "Complex Algorithms",
+    "paramsSchema": {},
+    "code": "}) {\n    const { geometry, point } = params;\n\n    if (!geometry || !point) return 0;\n\n    const targetPoint = Array.isArray(point) ? new THREE.Vector3(...point) : point;\n    const raycaster = new THREE.Raycaster(targetPoint, new THREE.Vector3(1, 0, 0));\n    const tempMesh = new THREE.Mesh(geometry);\n    const intersects = raycaster.intersectObject(tempMesh);\n\n    if (intersects.length === 0) return Infinity;\n\n    const closestDist = intersects[0].distance;\n    return intersects.length % 2 === 0 ? closestDist : -closestDist;"
+  },
+  {
+    "id": "measureVolume",
+    "name": "measureVolume",
+    "description": "Calculates volume of a closed mesh.",
+    "category": "Complex Algorithms",
+    "paramsSchema": {},
+    "code": "const { geometry } = params;\n\n    if (!geometry) return 0;\n\n    let volume = 0;\n    const positions = geometry.attributes.position;\n    const index = geometry.index;\n\n    if (index) {\n        for (let i = 0; i < index.count; i += 3) {\n            const a = index.getX(i), b = index.getX(i+1), c = index.getX(i+2);\n            const v1 = new THREE.Vector3(positions.getX(a), positions.getY(a), positions.getZ(a));\n            const v2 = new THREE.Vector3(positions.getX(b), positions.getY(b), positions.getZ(b));\n            const v3 = new THREE.Vector3(positions.getX(c), positions.getY(c), positions.getZ(c));\n            volume += v1.dot(new THREE.Vector3().crossVectors(v2, v3)) / 6;\n        }\n    }\n\n    return Math.abs(volume);"
+  },
+  {
+    "id": "measureArea",
+    "name": "measureArea",
+    "description": "Calculates surface area of geometry.",
+    "category": "Complex Algorithms",
+    "paramsSchema": {},
+    "code": "const { geometry } = params;\n\n    if (!geometry) return 0;\n\n    let area = 0;\n    const positions = geometry.attributes.position;\n    const index = geometry.index;\n\n    if (index) {\n        for (let i = 0; i < index.count; i += 3) {\n            const a = index.getX(i), b = index.getX(i+1), c = index.getX(i+2);\n            const v1 = new THREE.Vector3(positions.getX(a), positions.getY(a), positions.getZ(a));\n            const v2 = new THREE.Vector3(positions.getX(b), positions.getY(b), positions.getZ(b));\n            const v3 = new THREE.Vector3(positions.getX(c), positions.getY(c), positions.getZ(c));\n            const edge1 = v2.clone().sub(v1);\n            const edge2 = v3.clone().sub(v1);\n            area += edge1.cross(edge2).length() / 2;\n        }\n    }\n\n    return area;"
+  },
+  {
+    "id": "subdivisionSurface",
+    "name": "subdivisionSurface",
+    "description": "Subdivides mesh using Catmull-Clark algorithm for smoothing.",
+    "category": "Complex Algorithms",
+    "paramsSchema": {
+      "geometry": {
+        "type": "string",
+        "default": "new"
+      }
+    },
+    "code": "console.warn('subdivisionSurface: Requires SubdivisionModifier from three/examples');\n    return params.geometry || new THREE.BufferGeometry();"
+  },
+  {
+    "id": "voronoiDivision",
+    "name": "voronoiDivision",
+    "description": "Creates Voronoi diagram from a set of seed points.",
+    "category": "Basic Geometry",
+    "paramsSchema": {},
+    "code": "}) {\n    console.warn('voronoiDivision: Complex algorithm - requires external library');\n    return new THREE.BufferGeometry();"
+  },
+  {
+    "id": "convexHullGeometry",
+    "name": "convexHullGeometry",
+    "description": "Computes convex hull of a point set.",
+    "category": "Advanced Geometry",
+    "paramsSchema": {},
+    "code": "return createConvexHull(params);"
+  }
+]
