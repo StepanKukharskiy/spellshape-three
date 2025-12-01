@@ -625,7 +625,7 @@ export function deformByNoise(params = {}) {
         const x = positions.getX(i);
         const y = positions.getY(i);
         const z = positions.getZ(i);
-        const noiseVal = noise.noise(x * frequency, y * frequency, z * frequency);
+        const noiseVal = noise.simplex3(x * frequency, y * frequency, z * frequency);
         const offset = axisVec.clone().multiplyScalar(noiseVal * amount);
 
         positions.setXYZ(i, x + offset.x, y + offset.y, z + offset.z);
