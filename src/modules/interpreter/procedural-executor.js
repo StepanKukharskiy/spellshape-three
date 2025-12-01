@@ -1,10 +1,10 @@
 // ============================================================================
-// procedural-executor-7.js - UPDATED WITH DYNAMIC HELPER SUPPORT
+// procedural-executor-8.js - STABLE & ROBUST
 // ============================================================================
-// Key changes:
-// - Added support for "definitions" block in schema
-// - Added dynamic helper registration and compilation (new Function)
-// - Updated helper lookup to check dynamic helpers first
+// Key Updates:
+// - Auto-parses schema if passed as a string
+// - Guard clauses for all Object.entries() calls (prevents crash on null/undefined)
+// - robust error handling for dynamic helpers
 // ============================================================================
 
 import * as THREE from 'three';
@@ -15,11 +15,32 @@ export class ProceduralExecutor {
         this.scene = scene;
         this.geometries = new Map();
         this.materials = new Map();
-        this.dynamicHelpers = new Map(); // ✅ NEW: Store AI-generated helpers
+        this.dynamicHelpers = new Map();
         this.context = {};
     }
 
+    /**
+     * Main entry point for execution
+     * @param {Object|String} schema - The JSON schema or stringified JSON
+     * @param {Object} parameters - Runtime parameters
+     */
     execute(schema, parameters = {}) {
+        // 1. Safety: Handle String Input automatically
+        if (typeof schema === 'string') {
+            try {
+                schema = JSON.parse(schema);
+            } catch (e) {
+                console.error("❌ ProceduralExecutor: Invalid JSON string provided", e);
+                return new THREE.Group();
+            }
+        }
+
+        // 2. Safety: Handle Null/Undefined Input
+        if (!schema || typeof schema !== 'object') {
+            console.warn("❌ ProceduralExecutor: Schema must be an object, got", typeof schema);
+            return new THREE.Group();
+        }
+
         console.log('ProceduralExecutor.execute', {
             version: schema.version,
             type: schema.type,
@@ -29,15 +50,15 @@ export class ProceduralExecutor {
         // Clear previous state
         this.geometries.clear();
         this.materials.clear();
-        this.dynamicHelpers.clear(); // ✅ NEW: Reset dynamic helpers
+        this.dynamicHelpers.clear();
         this.context = {};
 
-        // Initialize materials
+        // Initialize materials (Safe iteration)
         if (schema.materials) {
             this.initializeMaterials(schema.materials);
         }
         
-        // ✅ NEW: Register Dynamic Helpers (Definitions)
+        // Register Dynamic Helpers (Safe iteration)
         if (schema.definitions) {
             this.registerDynamicHelpers(schema.definitions);
         }
@@ -51,23 +72,17 @@ export class ProceduralExecutor {
         }
     }
 
-    // ✅ NEW: Register Dynamic Helpers
     registerDynamicHelpers(definitions) {
+        if (!definitions) return;
         console.log('Registering dynamic helpers:', Object.keys(definitions));
         
-        for (const [name, def] of Object.entries(definitions)) {
+        // Safety: ensure definitions is iterable
+        for (const [name, def] of Object.entries(definitions || {})) {
             try {
-                // Safety: Basic check to prevent trivial injection (though 'new Function' is inherently risky)
-                // In production, you might want to run this in a Web Worker or secure iframe.
-                // The signature is always: (params) => { ... return result; }
-                
-                // We wrap the code to ensure it returns something if the user just wrote expressions
-                // But usually, we expect the AI to write a function body.
-                
-                // Common AI pattern: "const x = ...; return x;"
                 const body = def.code || def; // Support object or direct string
-                
-                // Create the function. We inject 'THREE' and 'helpers' into scope if needed
+                if (!body || typeof body !== 'string') continue;
+
+                // Create the function. We inject 'THREE' and 'helpers' into scope
                 const func = new Function('params', 'THREE', 'helpers', body);
                 
                 // Wrap it to provide the scope
@@ -89,14 +104,15 @@ export class ProceduralExecutor {
 
         // 1. Merge Global Parameters + UI Inputs
         if (schema.globalParameters) {
-            for (const [key, param] of Object.entries(schema.globalParameters)) {
+            // Safety: Use || {} to prevent Object.entries from crashing
+            for (const [key, param] of Object.entries(schema.globalParameters || {})) {
                 this.context[key] = parameters[key] ?? param.value ?? param;
             }
         }
 
         // 2. Merge Internal Context
         if (schema.context) {
-            for (const [key, value] of Object.entries(schema.context)) {
+            for (const [key, value] of Object.entries(schema.context || {})) {
                 if (this.context[key] === undefined) {
                     this.context[key] = value;
                 }
@@ -107,7 +123,8 @@ export class ProceduralExecutor {
         group.name = schema.intent || 'Generated';
 
         // 3. Execute actions sequentially
-        for (const action of schema.actions || []) {
+        const actions = Array.isArray(schema.actions) ? schema.actions : [];
+        for (const action of actions) {
             this.executeAction(action, group);
         }
 
@@ -116,6 +133,7 @@ export class ProceduralExecutor {
     }
 
     executeAction(action, group) {
+        if (!action) return;
         const { thought, do: helperName, params, transform, material, as: storeName, visible } = action;
 
         if (thought) console.log('📌', thought);
@@ -128,11 +146,8 @@ export class ProceduralExecutor {
             return this.executeClone(action, group);
         }
 
-        // ========== HELPER LOOKUP (UPDATED) ==========
-        // 1. Check Dynamic Helpers (AI Created)
-        // 2. Check Built-in Helpers
-        
-        let helperFn = this.dynamicHelpers.get(helperName); // ✅ NEW: Check dynamic first
+        // ========== HELPER LOOKUP ==========
+        let helperFn = this.dynamicHelpers.get(helperName);
         
         if (!helperFn) {
              helperFn = helpers[helperName];
@@ -143,92 +158,66 @@ export class ProceduralExecutor {
         }
 
         if (!helperFn) {
-            console.warn(`❌ Helper not found: ${helperName}`, {
-                availableFunctions: [
-                    ...this.dynamicHelpers.keys(),
-                    ...Object.keys(helpers).filter(k => typeof helpers[k] === 'function')
-                ].slice(0, 10).join(', ')
-            });
+            console.warn(`❌ Helper not found: ${helperName}`);
             return;
         }
 
         // ========== PARAMETER EVALUATION ==========
         const evalParams = this.evaluateParamsCarefully(params);
-        console.log(`Calling ${helperName}:`, { rawParams: params, evalParams });
 
         // Execute helper
         let result;
         try {
             result = helperFn(evalParams);
-            console.log(`✅ ${helperName}:`, {
-                success: !!result,
-                resultType: result?.type || result?.userData?.type || typeof result
-            });
         } catch (error) {
             console.error(`❌ Error executing ${helperName}:`, error);
-            console.error('Stack:', error.stack);
             return;
         }
 
-        if (!result) {
-            console.warn(`⚠️ ${helperName} returned no result`);
-            return;
-        }
+        if (!result) return;
 
-        // Store result (could be geometry, curve, field, grid, or wrapped object)
+        // Store result
         if (storeName) {
             this.geometries.set(storeName, result);
-            console.log(`📦 Stored: ${storeName}`, result.userData?.type || 'geometry');
         }
 
-        // Apply transform if provided
+        // Apply transform
         if (transform && (result.isBufferGeometry || result.isMesh || result.isLine)) {
             this.applyTransform(result, transform);
         }
 
-        // ========== HANDLE DIFFERENT RESULT TYPES ==========
-        // Is it a renderable object? (Line, Mesh, Group)
-        if (result.isLine || result.isMesh || result.isGroup) {
-            result.visible = visible !== false;
-            group.add(result);
-            return;
-        }
-
-        // Is it a bare geometry? Wrap in mesh
-        if (result.isBufferGeometry) {
-            const mat = this.getMaterial(material || 'default');
-            const mesh = new THREE.Mesh(result, mat);
-            mesh.visible = visible !== false;
-            group.add(mesh);
-            return;
-        }
-
-        // ✅ Handle array of geometries (from createFlowPipes, distributions, etc)
+        // ========== HANDLE RESULT TYPES ==========
+        
+        // 1. Array of geometries/meshes
         if (Array.isArray(result)) {
-            console.log(`📦 Processing array of ${result.length} geometries`);
             const mat = this.getMaterial(material || 'default');
-
             for (const geom of result) {
-                if (geom.isBufferGeometry) {
-                    const mesh = new THREE.Mesh(geom, mat);
-                    mesh.visible = visible !== false;
-                    group.add(mesh);
-                } else if (geom.isMesh || geom.isGroup || geom.isLine) {
-                    geom.visible = visible !== false;
-                    group.add(geom);
-                }
+                this.addToGroup(geom, group, mat, visible);
             }
             return;
         }
 
-        // Is it a wrapped data object? (field, grid, points, etc.)
-        if (result.userData) {
-            const type = result.userData.type;
-            console.log(`✓ Stored non-visual data: ${type}`);
-            return;
-        }
+        // 2. Single Object
+        const mat = this.getMaterial(material || 'default');
+        this.addToGroup(result, group, mat, visible);
+    }
 
-        console.warn(`⚠️ Unknown result type from ${helperName}:`, result);
+    addToGroup(object, group, material, visible) {
+        if (!object) return;
+        const isVisible = visible !== false;
+
+        if (object.isMesh || object.isLine || object.isPoints || object.isGroup) {
+            object.visible = isVisible;
+            // Only override material if it's not a Group (unless you want to override children)
+            if (material && !object.isGroup && !object.material) { 
+                object.material = material;
+            }
+            group.add(object);
+        } else if (object.isBufferGeometry) {
+            const mesh = new THREE.Mesh(object, material);
+            mesh.visible = isVisible;
+            group.add(mesh);
+        }
     }
 
     // ========== PARAMETER EVALUATION ==========
@@ -236,51 +225,38 @@ export class ProceduralExecutor {
         if (!params) return {};
         const evaluated = {};
 
-        for (const [key, value] of Object.entries(params)) {
+        // Safety: params might be null if passed recursively incorrectly, though the check above handles it
+        for (const [key, value] of Object.entries(params || {})) {
             if (Array.isArray(value)) {
-                evaluated[key] = value.map(item => {
-                    if (typeof item === 'number') return item;
-                    if (Array.isArray(item)) return item;
-                    if (typeof item === 'string' && this.geometries.has(item)) {
-                        return this.geometries.get(item);
-                    }
-                    if (typeof item === 'string' && (item.includes('ctx.') || item.includes('Math'))) {
-                        return this.evaluateExpression(item);
-                    }
-                    return item;
-                });
+                evaluated[key] = value.map(item => this.evaluateValue(item));
             }
             else if (typeof value === 'object' && value !== null) {
                 evaluated[key] = this.evaluateParamsCarefully(value);
             }
-            else if (typeof value === 'string') {
-                // ✅ Check if it references a stored wrapped object
-                if (this.geometries.has(value)) {
-                    const stored = this.geometries.get(value);
-                    
-                    // ✅ If it's wrapped (field, grid, curve), pass it unwrapped IF the helper likely expects unwrapped
-                    // BUT: Many helpers (like field helpers) NEED the metadata. 
-                    // Strategy: Pass full object, let helper extract.
-                    // Exception: 'curve' usually wants the THREE.Curve object for PathGeometry
-                    
-                    if (stored.userData?.curve) {
-                        evaluated[key] = stored.userData.curve; 
-                    } else {
-                        evaluated[key] = stored; 
-                    }
-                }
-                else if (value.includes('ctx.') || value.includes('Math.') || value.includes('Math[')) {
-                    evaluated[key] = this.evaluateExpression(value);
-                }
-                else {
-                    evaluated[key] = value;
-                }
-            }
             else {
-                evaluated[key] = value;
+                evaluated[key] = this.evaluateValue(value);
             }
         }
         return evaluated;
+    }
+
+    evaluateValue(item) {
+        if (typeof item === 'number') return item;
+        if (Array.isArray(item)) return item; // Nested arrays
+        
+        if (typeof item === 'string') {
+            // Check stored geometries
+            if (this.geometries.has(item)) {
+                const stored = this.geometries.get(item);
+                if (stored.userData?.curve) return stored.userData.curve;
+                return stored;
+            }
+            // Check context/math expressions
+            if (item.includes('ctx.') || item.includes('Math.') || item.includes('Math[')) {
+                return this.evaluateExpression(item);
+            }
+        }
+        return item;
     }
 
     // ========== LOOP EXECUTION ==========
@@ -289,7 +265,11 @@ export class ProceduralExecutor {
         const fromVal = this.evaluateExpression(from);
         const toVal = this.evaluateExpression(to);
         
-        console.log(`Loop: ${varName} from ${fromVal} to ${toVal}`);
+        // Safety check to prevent infinite/massive loops
+        if (toVal - fromVal > 1000) {
+            console.warn(`Loop limit exceeded: ${fromVal} -> ${toVal}`);
+            return;
+        }
 
         for (let i = fromVal; i < toVal; i++) {
             this.context[varName] = i;
@@ -312,18 +292,13 @@ export class ProceduralExecutor {
             return;
         }
 
-        // Handle wrapped objects vs geometries
-        let geometry = sourceGeometry;
-        if (sourceGeometry.userData) {
-            if (sourceGeometry.userData.type === 'geometry') {
-                geometry = sourceGeometry;
-            } else {
-                console.warn(`Cannot clone non-geometry: ${sourceGeometry.userData.type}`);
-                return;
-            }
+        // Only clone if it's a Three.js object with a clone method
+        if (typeof sourceGeometry.clone !== 'function') {
+            console.warn(`Object ${id} is not cloneable (type: ${sourceGeometry.userData?.type})`);
+            return;
         }
 
-        const clonedGeometry = geometry.clone();
+        const clonedGeometry = sourceGeometry.clone();
         
         if (transform) {
             this.applyTransform(clonedGeometry, transform);
@@ -334,15 +309,30 @@ export class ProceduralExecutor {
             if (typeof material === 'string' && material.includes('?')) {
                 materialName = this.evaluateExpression(material);
             }
-
             const mat = this.getMaterial(materialName);
-            const mesh = new THREE.Mesh(clonedGeometry, mat);
-            group.add(mesh);
+            
+            if (clonedGeometry.isBufferGeometry) {
+                const mesh = new THREE.Mesh(clonedGeometry, mat);
+                group.add(mesh);
+            } else {
+                // If it's already a Mesh, apply material
+                if (clonedGeometry.isMesh) clonedGeometry.material = mat;
+                group.add(clonedGeometry);
+            }
+        } else {
+            // No material override, just add
+            if (clonedGeometry.isBufferGeometry) {
+                group.add(new THREE.Mesh(clonedGeometry, this.getMaterial('default')));
+            } else {
+                group.add(clonedGeometry);
+            }
         }
     }
 
     // ========== TRANSFORM APPLICATION ==========
     applyTransform(obj, transform) {
+        if (!transform) return;
+
         if (transform.position) {
             const pos = this.evaluateArray(transform.position);
             if (obj.isBufferGeometry) {
@@ -376,7 +366,7 @@ export class ProceduralExecutor {
         console.log('Executing v3.2 schema (legacy format)');
 
         if (schema.globalParameters) {
-            for (const [key, param] of Object.entries(schema.globalParameters)) {
+            for (const [key, param] of Object.entries(schema.globalParameters || {})) {
                 this.context[key] = parameters[key] ?? param.value ?? param;
             }
         }
@@ -421,6 +411,8 @@ export class ProceduralExecutor {
 
     // ========== SHARED UTILITIES ==========
     initializeMaterials(materialsConfig) {
+        if (!materialsConfig) return;
+        
         for (const [name, config] of Object.entries(materialsConfig)) {
             const material = new THREE.MeshStandardMaterial({
                 color: new THREE.Color(config.color || '#808080'),
@@ -439,6 +431,7 @@ export class ProceduralExecutor {
     }
 
     evaluateArray(arr) {
+        if (!Array.isArray(arr)) return [0, 0, 0];
         return arr.map(item => {
             if (typeof item === 'string') {
                 return this.evaluateExpression(item);
@@ -466,12 +459,11 @@ export class ProceduralExecutor {
         try {
             const ctx = this.context;
             // Safety: Using 'new Function' is safer than 'eval' but still requires trust
-            // We inject 'Math' to allow Math.sin(), etc.
             const evalFunc = new Function('ctx', 'Math', `return ${processed}`);
             return evalFunc(ctx, Math);
         } catch (error) {
             console.warn(`Failed to evaluate: ${expr}`, error);
-            return expr;
+            return 0; // Return 0 on failure to prevent NaNs
         }
     }
 }
