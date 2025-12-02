@@ -1007,17 +1007,36 @@
                 bodyDiv.className = 'step-body';
                 
                 // Helper select
+                // Helper select - dynamically populate from all registered helpers
                 const helperGroup = document.createElement('div');
                 helperGroup.className = 'field-group';
-                helperGroup.innerHTML = `
-                    <label class="field-label">Helper</label>
-                    <select class="helper-select" onchange="window.updateStepField(${i}, 'do', this.value)">
-                        <option value="">-- Select --</option>
-                        ${['createBox', 'createSphere', 'createCylinder', 'createCone', 'createTorus', 'createPlane', 'createCircle']
-                            .map(h => `<option value="${h}" ${action.do === h ? 'selected' : ''}>${h}</option>`)
-                            .join('')}
-                    </select>
-                `;
+                
+                const helperLabel = document.createElement('label');
+                helperLabel.className = 'field-label';
+                helperLabel.innerText = 'Helper';
+                helperGroup.appendChild(helperLabel);
+                
+                const helperSelect = document.createElement('select');
+                helperSelect.className = 'helper-select';
+                helperSelect.onchange = (e) => window.updateStepField(i, 'do', e.target.value);
+                
+                // Add placeholder
+                const placeholderOpt = document.createElement('option');
+                placeholderOpt.value = '';
+                placeholderOpt.text = '-- Select Helper --';
+                helperSelect.appendChild(placeholderOpt);
+                
+                // Get all registered helpers from executor and sort them
+                const helperNames = Array.from(executor.dynamicHelpers.keys()).sort();
+                helperNames.forEach(helperName => {
+                    const opt = document.createElement('option');
+                    opt.value = helperName;
+                    opt.text = helperName;
+                    if (action.do === helperName) opt.selected = true;
+                    helperSelect.appendChild(opt);
+                });
+                
+                helperGroup.appendChild(helperSelect);
                 bodyDiv.appendChild(helperGroup);
                 
                 // Output name
