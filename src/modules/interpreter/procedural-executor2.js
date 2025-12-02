@@ -122,68 +122,7 @@ class SimplexNoise {
     }
 }
 
-// =========================================================================
-// BUFFER GEOMETRY UTILITIES
-// =========================================================================
-const BufferGeometryUtils = {
-    mergeGeometries: (geometries, useGroups = false) => {
-        const isIndexed = geometries[0] && geometries[0].index !== null;
-        const attributeNames = Object.keys(geometries[0]?.attributes || {});
-        const mergedGeometry = new THREE.BufferGeometry();
-        let offset = 0;
 
-        // Collect all attributes
-        const attributes = {};
-        attributeNames.forEach(name => {
-            attributes[name] = [];
-        });
-
-        geometries.forEach((geo) => {
-            if (!geo || !geo.attributes) return;
-            
-            attributeNames.forEach(name => {
-                const attr = geo.attributes[name];
-                if (attr) {
-                    attributes[name].push(attr.array);
-                }
-            });
-        });
-
-        // Merge attributes
-        attributeNames.forEach(name => {
-            const arrays = attributes[name];
-            if (arrays.length > 0) {
-                const itemSize = geometries[0].attributes[name].itemSize;
-                const merged = new Float32Array(
-                    arrays.reduce((sum, arr) => sum + arr.length, 0)
-                );
-                let position = 0;
-                arrays.forEach(arr => {
-                    merged.set(arr, position);
-                    position += arr.length;
-                });
-                mergedGeometry.setAttribute(name, new THREE.BufferAttribute(merged, itemSize));
-            }
-        });
-
-        // Merge indices if present
-        if (isIndexed) {
-            const indices = [];
-            geometries.forEach((geo) => {
-                if (geo.index) {
-                    const idx = geo.index.array;
-                    for (let i = 0; i < idx.length; i++) {
-                        indices.push(idx[i] + offset);
-                    }
-                    offset += geo.attributes.position.count;
-                }
-            });
-            mergedGeometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
-        }
-
-        return mergedGeometry;
-    }
-};
 
 // =========================================================================
 // RESOLVER FUNCTIONS (Unwrap wrapped data from helpers)
