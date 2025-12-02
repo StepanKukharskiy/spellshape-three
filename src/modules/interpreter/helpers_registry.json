@@ -636,6 +636,11 @@
     "description": "Deforms geometry surface using Simplex noise.",
     "category": "Deformation",
     "paramsSchema": {
+      "geometry": {                
+      "type": "string",
+      "default": "",
+      "description": "Name of the geometry variable to deform"
+    },
       "amount": {
         "type": "number",
         "default": 0.2
