@@ -476,6 +476,7 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
 
         // =========================================================================
         // 1. IMPORT HELPERS REGISTRY (v2)
@@ -485,12 +486,7 @@
         const helpersRegistryResponse = await fetch('./helpers_registry_complete-2.json');
         const helpersRegistry = await helpersRegistryResponse.json();
         console.log(`✅ Loaded ${helpersRegistry.length} helpers from registry`);
-
-        // =========================================================================
-        // 2. PROCEDURAL EXECUTOR CLASS (Inline - if you don't have a separate file)
-        // =========================================================================
-        // If you have procedural-executor-11.js in a separate file, import it instead:
-        import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor.js';
+        
 
         // =========================================================================
         // 3. REGISTER HELPERS FROM JSON REGISTRY
