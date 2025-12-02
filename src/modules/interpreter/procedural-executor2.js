@@ -281,8 +281,9 @@ const Wrappers = {
 // MAIN PROCEDURAL EXECUTOR CLASS
 // =========================================================================
 export class ProceduralExecutor {
-    constructor(scene) {
+    constructor(scene, THREE) {
         this.scene = scene;
+        this.THREE = THREE;  // ← STORE THREE FOR LATER USE
         this.geometries = new Map();
         this.materials = new Map();
         this.dynamicHelpers = new Map();
@@ -318,13 +319,13 @@ export class ProceduralExecutor {
                 schema = JSON.parse(schema);
             } catch (e) {
                 console.error("❌ Invalid JSON string");
-                return new THREE.Group();
+                return new this.THREE.Group();
             }
         }
 
         if (!schema || typeof schema !== 'object') {
             console.warn("❌ Invalid schema object");
-            return new THREE.Group();
+            return new this.THREE.Group();
         }
 
         console.log("🚩 Checkpoint 2: Schema Validated", {
@@ -341,13 +342,13 @@ export class ProceduralExecutor {
         if (schema.materials) {
             this.safeLoop(schema.materials, (name, config) => {
                 if (!config) return;
-                this.materials.set(name, new THREE.MeshStandardMaterial({
-                    color: new THREE.Color(config.color || '#808080'),
+                this.materials.set(name, new this.THREE.MeshStandardMaterial({
+                    color: new this.THREE.Color(config.color || '#808080'),
                     roughness: config.roughness ?? 0.5,
                     metalness: config.metalness ?? 0.0,
                     transparent: config.transparent ?? false,
                     opacity: config.opacity ?? 1.0,
-                    side: THREE.DoubleSide
+                    side: this.THREE.DoubleSide
                 }));
             });
         }
@@ -367,7 +368,7 @@ export class ProceduralExecutor {
             }
         } catch (err) {
             console.error("❌ Crash inside Versioned Execution:", err);
-            return new THREE.Group();
+            return new this.THREE.Group();
         }
     }
 
@@ -400,7 +401,7 @@ export class ProceduralExecutor {
 
                 const boundFunc = (p) => func(
                     p,
-                    THREE,
+                    this.THREE,  // ← USE STORED THREE
                     {},
                     this.noise,
                     this.BufferGeometryUtils,
@@ -439,7 +440,7 @@ export class ProceduralExecutor {
             });
         }
 
-        const group = new THREE.Group();
+        const group = new this.THREE.Group();
         group.name = schema.intent || 'Generated';
 
         if (Array.isArray(schema.actions)) {
@@ -529,7 +530,7 @@ export class ProceduralExecutor {
     }
 
     getMaterial(name) {
-        return this.materials.get(name) || this.materials.get('default') || new THREE.MeshStandardMaterial({ color: 0x808080 });
+        return this.materials.get(name) || this.materials.get('default') || new this.THREE.MeshStandardMaterial({ color: 0x808080 });
     }
 
     addToGroup(obj, group, mat, visible) {
@@ -546,7 +547,7 @@ export class ProceduralExecutor {
             if (mat && obj.isMesh && !obj.material) obj.material = mat;
             group.add(obj);
         } else if (obj.isBufferGeometry) {
-            const m = new THREE.Mesh(obj, mat);
+            const m = new this.THREE.Mesh(obj, mat);
             m.visible = isVis;
             group.add(m);
         }
@@ -597,7 +598,7 @@ export class ProceduralExecutor {
     }
 
     executeV3(schema, parameters) {
-        const group = new THREE.Group();
+        const group = new this.THREE.Group();
         const procedure = schema.procedures?.[0];
         if (procedure && procedure.steps) {
             procedure.steps.forEach(step => {
@@ -613,5 +614,6 @@ export class ProceduralExecutor {
         return group;
     }
 }
+
 
 export default ProceduralExecutor;
