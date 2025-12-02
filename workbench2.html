@@ -348,94 +348,13 @@
             to { transform: rotate(360deg); }
         }
 
-        .action-item {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 8px;
-            margin-bottom: 8px;
-            font-size: 11px;
-        }
-
-        .action-title {
-            font-weight: 600;
-            color: var(--accent);
-            margin-bottom: 4px;
-        }
-
-        .action-params {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .param-row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .param-label {
-            flex: 0 0 80px;
-            color: var(--text-dim);
-        }
-
-        .param-input {
-            flex: 1;
-        }
-
-        .btn-remove {
-            width: 20px;
-            height: 20px;
-            background: rgba(255, 100, 100, 0.2);
-            border: none;
-            border-radius: 2px;
-            color: var(--error);
-            cursor: pointer;
-            font-size: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .btn-remove:hover {
-            background: rgba(255, 100, 100, 0.4);
-        }
-
-        .timeline-controls {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .timeline-btn {
-            padding: 6px 12px;
-            background: rgba(100, 108, 255, 0.2);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            color: var(--accent);
-            cursor: pointer;
-            font-size: 10px;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .timeline-btn:hover {
-            background: rgba(100, 108, 255, 0.4);
-        }
-
-        .timeline {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
         .step-card {
             background: var(--card);
             border: 1px solid var(--border);
             border-radius: 6px;
             overflow: hidden;
             transition: all 0.2s;
+            margin-bottom: 8px;
         }
 
         .step-card:hover {
@@ -464,10 +383,6 @@
         }
 
         .step-header:hover {
-            background: var(--card-hover);
-        }
-
-        .step-card.collapsed .step-header:hover {
             background: var(--card-hover);
         }
 
@@ -547,14 +462,6 @@
             color: var(--accent);
             font-weight: 600;
             white-space: nowrap;
-            flex-shrink: 0;
-        }
-
-        .step-material-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            border: 1px solid var(--border);
             flex-shrink: 0;
         }
 
@@ -653,72 +560,26 @@
             border-color: var(--accent);
         }
 
-        textarea.expr-input {
-            background: rgba(255, 255, 255, 0.03);
+        .timeline-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .timeline-btn {
+            padding: 6px 12px;
+            background: rgba(100, 108, 255, 0.2);
             border: 1px solid var(--border);
             border-radius: 4px;
-            padding: 6px 10px;
-            color: var(--text);
-            font-size: 10px;
-            font-family: 'Courier New', monospace;
-            resize: vertical;
-            min-height: 40px;
-            max-height: 80px;
-        }
-
-        textarea.expr-input:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-
-        .menu-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: none;
-            z-index: 1000;
-        }
-
-        .menu-overlay.active {
-            display: block;
-        }
-
-        .menu-popup {
-            position: fixed;
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            min-width: 200px;
-            max-height: 400px;
-            overflow-y: auto;
-            z-index: 1001;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-        }
-
-        .menu-item {
-            padding: 10px 16px;
+            color: var(--accent);
             cursor: pointer;
-            font-size: 11px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 10px;
+            font-weight: 600;
             transition: all 0.2s;
         }
 
-        .menu-item:hover {
-            background: rgba(100, 108, 255, 0.2);
-            color: var(--accent);
-        }
-
-        .menu-item:last-child {
-            border-bottom: none;
-        }
-
-        .materials-container {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+        .timeline-btn:hover {
+            background: rgba(100, 108, 255, 0.4);
         }
 
         .material-item {
@@ -729,6 +590,7 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            margin-bottom: 8px;
         }
 
         .material-item:hover {
@@ -739,11 +601,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-        }
-
-        .material-actions {
-            display: flex;
-            gap: 6px;
         }
 
         .material-btn {
@@ -812,91 +669,6 @@
         .json-btn:hover {
             background: rgba(100, 108, 255, 0.4);
         }
-
-        .globals-container {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .global-group {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 12px;
-        }
-
-        .global-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            color: var(--text-dim);
-        }
-
-        .btn-add-global {
-            width: 20px;
-            height: 20px;
-            background: rgba(100, 108, 255, 0.2);
-            border: none;
-            border-radius: 3px;
-            color: var(--accent);
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        .btn-add-global:hover {
-            background: rgba(100, 108, 255, 0.4);
-        }
-
-        .global-item {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 8px;
-            align-items: center;
-        }
-
-        .global-slider-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            margin-top: 8px;
-        }
-
-        .slider-header {
-            display: flex;
-            justify-content: space-between;
-            font-size: 10px;
-            color: var(--text-dim);
-        }
-
-        .mode-btn {
-            font-size: 9px;
-            padding: 4px 8px;
-            background: rgba(100, 108, 255, 0.2);
-            border: 1px solid var(--border);
-            border-radius: 3px;
-            color: var(--accent);
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .mode-btn:hover {
-            background: rgba(100, 108, 255, 0.4);
-        }
-
-        .globals-hint {
-            font-size: 9px;
-            color: var(--text-dim);
-            margin-top: 2px;
-            padding: 4px 6px;
-            background: rgba(100, 108, 255, 0.1);
-            border-radius: 3px;
-            border-left: 2px solid var(--accent);
-        }
     </style>
 </head>
 <body>
@@ -912,34 +684,32 @@
             </div>
 
             <div class="tabs">
-                <div class="tab active" data-tab="globals" onclick="setTab('globals')">Globals</div>
-                <div class="tab" data-tab="timeline" onclick="setTab('timeline')">Timeline</div>
-                <div class="tab" data-tab="materials" onclick="setTab('materials')">Materials</div>
-                <div class="tab" data-tab="json" onclick="setTab('json')">JSON</div>
+                <div class="tab active" data-tab="globals" onclick="window.setTab('globals')">Globals</div>
+                <div class="tab" data-tab="timeline" onclick="window.setTab('timeline')">Timeline</div>
+                <div class="tab" data-tab="materials" onclick="window.setTab('materials')">Materials</div>
+                <div class="tab" data-tab="json" onclick="window.setTab('json')">JSON</div>
             </div>
 
             <!-- GLOBALS TAB -->
             <div class="content active" id="tab-globals">
                 <div class="globals-container" id="globals-container"></div>
-                <button class="btn primary" onclick="addGlobalParam()" style="width: 100%; margin-top: 12px;">+ Add Global Parameter</button>
+                <button class="btn primary" onclick="window.addGlobalParam()" style="width: 100%; margin-top: 12px;">+ Add Global Parameter</button>
             </div>
 
             <!-- MATERIALS TAB -->
             <div class="content" id="tab-materials">
-                <div class="materials-container" id="materials-container"></div>
-                <button class="btn primary" onclick="addMaterial()" style="width: 100%; margin-top: 12px;">+ Add Material</button>
-
-                <!-- ACTIONS TIMELINE TAB -->
+                <div id="materials-container"></div>
+                <button class="btn primary" onclick="window.addMaterial()" style="width: 100%; margin-top: 12px;">+ Add Material</button>
             </div>
 
             <!-- TIMELINE TAB -->
             <div class="content" id="tab-timeline">
                 <div class="timeline-controls">
-                    <button class="timeline-btn" onclick="expandAllSteps()">Expand All</button>
-                    <button class="timeline-btn" onclick="collapseAllSteps()">Collapse All</button>
+                    <button class="timeline-btn" onclick="window.expandAllSteps()">Expand All</button>
+                    <button class="timeline-btn" onclick="window.collapseAllSteps()">Collapse All</button>
                 </div>
-                <div class="timeline" id="timeline-container"></div>
-                <button class="btn primary" onclick="addStep()" style="width: 100%; margin-top: 12px;">+ Add Action</button>
+                <div id="timeline-container"></div>
+                <button class="btn primary" onclick="window.addStep()" style="width: 100%; margin-top: 12px;">+ Add Action</button>
             </div>
 
             <!-- JSON TAB -->
@@ -947,8 +717,8 @@
                 <div class="json-container">
                     <textarea class="json-input" id="json-input" spellcheck="false"></textarea>
                     <div class="json-buttons">
-                        <button class="json-btn" onclick="importJSON()">Import</button>
-                        <button class="json-btn" onclick="exportJSON()">Export</button>
+                        <button class="json-btn" onclick="window.importJSON()">Import</button>
+                        <button class="json-btn" onclick="window.exportJSON()">Export</button>
                     </div>
                 </div>
             </div>
@@ -972,42 +742,31 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-      import { ProceduralExecutor } from './src/modules/interpreter/procedural-executor2.js';
+        import ProceduralExecutor from './src/modules/interpreter/procedural-executor2.js';
 
         // =========================================================================
-        // 1. IMPORT HELPERS REGISTRY (v2)
+        // IMPORT HELPERS REGISTRY
         // =========================================================================
-        // NOTE: This assumes helpers_registry_complete-2.json is in the same directory
-        // Adjust the path if needed
         const helpersRegistryResponse = await fetch('./src/modules/interpreter/helpers_registry.json');
         const helpersRegistry = await helpersRegistryResponse.json();
         console.log(`✅ Loaded ${helpersRegistry.length} helpers from registry`);
 
         // =========================================================================
-        // 2. PROCEDURAL EXECUTOR CLASS (Inline - if you don't have a separate file)
-        // =========================================================================
-        // If you have procedural-executor-11.js in a separate file, import it instead:
-        // import { ProceduralExecutor } from './procedural-executor-11.js';
-
-
-        // =========================================================================
-        // 3. REGISTER HELPERS FROM JSON REGISTRY
+        // REGISTER HELPERS FROM JSON REGISTRY
         // =========================================================================
         function registerJSONHelpers(executor, registry) {
             const definitions = {};
-
             registry.forEach(entry => {
                 if (entry.id && entry.code) {
                     definitions[entry.id] = { code: entry.code };
                 }
             });
-
             executor.registerDynamicHelpers(definitions);
             console.log(`✅ Registered ${Object.keys(definitions).length} helpers from JSON registry`);
         }
 
         // =========================================================================
-        // 4. THREE.JS SCENE SETUP
+        // THREE.JS SCENE SETUP
         // =========================================================================
         const canvas = document.getElementById('canvas');
         const scene = new THREE.Scene();
@@ -1038,26 +797,15 @@
         scene.add(directionalLight);
 
         // =========================================================================
-        // 5. EXECUTOR INITIALIZATION
+        // EXECUTOR INITIALIZATION
         // =========================================================================
         const executor = new ProceduralExecutor(scene, THREE);
         registerJSONHelpers(executor, helpersRegistry);
 
         // =========================================================================
-        // 6. UI STATE & HANDLERS
+        // UI STATE
         // =========================================================================
         let currentGroup = null;
-        const statusText = document.getElementById('status-text');
-        const statusSpinner = document.getElementById('status-spinner');
-
-        function updateStatus(message, isLoading = false) {
-            statusText.textContent = message;
-            statusSpinner.style.display = isLoading ? 'flex' : 'none';
-        }
-
-        // =========================================================================
-        // UI STATE & SCHEMA
-        // =========================================================================
         let schema = {
             version: 4.0,
             intent: 'Custom Procedure',
@@ -1074,9 +822,9 @@
         let collapseState = {};
 
         // =========================================================================
-        // TAB MANAGEMENT
+        // TAB MANAGEMENT (GLOBAL)
         // =========================================================================
-        function setTab(name) {
+        window.setTab = function(name) {
             document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
             
@@ -1084,14 +832,14 @@
             document.getElementById(`tab-${name}`).classList.add('active');
             
             if (name === 'json') {
-                exportJSON();
+                window.exportJSON();
             }
-        }
+        };
 
         // =========================================================================
-        // SCHEMA TIMELINE MANAGEMENT
+        // TIMELINE MANAGEMENT (GLOBAL)
         // =========================================================================
-        function addStep(afterIndex = -1) {
+        window.addStep = function(afterIndex = -1) {
             const newStep = {
                 thought: 'New Step',
                 do: 'createBox',
@@ -1107,43 +855,43 @@
                 schema.actions.push(newStep);
             }
             
-            renderTimeline();
-            run();
-        }
+            window.renderTimeline();
+            window.run();
+        };
 
-        function removeStep(index) {
+        window.removeStep = function(index) {
             schema.actions.splice(index, 1);
             delete collapseState[index];
-            renderTimeline();
-            run();
-        }
+            window.renderTimeline();
+            window.run();
+        };
 
-        function toggleStepCollapse(index) {
+        window.toggleStepCollapse = function(index) {
             collapseState[index] = !collapseState[index];
-            renderTimeline();
-        }
+            window.renderTimeline();
+        };
 
-        function toggleStepVisibility(index) {
+        window.toggleStepVisibility = function(index) {
             schema.actions[index].visible = !schema.actions[index].visible;
-            renderTimeline();
-            run();
-        }
+            window.renderTimeline();
+            window.run();
+        };
 
-        function expandAllSteps() {
+        window.expandAllSteps = function() {
             for (let i = 0; i < schema.actions.length; i++) {
                 collapseState[i] = false;
             }
-            renderTimeline();
-        }
+            window.renderTimeline();
+        };
 
-        function collapseAllSteps() {
+        window.collapseAllSteps = function() {
             for (let i = 0; i < schema.actions.length; i++) {
                 collapseState[i] = true;
             }
-            renderTimeline();
-        }
+            window.renderTimeline();
+        };
 
-        function updateStepField(index, field, value) {
+        window.updateStepField = function(index, field, value) {
             if (field === 'thought') {
                 schema.actions[index].thought = value;
             } else if (field === 'do') {
@@ -1158,12 +906,11 @@
                 schema.actions[index].params[paramKey] = value;
             }
             
-            renderTimeline();
-            run();
-        }
+            window.renderTimeline();
+            window.run();
+        };
 
         function getHelperParams(helperName) {
-            const helpers = ['createBox', 'createSphere', 'createCylinder', 'createCone', 'createTorus', 'createPlane', 'createCircle'];
             const defaults = {
                 createBox: { width: 1, height: 1, depth: 1 },
                 createSphere: { radius: 1, widthSegments: 32, heightSegments: 16 },
@@ -1183,7 +930,7 @@
             return '#888888';
         }
 
-        function renderTimeline() {
+        window.renderTimeline = function() {
             const container = document.getElementById('timeline-container');
             container.innerHTML = '';
             
@@ -1197,7 +944,7 @@
                 // HEADER
                 const headerDiv = document.createElement('div');
                 headerDiv.className = 'step-header';
-                headerDiv.onclick = () => toggleStepCollapse(i);
+                headerDiv.onclick = () => window.toggleStepCollapse(i);
                 
                 const toggleIcon = document.createElement('div');
                 toggleIcon.className = 'step-collapse-toggle';
@@ -1219,7 +966,7 @@
                 titleInput.value = action.thought;
                 titleInput.placeholder = 'Step description';
                 titleInput.onclick = (e) => e.stopPropagation();
-                titleInput.onchange = (e) => updateStepField(i, 'thought', e.target.value);
+                titleInput.onchange = (e) => window.updateStepField(i, 'thought', e.target.value);
                 headerContent.appendChild(titleInput);
                 
                 const helperBadge = document.createElement('div');
@@ -1235,13 +982,13 @@
                 const visBtn = document.createElement('button');
                 visBtn.className = 'step-btn step-btn-visibility' + (!action.visible ? ' hidden' : '');
                 visBtn.innerText = '👁';
-                visBtn.onclick = (e) => { e.stopPropagation(); toggleStepVisibility(i); };
+                visBtn.onclick = (e) => { e.stopPropagation(); window.toggleStepVisibility(i); };
                 actions.appendChild(visBtn);
                 
                 const delBtn = document.createElement('button');
                 delBtn.className = 'step-btn step-btn-remove';
                 delBtn.innerText = '✕';
-                delBtn.onclick = (e) => { e.stopPropagation(); removeStep(i); };
+                delBtn.onclick = (e) => { e.stopPropagation(); window.removeStep(i); };
                 actions.appendChild(delBtn);
                 
                 headerDiv.appendChild(actions);
@@ -1256,7 +1003,7 @@
                 helperGroup.className = 'field-group';
                 helperGroup.innerHTML = `
                     <label class="field-label">Helper</label>
-                    <select class="helper-select" onchange="updateStepField(${i}, 'do', this.value)">
+                    <select class="helper-select" onchange="window.updateStepField(${i}, 'do', this.value)">
                         <option value="">-- Select --</option>
                         ${['createBox', 'createSphere', 'createCylinder', 'createCone', 'createTorus', 'createPlane', 'createCircle']
                             .map(h => `<option value="${h}" ${action.do === h ? 'selected' : ''}>${h}</option>`)
@@ -1273,7 +1020,7 @@
                 asInput.className = 'helper-select';
                 asInput.value = action.as;
                 asInput.placeholder = 'Output name';
-                asInput.onchange = (e) => updateStepField(i, 'as', e.target.value);
+                asInput.onchange = (e) => window.updateStepField(i, 'as', e.target.value);
                 asGroup.innerHTML = '<label class="field-label">Output As</label>';
                 asGroup.appendChild(asInput);
                 bodyDiv.appendChild(asGroup);
@@ -1293,7 +1040,7 @@
                     input.type = 'number';
                     input.className = 'helper-select';
                     input.value = action.params[key] !== undefined ? action.params[key] : params[key];
-                    input.onchange = (e) => updateStepField(i, `param-${key}`, parseFloat(e.target.value));
+                    input.onchange = (e) => window.updateStepField(i, `param-${key}`, parseFloat(e.target.value));
                     fieldGroup.appendChild(input);
                     bodyDiv.appendChild(fieldGroup);
                 }
@@ -1306,7 +1053,7 @@
                 matSelect.className = 'helper-select';
                 matSelect.disabled = !action.visible;
                 matSelect.value = action.material || 'default';
-                matSelect.onchange = (e) => updateStepField(i, 'material', e.target.value);
+                matSelect.onchange = (e) => window.updateStepField(i, 'material', e.target.value);
                 for (const matName in schema.materials) {
                     const opt = document.createElement('option');
                     opt.value = matName;
@@ -1319,30 +1066,30 @@
                 card.appendChild(bodyDiv);
                 container.appendChild(card);
             });
-        }
+        };
 
         // =========================================================================
-        // MATERIALS MANAGEMENT
+        // MATERIALS MANAGEMENT (GLOBAL)
         // =========================================================================
-        function addMaterial() {
+        window.addMaterial = function() {
             const name = `material_${Date.now()}`;
             schema.materials[name] = { color: '#888888', roughness: 0.7, metalness: 0.1 };
-            renderMaterials();
-        }
+            window.renderMaterials();
+        };
 
-        function removeMaterial(name) {
+        window.removeMaterial = function(name) {
             delete schema.materials[name];
-            renderMaterials();
-        }
+            window.renderMaterials();
+        };
 
-        function updateMaterial(name, prop, value) {
+        window.updateMaterial = function(name, prop, value) {
             schema.materials[name][prop] = value;
-            renderMaterials();
-            renderTimeline();
-            run();
-        }
+            window.renderMaterials();
+            window.renderTimeline();
+            window.run();
+        };
 
-        function renderMaterials() {
+        window.renderMaterials = function() {
             const container = document.getElementById('materials-container');
             container.innerHTML = '';
             
@@ -1369,8 +1116,8 @@
                     if (newName && newName !== name && !schema.materials[newName]) {
                         schema.materials[newName] = schema.materials[name];
                         delete schema.materials[name];
-                        renderMaterials();
-                        renderTimeline();
+                        window.renderMaterials();
+                        window.renderTimeline();
                     }
                 };
                 headerDiv.appendChild(nameInput);
@@ -1378,7 +1125,7 @@
                 const deleteBtn = document.createElement('button');
                 deleteBtn.className = 'material-btn material-delete';
                 deleteBtn.innerText = '✕';
-                deleteBtn.onclick = () => removeMaterial(name);
+                deleteBtn.onclick = () => window.removeMaterial(name);
                 headerDiv.appendChild(deleteBtn);
                 item.appendChild(headerDiv);
                 
@@ -1405,7 +1152,7 @@
                 colorInput.style.height = '30px';
                 colorInput.style.border = '1px solid var(--border)';
                 colorInput.style.borderRadius = '4px';
-                colorInput.onchange = (e) => updateMaterial(name, 'color', e.target.value);
+                colorInput.onchange = (e) => window.updateMaterial(name, 'color', e.target.value);
                 colorDiv.appendChild(colorInput);
                 
                 item.appendChild(colorDiv);
@@ -1427,7 +1174,7 @@
                 roughSlider.value = material.roughness;
                 roughSlider.style.width = '100%';
                 roughSlider.style.cursor = 'pointer';
-                roughSlider.onchange = (e) => updateMaterial(name, 'roughness', parseFloat(e.target.value));
+                roughSlider.onchange = (e) => window.updateMaterial(name, 'roughness', parseFloat(e.target.value));
                 roughDiv.appendChild(roughSlider);
                 item.appendChild(roughDiv);
                 
@@ -1447,31 +1194,31 @@
                 metalSlider.value = material.metalness;
                 metalSlider.style.width = '100%';
                 metalSlider.style.cursor = 'pointer';
-                metalSlider.onchange = (e) => updateMaterial(name, 'metalness', parseFloat(e.target.value));
+                metalSlider.onchange = (e) => window.updateMaterial(name, 'metalness', parseFloat(e.target.value));
                 metalDiv.appendChild(metalSlider);
                 item.appendChild(metalDiv);
                 
                 container.appendChild(item);
             }
-        }
+        };
 
         // =========================================================================
-        // GLOBALS MANAGEMENT
+        // GLOBALS MANAGEMENT (GLOBAL)
         // =========================================================================
-        function addGlobalParam() {
+        window.addGlobalParam = function() {
             const key = `param_${Date.now()}`;
             schema.globalParameters[key] = { value: 5, type: 'number', min: 0, max: 100 };
-            renderGlobals();
-        }
+            window.renderGlobals();
+        };
 
-        function removeGlobalParam(key) {
+        window.removeGlobalParam = function(key) {
             delete schema.globalParameters[key];
-            renderGlobals();
-            renderTimeline();
-            run();
-        }
+            window.renderGlobals();
+            window.renderTimeline();
+            window.run();
+        };
 
-        function updateGlobalParam(key, field, value) {
+        window.updateGlobalParam = function(key, field, value) {
             if (field === 'value') {
                 schema.globalParameters[key].value = parseFloat(value) || 0;
             } else if (field === 'min') {
@@ -1481,14 +1228,14 @@
             } else if (field === 'key') {
                 schema.globalParameters[value] = schema.globalParameters[key];
                 delete schema.globalParameters[key];
-                renderGlobals();
+                window.renderGlobals();
                 return;
             }
-            renderGlobals();
-            run();
-        }
+            window.renderGlobals();
+            window.run();
+        };
 
-        function renderGlobals() {
+        window.renderGlobals = function() {
             const container = document.getElementById('globals-container');
             container.innerHTML = '';
             
@@ -1496,7 +1243,7 @@
                 const group = document.createElement('div');
                 group.className = 'global-group';
                 
-                const headerHtml = `<div class="global-header"><span>${param.group || 'Parameters'}</span><button class="btn-add-global" onclick="removeGlobalParam('${key}')">✕</button></div>`;
+                const headerHtml = `<div class="global-header"><span>${param.group || 'Parameters'}</span><button class="btn-add-global" onclick="window.removeGlobalParam('${key}')">✕</button></div>`;
                 group.innerHTML = headerHtml;
                 
                 const nameInput = document.createElement('input');
@@ -1504,7 +1251,7 @@
                 nameInput.value = key;
                 nameInput.style.marginBottom = '8px';
                 nameInput.className = 'helper-select';
-                nameInput.onchange = (e) => updateGlobalParam(key, 'key', e.target.value);
+                nameInput.onchange = (e) => window.updateGlobalParam(key, 'key', e.target.value);
                 group.appendChild(nameInput);
                 
                 const sliderDiv = document.createElement('div');
@@ -1521,39 +1268,39 @@
                 slider.max = param.max || 100;
                 slider.step = '0.1';
                 slider.value = param.value;
-                slider.onchange = (e) => updateGlobalParam(key, 'value', e.target.value);
+                slider.onchange = (e) => window.updateGlobalParam(key, 'value', e.target.value);
                 sliderDiv.appendChild(slider);
                 group.appendChild(sliderDiv);
                 
                 container.appendChild(group);
             }
-        }
+        };
 
         // =========================================================================
-        // JSON IMPORT/EXPORT
+        // JSON IMPORT/EXPORT (GLOBAL)
         // =========================================================================
-        function exportJSON() {
+        window.exportJSON = function() {
             document.getElementById('json-input').value = JSON.stringify(schema, null, 2);
-        }
+        };
 
-        function importJSON() {
+        window.importJSON = function() {
             try {
                 schema = JSON.parse(document.getElementById('json-input').value);
-                setTab('globals');
-                renderGlobals();
-                renderTimeline();
-                renderMaterials();
-                run();
+                window.setTab('globals');
+                window.renderGlobals();
+                window.renderTimeline();
+                window.renderMaterials();
+                window.run();
                 alert('✅ Schema imported!');
             } catch (e) {
                 alert('❌ Invalid JSON: ' + e.message);
             }
-        }
+        };
 
         // =========================================================================
-        // EXECUTION
+        // EXECUTION (GLOBAL)
         // =========================================================================
-        function run() {
+        window.run = function() {
             if (currentGroup) scene.remove(currentGroup);
             
             try {
@@ -1562,15 +1309,7 @@
                     params[key] = schema.globalParameters[key].value;
                 }
                 
-                const visibleSchema = {
-                    ...schema,
-                    actions: schema.actions.map(action => ({
-                        ...action,
-                        material: action.visible ? action.material : null
-                    }))
-                };
-                
-                currentGroup = executor.execute(visibleSchema, params);
+                currentGroup = executor.execute(schema, params);
                 scene.add(currentGroup);
                 
                 let count = 0;
@@ -1580,18 +1319,18 @@
                 document.getElementById('status-text').textContent = `Error: ${e.message.substring(0, 30)}`;
                 console.error(e);
             }
-        }
+        };
 
         // =========================================================================
         // INITIALIZATION
         // =========================================================================
-        renderGlobals();
-        renderTimeline();
-        renderMaterials();
-        run();
+        window.renderGlobals();
+        window.renderTimeline();
+        window.renderMaterials();
+        window.run();
 
         // =========================================================================
-        // 7. ANIMATION LOOP
+        // ANIMATION LOOP
         // =========================================================================
         function animate() {
             requestAnimationFrame(animate);
@@ -1606,8 +1345,6 @@
             camera.updateProjectionMatrix();
             renderer.setSize(canvas.clientWidth, canvas.clientHeight);
         });
-
-        updateStatus('Ready');
     </script>
 </body>
 </html>
