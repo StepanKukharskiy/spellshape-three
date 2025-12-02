@@ -1128,31 +1128,31 @@
       },
       "iterations": {
         "type": "number",
-        "default": 50
+        "default": 45
       },
       "maxEdgeLength": {
         "type": "number",
-        "default": 0.2
+        "default": 1.8
       },
       "minEdgeLength": {
         "type": "number",
-        "default": 0.05
+        "default": 0.5
       },
       "repulsionRadius": {
         "type": "number",
-        "default": 0.25
+        "default": 1.4
       },
       "repulsionStrength": {
         "type": "number",
-        "default": 1.0
+        "default": 0.5
       },
       "springStiffness": {
         "type": "number",
-        "default": 0.4
+        "default": 0.2
       },
       "boundaryGrowthPush": {
         "type": "number",
-        "default": 0.2
+        "default": 0.15
       },
       "dt": {
         "type": "number",
