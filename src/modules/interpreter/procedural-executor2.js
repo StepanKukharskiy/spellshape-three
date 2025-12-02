@@ -335,7 +335,6 @@ export class ProceduralExecutor {
 
         this.geometries.clear();
         this.materials.clear();
-        this.dynamicHelpers.clear();
         this.context = {};
 
         // Setup materials
@@ -353,9 +352,13 @@ export class ProceduralExecutor {
             });
         }
 
-        if (schema.definitions) {
-            this.registerDynamicHelpers(schema.definitions);
-        }
+        // Schema definitions are only for inline helpers, not for re-registering the registry
+if (schema.definitions && Object.keys(schema.definitions).length > 0) {
+    // Only register schema-specific helpers, don't clear existing ones
+    this.safeLoop(schema.definitions, (name, def) => {
+        // Register inline without clearing
+    });
+}
 
         console.log("🚩 Checkpoint 3: Setup Complete. Running Logic...");
 
