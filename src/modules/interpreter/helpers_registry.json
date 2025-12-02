@@ -649,11 +649,11 @@
       },
       "topScale": {
         "type": "array",
-        "default": []
+        "default": [0.1, 0.1]
       },
       "axis": {
         "type": "array",
-        "default": []
+        "default": [0,1,0]
       },
       "height": {
         "type": "string",
