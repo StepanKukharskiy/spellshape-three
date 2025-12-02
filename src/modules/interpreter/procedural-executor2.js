@@ -239,6 +239,7 @@ export class ProceduralExecutor {
         this.wrappers = Wrappers;
 
         console.log('✅ ProceduralExecutor initialized with dependencies');
+      console.log('✅ BufferGeometryUtils loaded:', Object.keys(this.BufferGeometryUtils));
     }
 
     safeLoop(obj, callback) {
