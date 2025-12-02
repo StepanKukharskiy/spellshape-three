@@ -742,12 +742,12 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import ProceduralExecutor from './src/modules/interpreter/procedural-executor2.js';
+        import ProceduralExecutor from './procedural-executor.js';
 
         // =========================================================================
         // IMPORT HELPERS REGISTRY
         // =========================================================================
-        const helpersRegistryResponse = await fetch('./src/modules/interpreter/helpers_registry.json');
+        const helpersRegistryResponse = await fetch('./helpers_registry_complete-2.json');
         const helpersRegistry = await helpersRegistryResponse.json();
         console.log(`✅ Loaded ${helpersRegistry.length} helpers from registry`);
 
@@ -911,17 +911,26 @@
         };
 
         function getHelperParams(helperName) {
-            const defaults = {
-                createBox: { width: 1, height: 1, depth: 1 },
-                createSphere: { radius: 1, widthSegments: 32, heightSegments: 16 },
-                createCylinder: { radiusTop: 1, radiusBottom: 1, height: 1, radialSegments: 32 },
-                createCone: { radius: 1, height: 1, radialSegments: 32 },
-                createTorus: { radius: 1, tube: 0.4, radialSegments: 16, tubularSegments: 100 },
-                createPlane: { width: 1, height: 1, widthSegments: 1, heightSegments: 1 },
-                createCircle: { radius: 1, segments: 32 }
-            };
-            return defaults[helperName] || {};
+            // Look up helper in registry
+            const helperEntry = helpersRegistry.find(entry => entry.id === helperName);
+            if (!helperEntry || !helperEntry.paramsSchema) {
+                return {};
+            }
+            
+            // Extract default values from paramsSchema
+            const defaults = {};
+            for (const [key, schema] of Object.entries(helperEntry.paramsSchema)) {
+                defaults[key] = schema.default !== undefined ? schema.default : 0;
+            }
+            return defaults;
         }
+
+        function getHelperParamSchema(helperName) {
+            // Get full param schema for a helper
+            const helperEntry = helpersRegistry.find(entry => entry.id === helperName);
+            return helperEntry ? helperEntry.paramsSchema || {} : {};
+        }
+</parameter>
 
         function getMaterialColor(materialName) {
             if (schema.materials && schema.materials[materialName]) {
@@ -998,36 +1007,18 @@
                 const bodyDiv = document.createElement('div');
                 bodyDiv.className = 'step-body';
                 
-                // Helper select - dynamically populate from all registered helpers
+                // Helper select
                 const helperGroup = document.createElement('div');
                 helperGroup.className = 'field-group';
-                
-                const helperLabel = document.createElement('label');
-                helperLabel.className = 'field-label';
-                helperLabel.innerText = 'Helper';
-                helperGroup.appendChild(helperLabel);
-                
-                const helperSelect = document.createElement('select');
-                helperSelect.className = 'helper-select';
-                helperSelect.onchange = (e) => window.updateStepField(i, 'do', e.target.value);
-                
-                // Add placeholder
-                const placeholderOpt = document.createElement('option');
-                placeholderOpt.value = '';
-                placeholderOpt.text = '-- Select Helper --';
-                helperSelect.appendChild(placeholderOpt);
-                
-                // Get all registered helpers from executor and sort them
-                const helperNames = Array.from(executor.dynamicHelpers.keys()).sort();
-                helperNames.forEach(helperName => {
-                    const opt = document.createElement('option');
-                    opt.value = helperName;
-                    opt.text = helperName;
-                    if (action.do === helperName) opt.selected = true;
-                    helperSelect.appendChild(opt);
-                });
-                
-                helperGroup.appendChild(helperSelect);
+                helperGroup.innerHTML = `
+                    <label class="field-label">Helper</label>
+                    <select class="helper-select" onchange="window.updateStepField(${i}, 'do', this.value)">
+                        <option value="">-- Select --</option>
+                        ${['createBox', 'createSphere', 'createCylinder', 'createCone', 'createTorus', 'createPlane', 'createCircle']
+                            .map(h => `<option value="${h}" ${action.do === h ? 'selected' : ''}>${h}</option>`)
+                            .join('')}
+                    </select>
+                `;
                 bodyDiv.appendChild(helperGroup);
                 
                 // Output name
@@ -1043,9 +1034,11 @@
                 asGroup.appendChild(asInput);
                 bodyDiv.appendChild(asGroup);
                 
-                // Parameters
+                // Parameters - get schema from registry
+                const paramSchema = getHelperParamSchema(action.do);
                 const params = getHelperParams(action.do);
-                for (const key in params) {
+                
+                for (const [key, schema] of Object.entries(paramSchema)) {
                     const fieldGroup = document.createElement('div');
                     fieldGroup.className = 'field-group';
                     
@@ -1055,13 +1048,23 @@
                     fieldGroup.appendChild(label);
                     
                     const input = document.createElement('input');
-                    input.type = 'number';
+                    input.type = schema.type === 'number' ? 'number' : 'text';
                     input.className = 'helper-select';
-                    input.value = action.params[key] !== undefined ? action.params[key] : params[key];
-                    input.onchange = (e) => window.updateStepField(i, `param-${key}`, parseFloat(e.target.value));
+                    input.value = action.params[key] !== undefined ? action.params[key] : (schema.default !== undefined ? schema.default : '');
+                    input.onchange = (e) => {
+                        const val = schema.type === 'number' ? parseFloat(e.target.value) : e.target.value;
+                        window.updateStepField(i, `param-${key}`, val);
+                    };
+                    
+                    // Add min/max if available
+                    if (schema.min !== undefined) input.min = schema.min;
+                    if (schema.max !== undefined) input.max = schema.max;
+                    if (schema.step !== undefined) input.step = schema.step;
+                    
                     fieldGroup.appendChild(input);
                     bodyDiv.appendChild(fieldGroup);
                 }
+</parameter>
                 
                 // Material
                 const matGroup = document.createElement('div');
