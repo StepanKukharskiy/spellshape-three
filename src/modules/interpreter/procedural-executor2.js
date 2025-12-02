@@ -354,10 +354,8 @@ export class ProceduralExecutor {
 
         // Schema definitions are only for inline helpers, not for re-registering the registry
 if (schema.definitions && Object.keys(schema.definitions).length > 0) {
-    // Only register schema-specific helpers, don't clear existing ones
-    this.safeLoop(schema.definitions, (name, def) => {
-        // Register inline without clearing
-    });
+    // Register schema-specific helpers
+    this.registerDynamicHelpers(schema.definitions);
 }
 
         console.log("🚩 Checkpoint 3: Setup Complete. Running Logic...");
