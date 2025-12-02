@@ -618,26 +618,26 @@
     "description": "Creates a cubic B\u00e9zier curve from 4 control points.",
     "category": "Basic Geometry",
     "paramsSchema": {
-      "control1": {
-        "type": "string",
-        "default": "",
-        "description": "Reference to control1 variable"
-      },
-      "control2": {
-        "type": "string",
-        "default": "",
-        "description": "Reference to control2 variable"
-      },
-      "end": {
-        "type": "string",
-        "default": "",
-        "description": "Reference to end variable"
-      },
       "start": {
-        "type": "string",
-        "default": "",
-        "description": "Reference to start variable"
-      }
+      "type": "array",
+      "default": [0, 0, 0],
+      "description": "Start point [x, y, z]"
+    },
+    "control1": {
+      "type": "array",
+      "default": [1, 1, 0],
+      "description": "First control point [x, y, z]"
+    },
+    "control2": {
+      "type": "array",
+      "default": [2, 1, 0],
+      "description": "Second control point [x, y, z]"
+    },
+    "end": {
+      "type": "array",
+      "default": [3, 0, 0],
+      "description": "End point [x, y, z]"
+    }
     },
     "code": "const { start, control1, control2, end } = params;\n\n    const curve = new THREE.CubicBezierCurve3(\n        new THREE.Vector3(...start),\n        new THREE.Vector3(...control1),\n        new THREE.Vector3(...control2),\n        new THREE.Vector3(...end)\n    );\n\n    // \u2705 WRAPPED: Return visual with math object attached\n    return wrapCurveAsLine(curve, 64);"
   },
