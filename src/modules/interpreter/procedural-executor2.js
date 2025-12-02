@@ -350,7 +350,9 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
                     this.THREE,  // ← USE STORED THREE
                     {},
                     this.noise,
-                    this.BufferGeometryUtils,
+                    BufferGeometryUtils,
+                  MarchingCubes,
+                  ConvexGeometry,
                     this.resolvers.resolveCurve,
                     this.resolvers.resolveField,
                     this.resolvers.resolvePoints2D,
