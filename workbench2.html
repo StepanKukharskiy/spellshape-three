@@ -1070,9 +1070,26 @@
                     input.className = 'helper-select';
                     input.value = action.params[key] !== undefined ? action.params[key] : (schema.default !== undefined ? schema.default : '');
                     input.onchange = (e) => {
-                        const val = schema.type === 'number' ? parseFloat(e.target.value) : e.target.value;
-                        window.updateStepField(i, `param-${key}`, val);
-                    };
+    let val = e.target.value;
+    
+    if (schema.type === 'number') {
+        val = parseFloat(val);
+    } else if (schema.type === 'array') {
+        // Parse array string "[0,1,0]" back into a real array
+        try {
+            if (val.trim().startsWith('[')) {
+                val = JSON.parse(val);
+            } else {
+                // Handle "0, 1, 0" format just in case
+                val = val.split(',').map(n => parseFloat(n.trim()));
+            }
+        } catch (err) {
+            console.warn(`Failed to parse array for ${key}:`, val);
+        }
+    }
+    
+    window.updateStepField(i, 'param-' + key, val);
+};
                     
                     // Add min/max if available
                     if (schema.min !== undefined) input.min = schema.min;
