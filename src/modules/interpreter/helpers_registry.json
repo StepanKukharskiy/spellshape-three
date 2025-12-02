@@ -1219,7 +1219,7 @@
     "description": "Computes signed distance from a point to mesh surface.",
     "category": "Complex Algorithms",
     "paramsSchema": {},
-    "code": "}) {\n    const { geometry, point } = params;\n\n    if (!geometry || !point) return 0;\n\n    const targetPoint = Array.isArray(point) ? new THREE.Vector3(...point) : point;\n    const raycaster = new THREE.Raycaster(targetPoint, new THREE.Vector3(1, 0, 0));\n    const tempMesh = new THREE.Mesh(geometry);\n    const intersects = raycaster.intersectObject(tempMesh);\n\n    if (intersects.length === 0) return Infinity;\n\n    const closestDist = intersects[0].distance;\n    return intersects.length % 2 === 0 ? closestDist : -closestDist;"
+    "code": "const { geometry, point } = params;\n\n    if (!geometry || !point) return 0;\n\n    const targetPoint = Array.isArray(point) ? new THREE.Vector3(...point) : point;\n    const raycaster = new THREE.Raycaster(targetPoint, new THREE.Vector3(1, 0, 0));\n    const tempMesh = new THREE.Mesh(geometry);\n    const intersects = raycaster.intersectObject(tempMesh);\n\n    if (intersects.length === 0) return Infinity;\n\n    const closestDist = intersects[0].distance;\n    return intersects.length % 2 === 0 ? closestDist : -closestDist;"
   },
   {
     "id": "measureVolume",
@@ -1256,7 +1256,7 @@
     "description": "Creates Voronoi diagram from a set of seed points.",
     "category": "Basic Geometry",
     "paramsSchema": {},
-    "code": "}) {\n    console.warn('voronoiDivision: Complex algorithm - requires external library');\n    return new THREE.BufferGeometry();"
+    "code": "console.warn('voronoiDivision: Complex algorithm - requires external library');\n    return new THREE.BufferGeometry();"
   },
   {
     "id": "convexHullGeometry",
