@@ -666,7 +666,7 @@
       },
       "axis": {
         "type": "array",
-        "default": []
+        "default": [0,1,0]
       }
     },
     "code": "const { geometry, amount = 0.2, frequency = 1.0, axis = [0, 1, 0] } = params;\n\n    const geom = geometry.clone();\n    const positions = geom.attributes.position;\n    const axisVec = new THREE.Vector3(...axis).normalize();\n\n    for (let i = 0; i < positions.count; i++) {\n        const x = positions.getX(i);\n        const y = positions.getY(i);\n        const z = positions.getZ(i);\n        const noiseVal = noise.simplex3(x * frequency, y * frequency, z * frequency);\n        const offset = axisVec.clone().multiplyScalar(noiseVal * amount);\n\n        positions.setXYZ(i, x + offset.x, y + offset.y, z + offset.z);\n    }\n\n    positions.needsUpdate = true;\n    geom.computeVertexNormals();\n    return geom;"
@@ -677,6 +677,11 @@
     "description": "Deforms geometry according to a vector field.",
     "category": "Deformation",
     "paramsSchema": {
+      "geometry": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the geometry variable to modify"
+},
       "amount": {
         "type": "number",
         "default": 1.0
@@ -737,6 +742,11 @@
     "description": "Repeats geometry in a linear array along an axis.",
     "category": "Curves & Paths",
     "paramsSchema": {
+      "geometry": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the geometry variable to modify"
+},
       "count": {
         "type": "number",
         "default": 3
@@ -766,6 +776,11 @@
     "description": "Repeats geometry in a radial array around an axis.",
     "category": "Distribution",
     "paramsSchema": {
+      "geometry": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the geometry variable to modify"
+},
       "count": {
         "type": "number",
         "default": 8
@@ -803,6 +818,16 @@
     "description": "Repeats geometry at intervals along a curve path.",
     "category": "Curves & Paths",
     "paramsSchema": {
+      "geometry": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the geometry variable to modify"
+},
+      "curve": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the curve path variable"
+},
       "count": {
         "type": "number",
         "default": 10
@@ -824,6 +849,11 @@
     "description": "Distributes geometry in a rectangular grid pattern.",
     "category": "Distribution",
     "paramsSchema": {
+      "geometry": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the geometry variable to modify"
+},
       "rows": {
         "type": "number",
         "default": 3
