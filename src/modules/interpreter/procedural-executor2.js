@@ -3,7 +3,7 @@
  * Handles procedural 3D geometry generation with proper error handling
  * All external dependencies are loaded and injected into helper context
  */
-
+import * as THREE from 'three';
 // =========================================================================
 // SIMPLEX NOISE IMPLEMENTATION (Inline)
 // =========================================================================
