@@ -883,6 +883,11 @@
     "description": "Randomly distributes geometry within a bounding box.",
     "category": "Basic Geometry",
     "paramsSchema": {
+      "geometry": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the geometry variable to modify"
+},
       "bounds": {
         "type": "array",
         "default": []
