@@ -577,6 +577,11 @@
     "description": "Applies a twisting deformation around an axis.",
     "category": "Deformation",
     "paramsSchema": {
+      "geometry": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the geometry variable to modify"
+},
       "angle": {
         "type": "string",
         "default": "Math.PI / 4"
@@ -598,6 +603,11 @@
     "description": "Scales geometry along an axis to create a taper effect.",
     "category": "Basic Geometry",
     "paramsSchema": {
+      "geometry": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the geometry variable to modify"
+},
       "topScale": {
         "type": "array",
         "default": []
@@ -619,13 +629,18 @@
     "description": "Bends geometry around a specified direction.",
     "category": "Deformation",
     "paramsSchema": {
+      "geometry": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the geometry variable to modify"
+},
       "angle": {
         "type": "string",
         "default": "Math.PI / 4"
       },
       "direction": {
         "type": "array",
-        "default": []
+        "default": [0,1,0]
       }
     },
     "code": "const { geometry, angle = Math.PI / 4, direction = [1, 0, 0] } = params;\n\n    const geom = geometry.clone();\n    const positions = geom.attributes.position;\n\n    geom.computeBoundingBox();\n    const bbox = geom.boundingBox;\n    const range = bbox.max.x - bbox.min.x;\n\n    for (let i = 0; i < positions.count; i++) {\n        const x = positions.getX(i);\n        const y = positions.getY(i);\n        const z = positions.getZ(i);\n        const t = (x - bbox.min.x) / range;\n        const theta = angle * t;\n        const radius = range / angle;\n        const newX = Math.sin(theta) * radius;\n        const newZ = z + radius - Math.cos(theta) * radius;\n\n        positions.setXYZ(i, newX, y, newZ);\n    }\n\n    positions.needsUpdate = true;\n    geom.computeVertexNormals();\n    return geom;"
