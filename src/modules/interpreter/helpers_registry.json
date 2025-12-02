@@ -947,9 +947,14 @@
     "description": "Generates streamlines visualizing vector field flow.",
     "category": "Basic Geometry",
     "paramsSchema": {
+      "field": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the vector field variable to visualize"
+},
       "box": {
         "type": "array",
-        "default": []
+        "default": [-5,-5,-5,5,5,5]
       },
       "count": {
         "type": "number",
@@ -972,9 +977,14 @@
     "description": "Creates tube-like pipes following vector field streamlines.",
     "category": "Basic Geometry",
     "paramsSchema": {
+      "field": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the vector field variable to visualize"
+},
       "box": {
         "type": "array",
-        "default": []
+        "default": [-5,-5,-5,5,5,5]
       },
       "count": {
         "type": "number",
