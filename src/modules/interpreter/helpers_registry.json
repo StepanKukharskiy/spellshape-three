@@ -682,6 +682,11 @@
   "default": "",
   "description": "Name of the geometry variable to modify"
 },
+      "field": {
+  "type": "string",
+  "default": "",
+  "description": "Name of the vector field variable"
+},
       "amount": {
         "type": "number",
         "default": 1.0
