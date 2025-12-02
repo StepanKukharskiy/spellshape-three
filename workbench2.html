@@ -926,9 +926,16 @@
         }
 
         function getHelperParamSchema(helperName) {
-            // Get full param schema for a helper
-            const helperEntry = helpersRegistry.find(entry => entry.id === helperName);
-            return helperEntry ? helperEntry.paramsSchema || {} : {};
+            // 1. Check STATIC registry
+    const helperEntry = helpersRegistry.find(entry => entry.id === helperName);
+    if (helperEntry && helperEntry.paramsSchema) return helperEntry.paramsSchema;
+
+    // 2. Check DYNAMIC schema definitions (Add this!)
+    if (schema && schema.definitions && schema.definitions[helperName] && schema.definitions[helperName].paramsSchema) {
+        return schema.definitions[helperName].paramsSchema;
+    }
+
+    return {};
         }
 
         function getMaterialColor(materialName) {
