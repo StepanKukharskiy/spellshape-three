@@ -483,7 +483,7 @@
         // =========================================================================
         // NOTE: This assumes helpers_registry_complete-2.json is in the same directory
         // Adjust the path if needed
-        const helpersRegistryResponse = await fetch('./helpers_registry_complete-2.json');
+        const helpersRegistryResponse = await fetch('./src/modules/interpreter/helpers_registry.json');
         const helpersRegistry = await helpersRegistryResponse.json();
         console.log(`✅ Loaded ${helpersRegistry.length} helpers from registry`);
         
