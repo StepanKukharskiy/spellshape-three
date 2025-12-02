@@ -333,7 +333,7 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
                     'noise',
                     'BufferGeometryUtils',
                   'MarchingCubes',
-                  'ConvexGeometry'
+                  'ConvexGeometry',
                     'resolveCurve',
                     'resolveField',
                     'resolvePoints2D',
