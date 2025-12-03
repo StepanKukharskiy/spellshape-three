@@ -852,6 +852,9 @@
         const helpersRegistry = await helpersRegistryResponse.json();
         console.log(`✅ Loaded ${helpersRegistry.length} helpers from registry`);
 
+      // Tracks which fields are explicitly set to expression mode
+const expressionState = {}; 
+
         // =========================================================================
         // REGISTER HELPERS FROM JSON REGISTRY
         // =========================================================================
