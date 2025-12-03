@@ -986,7 +986,37 @@
                 
                 const helperBadge = document.createElement('div');
                 helperBadge.className = 'step-helper-badge';
-                helperBadge.innerText = action.do || 'None';
+                // Look up helper metadata from registry
+const helperEntry = helpersRegistry.find(entry => entry.id === action.do);
+
+if (helperEntry) {
+    helperBadge.innerText = action.do || 'None';
+    
+    // Add description as tooltip or additional text
+    if (helperEntry.description) {
+        helperBadge.title = helperEntry.description;  // Tooltip on hover
+    }
+    
+    // Add category badge or label
+    if (helperEntry.category) {
+        const categorySpan = document.createElement('span');
+        categorySpan.className = 'helper-category';
+        categorySpan.innerText = helperEntry.category;
+        helperBadge.appendChild(categorySpan);
+    }
+    
+    // Add output type indicator
+    if (helperEntry.outputType) {
+        const outputSpan = document.createElement('span');
+        outputSpan.className = 'helper-output';
+        outputSpan.innerText = helperEntry.outputType;
+        helperBadge.appendChild(outputSpan);
+    }
+} else {
+    helperBadge.innerText = action.do || 'None';
+}
+
+headerContent.appendChild(helperBadge);
                 headerContent.appendChild(helperBadge);
                 
                 headerDiv.appendChild(headerContent);
