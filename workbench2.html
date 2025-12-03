@@ -1042,6 +1042,7 @@
 
                     // Store helper metadata from registry
                     const helperData = executor.dynamicHelpers.get(helperName);
+                  console.log(helperData)
                     if (helperData) {
                         opt.dataset.description = helperData.description || '';
                         opt.dataset.outputType = helperData.outputType || 'Unknown';
