@@ -560,6 +560,52 @@
             border-color: var(--accent);
         }
 
+                .helper-info {
+            margin-top: 8px;
+            padding: 10px;
+            background: rgba(100, 108, 255, 0.08);
+            border-left: 3px solid rgba(100, 108, 255, 0.3);
+            border-radius: 3px;
+            font-size: 11px;
+            line-height: 1.4;
+            color: var(--text-dim);
+        }
+
+        .helper-info-title {
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .helper-output-type {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            background: rgba(74, 222, 128, 0.2);
+            border: 1px solid rgba(74, 222, 128, 0.4);
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 600;
+            color: #4ade80;
+        }
+
+        .helper-output-type.data {
+            background: rgba(96, 165, 250, 0.2);
+            border-color: rgba(96, 165, 250, 0.4);
+            color: #60a5fa;
+        }
+
+        .helper-description {
+            margin-top: 6px;
+            font-style: italic;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+
         .timeline-controls {
             display: flex;
             gap: 8px;
@@ -1039,13 +1085,69 @@
                     const opt = document.createElement('option');
                     opt.value = helperName;
                     opt.text = helperName;
+
+                    // Store helper metadata from registry
+                    const helperData = executor.dynamicHelpers.get(helperName);
+                    if (helperData) {
+                        opt.dataset.description = helperData.description || '';
+                        opt.dataset.outputType = helperData.outputType || 'Unknown';
+                        opt.dataset.category = helperData.category || '';
+                    }
+
                     if (action.do === helperName) opt.selected = true;
                     helperSelect.appendChild(opt);
                 });
-                
+
+                // Create info display element
+                const helperInfoDiv = document.createElement('div');
+                helperInfoDiv.className = 'helper-info';
+                helperInfoDiv.id = `helper-info-${i}`;
+                helperInfoDiv.style.display = 'none';
+                helperGroup.appendChild(helperInfoDiv);
+
                 helperGroup.appendChild(helperSelect);
                 bodyDiv.appendChild(helperGroup);
-                
+
+                // Update handler to show/update helper info
+                helperSelect.onchange = (e) => {
+                    window.updateStepField(i, 'do', e.target.value);
+                    const infoDiv = document.getElementById(`helper-info-${i}`);
+                    const selectedOpt = e.target.options[e.target.selectedIndex];
+
+                    if (selectedOpt.value && selectedOpt.dataset.description) {
+                        const outputType = selectedOpt.dataset.outputType || 'Unknown';
+                        const typeClass = outputType === 'Data' ? 'data' : '';
+
+                        infoDiv.innerHTML = `
+                            <div class="helper-info-title">
+                                <span class="helper-output-type ${typeClass}">${outputType}</span>
+                            </div>
+                            <div class="helper-description">${selectedOpt.dataset.description}</div>
+                        `;
+                        infoDiv.style.display = 'block';
+                    } else {
+                        infoDiv.style.display = 'none';
+                    }
+                };
+
+                // Show info if helper already selected
+                if (action.do) {
+                    const selectedOpt = helperSelect.options[helperSelect.selectedIndex];
+                    if (selectedOpt && selectedOpt.dataset.description) {
+                        const outputType = selectedOpt.dataset.outputType || 'Unknown';
+                        const typeClass = outputType === 'Data' ? 'data' : '';
+
+                        helperInfoDiv.innerHTML = `
+                            <div class="helper-info-title">
+                                <span class="helper-output-type ${typeClass}">${outputType}</span>
+                            </div>
+                            <div class="helper-description">${selectedOpt.dataset.description}</div>
+                        `;
+                        helperInfoDiv.style.display = 'block';
+                    }
+                }
+
+                // Output name
                 // Output name
                 const asGroup = document.createElement('div');
                 asGroup.className = 'field-group';
