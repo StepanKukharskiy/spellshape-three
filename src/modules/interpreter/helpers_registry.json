@@ -1075,7 +1075,7 @@
       },
       "spacing": {
         "type": "array",
-        "default": []
+        "default": [1,1,1]
       },
       "centered": {
         "type": "boolean",
