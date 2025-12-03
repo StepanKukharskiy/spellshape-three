@@ -1324,7 +1324,7 @@ const expressionState = {};
         
         // Note: schema.materials must exist globally or be passed in
         if (schema && schema.materials) {
-             for (const matName in window.schema.materials) {
+             for (const matName in schema.materials) {
                 const opt = document.createElement('option');
                 opt.value = matName;
                 opt.innerText = matName;
