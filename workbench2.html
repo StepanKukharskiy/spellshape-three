@@ -756,27 +756,13 @@
         // =========================================================================
         function registerJSONHelpers(executor, registry) {
             const definitions = {};
-            const helpersMetadata = {};  // NEW: Store metadata separately
-
             registry.forEach(entry => {
-                if (entry.id) {
-                    // Store metadata in separate object
-                    helpersMetadata[entry.id] = {
-                        description: entry.description || '',
-                        outputType: entry.outputType || 'Unknown',
-                        category: entry.category || ''
-                    };
-
-                    if (entry.code) {
-                        definitions[entry.id] = { code: entry.code };
-                    }
+                if (entry.id && entry.code) {
+                    definitions[entry.id] = { code: entry.code };
                 }
             });
-
             executor.registerDynamicHelpers(definitions);
-            window.helpersMetadata = helpersMetadata;  // NEW: Make globally accessible
             console.log(`✅ Registered ${Object.keys(definitions).length} helpers from JSON registry`);
-            console.log(`✅ Loaded ${Object.keys(helpersMetadata).length} helper metadata entries`);
         }
 
         // =========================================================================
