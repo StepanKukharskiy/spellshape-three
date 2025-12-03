@@ -1047,287 +1047,296 @@
         }
 
         window.renderTimeline = function() {
-            const container = document.getElementById('timeline-container');
-            container.innerHTML = '';
-            
-            schema.actions.forEach((action, i) => {
-                const card = document.createElement('div');
-                card.className = 'step-card';
-                
-                if (!action.visible) card.classList.add('hidden');
-                if (collapseState[i]) card.classList.add('collapsed');
-                
-                // HEADER
-                const headerDiv = document.createElement('div');
-                headerDiv.className = 'step-header';
-                headerDiv.onclick = () => window.toggleStepCollapse(i);
-                
-                const toggleIcon = document.createElement('div');
-                toggleIcon.className = 'step-collapse-toggle';
-                toggleIcon.innerText = '▶';
-                headerDiv.appendChild(toggleIcon);
-                
-                const stepNum = document.createElement('div');
-                stepNum.className = 'step-num';
-                stepNum.style.backgroundColor = getMaterialColor(action.material);
-                stepNum.innerText = i + 1;
-                headerDiv.appendChild(stepNum);
-                
-                const headerContent = document.createElement('div');
-                headerContent.className = 'step-header-content';
-                
-                const titleInput = document.createElement('input');
-                titleInput.className = 'step-title-input';
-                titleInput.type = 'text';
-                titleInput.value = action.thought;
-                titleInput.placeholder = 'Step description';
-                titleInput.onclick = (e) => e.stopPropagation();
-                titleInput.onchange = (e) => window.updateStepField(i, 'thought', e.target.value);
-                headerContent.appendChild(titleInput);
-                
-                const helperBadge = document.createElement('div');
-                helperBadge.className = 'step-helper-badge';
-                // Look up helper metadata from registry
-const helperEntry = helpersRegistry.find(entry => entry.id === action.do);
-
-if (helperEntry) {
-    helperBadge.innerText = action.do || 'None';
+    const container = document.getElementById('timeline-container');
+    container.innerHTML = '';
     
-
-} else {
-    helperBadge.innerText = action.do || 'None';
-}
-
-headerContent.appendChild(helperBadge);
-                headerContent.appendChild(helperBadge);
-                
-                headerDiv.appendChild(headerContent);
-                
-                const actions = document.createElement('div');
-                actions.className = 'step-actions';
-                
-                const visBtn = document.createElement('button');
-                visBtn.className = 'step-btn step-btn-visibility' + (!action.visible ? ' hidden' : '');
-                visBtn.innerText = '👁';
-                visBtn.onclick = (e) => { e.stopPropagation(); window.toggleStepVisibility(i); };
-                actions.appendChild(visBtn);
-                
-                const delBtn = document.createElement('button');
-                delBtn.className = 'step-btn step-btn-remove';
-                delBtn.innerText = '✕';
-                delBtn.onclick = (e) => { e.stopPropagation(); window.removeStep(i); };
-                actions.appendChild(delBtn);
-                
-                headerDiv.appendChild(actions);
-                card.appendChild(headerDiv);
-                
-                // BODY
-                const bodyDiv = document.createElement('div');
-                bodyDiv.className = 'step-body';
-                
-                // Helper select
-                // Helper select - dynamically populate from all registered helpers
-                const helperGroup = document.createElement('div');
-                helperGroup.className = 'field-group';
-                
-                const helperLabel = document.createElement('label');
-                helperLabel.className = 'field-label';
-                helperLabel.innerText = 'Helper';
-                helperGroup.appendChild(helperLabel);
-                
-                const helperSelect = document.createElement('select');
-                helperSelect.className = 'helper-select';
-                helperSelect.onchange = (e) => window.updateStepField(i, 'do', e.target.value);
-                
-                // Add placeholder
-                const placeholderOpt = document.createElement('option');
-                placeholderOpt.value = '';
-                placeholderOpt.text = '-- Select Helper --';
-                helperSelect.appendChild(placeholderOpt);
-                
-                // Get all registered helpers from executor and sort them
-                const helperNames = Array.from(executor.dynamicHelpers.keys()).sort();
-                helperNames.forEach(helperName => {
-                    const opt = document.createElement('option');
-                    opt.value = helperName;
-                    opt.text = helperName;
-                    if (action.do === helperName) opt.selected = true;
-                    helperSelect.appendChild(opt);
-                });
-                
-                helperGroup.appendChild(helperSelect);
-                bodyDiv.appendChild(helperGroup);
-
-              // 2. NEW: Add Info Box if a helper is selected
-if (action.do) {
-    const helperEntry = helpersRegistry.find(entry => entry.id === action.do);
-    
-    if (helperEntry) {
-        const infoBox = document.createElement('div');
-        infoBox.className = 'helper-info-box';
+    schema.actions.forEach((action, i) => {
+        const card = document.createElement('div');
+        card.className = 'step-card';
         
-        // Description
-        if (helperEntry.description) {
-            const desc = document.createElement('div');
-            desc.className = 'helper-description';
-            desc.innerText = helperEntry.description;
-            infoBox.appendChild(desc);
-        }
+        if (!action.visible) card.classList.add('hidden');
+        if (collapseState[i]) card.classList.add('collapsed');
         
-        // Tags Container (Output & Category)
-        const tags = document.createElement('div');
-        tags.className = 'helper-meta-tags';
+        // HEADER
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'step-header';
+        headerDiv.onclick = () => window.toggleStepCollapse(i);
         
-        // Output Type Tag
-        if (helperEntry.outputType) {
-            const outputTag = document.createElement('div');
-            outputTag.className = 'helper-tag output';
-            outputTag.innerText = `Output: ${helperEntry.outputType}`;
-            tags.appendChild(outputTag);
-        }
+        const toggleIcon = document.createElement('div');
+        toggleIcon.className = 'step-collapse-toggle';
+        toggleIcon.innerText = '▶';
+        headerDiv.appendChild(toggleIcon);
         
-        // Category Tag
-        if (helperEntry.category) {
-            const catTag = document.createElement('div');
-            catTag.className = 'helper-tag';
-            catTag.innerText = `Category: ${helperEntry.category}`;
-            tags.appendChild(catTag);
-        }
+        const stepNum = document.createElement('div');
+        stepNum.className = 'step-num';
+        stepNum.style.backgroundColor = getMaterialColor(action.material);
+        stepNum.innerText = i + 1;
+        headerDiv.appendChild(stepNum);
         
-        infoBox.appendChild(tags);
-        bodyDiv.appendChild(infoBox); // Append right after the helper select
-    }
-}
-                
-                // Output name
-                const asGroup = document.createElement('div');
-                asGroup.className = 'field-group';
-                const asInput = document.createElement('input');
-                asInput.type = 'text';
-                asInput.className = 'helper-select';
-                asInput.value = action.as;
-                asInput.placeholder = 'Output name';
-                asInput.onchange = (e) => window.updateStepField(i, 'as', e.target.value);
-                asGroup.innerHTML = '<label class="field-label">Output As</label>';
-                asGroup.appendChild(asInput);
-                bodyDiv.appendChild(asGroup);
-                
-                // Parameters - get schema from registry
-                const paramSchema = getHelperParamSchema(action.do);
-                const params = getHelperParams(action.do);
+        const headerContent = document.createElement('div');
+        headerContent.className = 'step-header-content';
+        
+        const titleInput = document.createElement('input');
+        titleInput.className = 'step-title-input';
+        titleInput.type = 'text';
+        titleInput.value = action.thought;
+        titleInput.placeholder = 'Step description';
+        titleInput.onclick = (e) => e.stopPropagation();
+        titleInput.onchange = (e) => window.updateStepField(i, 'thought', e.target.value);
+        headerContent.appendChild(titleInput);
+        
+        const helperBadge = document.createElement('div');
+        helperBadge.className = 'step-helper-badge';
+        
+        // Look up helper metadata from registry
+        const helperEntry = helpersRegistry.find(entry => entry.id === action.do);
 
-// 1. Create a container for parameters (this was missing before)
-const paramsContainer = document.createElement('div');
-paramsContainer.className = 'params-container';
-bodyDiv.appendChild(paramsContainer);
-
-// 2. Render each parameter with the Toggle
-for (const [key, schema] of Object.entries(paramSchema)) {
-    // Get current value
-    let paramVal = action.params && action.params[key] !== undefined 
-        ? action.params[key] 
-        : (schema.default !== undefined ? schema.default : '');
-
-    // Detect if currently an expression (string that looks like math/code)
-    const isExpression = typeof paramVal === 'string' && 
-                        (isNaN(Number(paramVal)) || paramVal.trim() === '');
-
-    const row = document.createElement('div');
-    row.className = 'param-row';
-
-    // Label
-    const label = document.createElement('div');
-    label.className = 'param-label';
-    label.title = key;
-    label.innerText = key;
-    row.appendChild(label);
-
-    // Toggle Button (fx)
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = `param-toggle ${isExpression ? 'active' : ''}`;
-    toggleBtn.innerText = 'fx';
-    toggleBtn.title = 'Toggle Expression';
-    
-    toggleBtn.onclick = (e) => {
-        e.stopPropagation(); // Prevent card collapse
-        const willBeExpression = !isExpression;
-        let newValue;
-
-        if (willBeExpression) {
-            // Switch to Expression: Convert to string
-            newValue = String(paramVal);
-        } else {
-            // Switch to Value: Try to parse, or reset to default
-            const parsed = parseFloat(paramVal);
-            newValue = isNaN(parsed) ? (schema.default || 0) : parsed;
-        }
-        window.updateStepField(i, `param-${key}`, newValue);
-    };
-    row.appendChild(toggleBtn);
-
-    // Input Field
-    const input = document.createElement('input');
-    input.className = `param-input ${isExpression ? 'expression' : ''}`;
-    
-    if (isExpression) {
-        // EXPRESSION MODE
-        input.type = 'text';
-        input.value = paramVal;
-        input.placeholder = 'Expression (e.g. ctx.w * 2)';
-    } else {
-        // VALUE MODE
-        if (schema.type === 'boolean') {
-            input.type = 'checkbox';
-            input.checked = !!paramVal;
-            input.style.flex = 'none'; // Checkbox shouldn't stretch
-            // Custom handler for checkbox
-            input.onchange = (e) => window.updateStepField(i, `param-${key}`, e.target.checked);
-        } else {
-            input.type = 'number';
-            input.step = 'any';
-            input.value = paramVal;
-        }
-    }
-
-    // Standard change handler (skip for checkbox as it's handled above)
-    if (input.type !== 'checkbox') {
-        input.onchange = (e) => {
-            let val = e.target.value;
-            // If we are in value mode (not expression) and it's a number field, parse it
-            if (!isExpression && input.type === 'number') {
-                val = parseFloat(val);
+        if (helperEntry) {
+            helperBadge.innerText = action.do || 'None';
+            if (helperEntry.description) helperBadge.title = helperEntry.description;
+            if (helperEntry.category) {
+                 const catSpan = document.createElement('span');
+                 // You can style this if you want, or just keep it simple
+                 helperBadge.appendChild(catSpan);
             }
-            window.updateStepField(i, `param-${key}`, val);
-        };
-    }
+        } else {
+            helperBadge.innerText = action.do || 'None';
+        }
 
-    row.appendChild(input);
-    paramsContainer.appendChild(row);
-}
+        headerContent.appendChild(helperBadge);
+        headerDiv.appendChild(headerContent);
+        
+        const actions = document.createElement('div');
+        actions.className = 'step-actions';
+        
+        const visBtn = document.createElement('button');
+        visBtn.className = 'step-btn step-btn-visibility' + (!action.visible ? ' hidden' : '');
+        visBtn.innerText = '👁';
+        visBtn.onclick = (e) => { e.stopPropagation(); window.toggleStepVisibility(i); };
+        actions.appendChild(visBtn);
+        
+        const delBtn = document.createElement('button');
+        delBtn.className = 'step-btn step-btn-remove';
+        delBtn.innerText = '✕';
+        delBtn.onclick = (e) => { e.stopPropagation(); window.removeStep(i); };
+        actions.appendChild(delBtn);
+        
+        headerDiv.appendChild(actions);
+        card.appendChild(headerDiv);
+        
+        // BODY
+        const bodyDiv = document.createElement('div');
+        bodyDiv.className = 'step-body';
+        
+        // Helper select
+        const helperGroup = document.createElement('div');
+        helperGroup.className = 'field-group';
+        
+        const helperLabel = document.createElement('label');
+        helperLabel.className = 'field-label';
+        helperLabel.innerText = 'Helper';
+        helperGroup.appendChild(helperLabel);
+        
+        const helperSelect = document.createElement('select');
+        helperSelect.className = 'helper-select';
+        helperSelect.onchange = (e) => window.updateStepField(i, 'do', e.target.value);
+        
+        const placeholderOpt = document.createElement('option');
+        placeholderOpt.value = '';
+        placeholderOpt.text = '-- Select Helper --';
+        helperSelect.appendChild(placeholderOpt);
+        
+        const helperNames = Array.from(executor.dynamicHelpers.keys()).sort();
+        helperNames.forEach(helperName => {
+            const opt = document.createElement('option');
+            opt.value = helperName;
+            opt.text = helperName;
+            if (action.do === helperName) opt.selected = true;
+            helperSelect.appendChild(opt);
+        });
+        
+        helperGroup.appendChild(helperSelect);
+        bodyDiv.appendChild(helperGroup);
 
+        // Info Box
+        if (action.do) {
+            const helperEntry = helpersRegistry.find(entry => entry.id === action.do);
+            
+            if (helperEntry) {
+                const infoBox = document.createElement('div');
+                infoBox.className = 'helper-info-box';
                 
-                // Material
-                const matGroup = document.createElement('div');
-                matGroup.className = 'field-group';
-                matGroup.innerHTML = '<label class="field-label">Material</label>';
-                const matSelect = document.createElement('select');
-                matSelect.className = 'helper-select';
-                matSelect.disabled = !action.visible;
-                matSelect.value = action.material || 'default';
-                matSelect.onchange = (e) => window.updateStepField(i, 'material', e.target.value);
-                for (const matName in schema.materials) {
-                    const opt = document.createElement('option');
-                    opt.value = matName;
-                    opt.innerText = matName;
-                    matSelect.appendChild(opt);
+                if (helperEntry.description) {
+                    const desc = document.createElement('div');
+                    desc.className = 'helper-description';
+                    desc.innerText = helperEntry.description;
+                    infoBox.appendChild(desc);
                 }
-                matGroup.appendChild(matSelect);
-                bodyDiv.appendChild(matGroup);
                 
-                card.appendChild(bodyDiv);
-                container.appendChild(card);
-            });
-        };
+                const tags = document.createElement('div');
+                tags.className = 'helper-meta-tags';
+                
+                if (helperEntry.outputType) {
+                    const outputTag = document.createElement('div');
+                    outputTag.className = 'helper-tag output';
+                    outputTag.innerText = `Output: ${helperEntry.outputType}`;
+                    tags.appendChild(outputTag);
+                }
+                
+                if (helperEntry.category) {
+                    const catTag = document.createElement('div');
+                    catTag.className = 'helper-tag';
+                    catTag.innerText = `Category: ${helperEntry.category}`;
+                    tags.appendChild(catTag);
+                }
+                
+                infoBox.appendChild(tags);
+                bodyDiv.appendChild(infoBox);
+            }
+        }
+        
+        // Output name
+        const asGroup = document.createElement('div');
+        asGroup.className = 'field-group';
+        const asInput = document.createElement('input');
+        asInput.type = 'text';
+        asInput.className = 'helper-select';
+        asInput.value = action.as;
+        asInput.placeholder = 'Output name';
+        asInput.onchange = (e) => window.updateStepField(i, 'as', e.target.value);
+        asGroup.innerHTML = '<label class="field-label">Output As</label>';
+        asGroup.appendChild(asInput);
+        bodyDiv.appendChild(asGroup);
+        
+        // Parameters
+        const paramSchema = getHelperParamSchema(action.do);
+        
+        const paramsContainer = document.createElement('div');
+        paramsContainer.className = 'params-container';
+        bodyDiv.appendChild(paramsContainer);
+
+        for (const [key, schema] of Object.entries(paramSchema)) {
+            // 1. Get Current Value
+            let paramVal = action.params && action.params[key] !== undefined 
+                ? action.params[key] 
+                : (schema.default !== undefined ? schema.default : '');
+
+            // 2. Determine Mode (Expression vs Value)
+            // Unique key for this field's state: "stepIndex-paramName"
+            const stateKey = `${i}-${key}`;
+            
+            // Explicit check from our global state object
+            const isExplicitExpression = expressionState[stateKey] === true;
+            // Implicit check: if it's already a string that isn't a simple number
+            const isImplicitExpression = typeof paramVal === 'string' && isNaN(Number(paramVal));
+            
+            // Final decision: It is an expression if either is true
+            const isExpression = isExplicitExpression || isImplicitExpression;
+
+            const row = document.createElement('div');
+            row.className = 'param-row';
+
+            // Label
+            const label = document.createElement('div');
+            label.className = 'param-label';
+            label.title = key;
+            label.innerText = key;
+            row.appendChild(label);
+
+            // Toggle Button (fx)
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = `param-toggle ${isExpression ? 'active' : ''}`;
+            toggleBtn.innerText = 'fx';
+            toggleBtn.title = 'Toggle Expression';
+            
+            toggleBtn.onclick = (e) => {
+                e.stopPropagation();
+                
+                // Toggle the global state for this field
+                expressionState[stateKey] = !isExpression;
+                const newIsExpression = expressionState[stateKey];
+
+                // Handle Value Conversion
+                if (newIsExpression) {
+                    // Switching to Expression: Ensure it is saved as a string
+                    window.updateStepField(i, `param-${key}`, String(paramVal));
+                } else {
+                    // Switching to Value: Try to parse back to number
+                    const parsed = parseFloat(paramVal);
+                    const safeVal = isNaN(parsed) ? (schema.default || 0) : parsed;
+                    window.updateStepField(i, `param-${key}`, safeVal);
+                }
+                // renderTimeline is called by updateStepField, refreshing the UI
+            };
+            row.appendChild(toggleBtn);
+
+            // Input Field
+            const input = document.createElement('input');
+            input.className = `param-input ${isExpression ? 'expression' : ''}`;
+            
+            if (isExpression) {
+                // EXPRESSION MODE
+                input.type = 'text';
+                input.value = paramVal;
+                input.placeholder = 'Expression (e.g. ctx.w * 2)';
+            } else {
+                // VALUE MODE
+                if (schema.type === 'boolean') {
+                    input.type = 'checkbox';
+                    input.checked = !!paramVal;
+                    input.style.flex = 'none';
+                    input.onchange = (e) => window.updateStepField(i, `param-${key}`, e.target.checked);
+                } else {
+                    input.type = 'number';
+                    input.step = 'any';
+                    input.value = paramVal;
+                }
+            }
+
+            // Change Handler
+            if (input.type !== 'checkbox') {
+                input.onchange = (e) => {
+                    let val = e.target.value;
+                    // Only parse as number if we are NOT in expression mode
+                    if (!isExpression && input.type === 'number') {
+                        val = parseFloat(val);
+                    }
+                    window.updateStepField(i, `param-${key}`, val);
+                };
+            }
+
+            row.appendChild(input);
+            paramsContainer.appendChild(row);
+        }
+        
+        // Material
+        const matGroup = document.createElement('div');
+        matGroup.className = 'field-group';
+        matGroup.innerHTML = '<label class="field-label">Material</label>';
+        const matSelect = document.createElement('select');
+        matSelect.className = 'helper-select';
+        matSelect.disabled = !action.visible;
+        matSelect.value = action.material || 'default';
+        matSelect.onchange = (e) => window.updateStepField(i, 'material', e.target.value);
+        
+        // Note: schema.materials must exist globally or be passed in
+        if (window.schema && window.schema.materials) {
+             for (const matName in window.schema.materials) {
+                const opt = document.createElement('option');
+                opt.value = matName;
+                opt.innerText = matName;
+                matSelect.appendChild(opt);
+            }
+        }
+       
+        matGroup.appendChild(matSelect);
+        bodyDiv.appendChild(matGroup);
+        
+        card.appendChild(bodyDiv);
+        container.appendChild(card);
+    });
+};
+
 
         // =========================================================================
         // MATERIALS MANAGEMENT (GLOBAL)
