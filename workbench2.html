@@ -1125,7 +1125,7 @@ if (action.do) {
         if (helperEntry.category) {
             const catTag = document.createElement('div');
             catTag.className = 'helper-tag';
-            catTag.innerText = helperEntry.category;
+            catTag.innerText = `Type: ${helperEntry.category}`;
             tags.appendChild(catTag);
         }
         
