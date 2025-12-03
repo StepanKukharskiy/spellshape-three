@@ -969,54 +969,24 @@
     "code": "const { geometry, count = 3, spacing = 1, axis = 'x', centered = false, autoMerge = true } = params;\n\n    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];\n\n    const results = [];\n    const axisVec = axis === 'y' ? new THREE.Vector3(0, 1, 0) :\n                    (axis === 'z' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0));\n    const offset = centered ? -spacing * (count - 1) / 2 : 0;\n\n    for (let i = 0; i < count; i++) {\n        const clone = geometry.clone();\n        clone.translate(\n            axisVec.x * (offset + i * spacing),\n            axisVec.y * (offset + i * spacing),\n            axisVec.z * (offset + i * spacing)\n        );\n        results.push(clone);\n    }\n\n    return autoMerge ? BufferGeometryUtils.mergeGeometries(results) : results;",
     "outputType": "Geometry"
   },
-  {
+ {
     "id": "repeatRadial3d",
     "name": "repeatRadial3d",
-    "description": "Radial array around axis with optional rotation to face center. Geometry rotated and positioned on circular path. Used for radial patterns (columns, petals, spokes) in architecture.",
+    "description": "Radial array around any axis (X, Y, Z). Correctly handles orientation (faceCenter) by rotating geometry before translating it to the ring position.",
     "category": "Distribution",
     "paramsSchema": {
-      "geometry": {
-        "type": "string",
-        "default": "",
-        "description": "Geometry variable to process"
-      },
-      "count": {
-        "type": "number",
-        "default": 8
-      },
-      "radius": {
-        "type": "number",
-        "default": 5
-      },
-      "startAngle": {
-        "type": "number",
-        "default": 0
-      },
-      "endAngle": {
-        "type": "string",
-        "default": "Math.PI * 2"
-      },
-      "axis": {
-        "type": "string",
-        "default": "'y"
-      },
-      "faceCenter": {
-        "type": "boolean",
-        "default": true
-      },
-      "autoMerge": {
-        "type": "boolean",
-        "default": true
-      },
-      "true": {
-        "type": "string",
-        "default": "",
-        "description": "Reference to true variable"
-      }
+      "geometry": { "type": "string", "default": "" },
+      "count": { "type": "number", "default": 8 },
+      "radius": { "type": "number", "default": 5 },
+      "startAngle": { "type": "number", "default": 0 },
+      "endAngle": { "type": "string", "default": "Math.PI * 2" },
+      "axis": { "type": "string", "default": "y" },
+      "faceCenter": { "type": "boolean", "default": true },
+      "autoMerge": { "type": "boolean", "default": true }
     },
-    "code": "const { geometry, count = 8, radius = 5, startAngle = 0, endAngle = Math.PI * 2, axis = 'y', faceCenter = true, autoMerge = true } = params;\n\n    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];\n\n    const results = [];\n    for (let i = 0; i < count; i++) {\n        const t = count === 1 ? 0 : i / (count - 1);\n        const angle = startAngle + (endAngle - startAngle) * t;\n        const x = radius * Math.cos(angle);\n        const z = radius * Math.sin(angle);\n        const clone = geometry.clone();\n\n        if (axis === 'y') {\n            if (faceCenter) clone.rotateY(angle + Math.PI / 2);\n       clone.translate(x, 0, z); \n}\n\n        results.push(clone);\n    }\n\n    return autoMerge ? BufferGeometryUtils.mergeGeometries(results) : results;",
+    "code": "const { geometry, count = 8, radius = 5, startAngle = 0, endAngle = Math.PI * 2, axis = 'y', faceCenter = true, autoMerge = true } = params;\n\n    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];\n\n    // 1. Sanitize Axis Input (removes quotes and forces lowercase)\n    const ax = String(axis).toLowerCase().replace(/['\"]+/g, '').trim();\n\n    const results = [];\n    // Logic: If full circle (360), divide by count. If arc, divide by count-1.\n    const isFullCircle = Math.abs(endAngle - startAngle) >= Math.PI * 2 - 0.001;\n    const divisor = (count > 1 && !isFullCircle) ? (count - 1) : count;\n\n    for (let i = 0; i < count; i++) {\n        const t = count === 1 ? 0 : i / divisor;\n        const angle = startAngle + (endAngle - startAngle) * t;\n        \n        const clone = geometry.clone();\n        const c = Math.cos(angle);\n        const s = Math.sin(angle);\n\n        // 2. Rotate FIRST (Orientation), 3. Translate SECOND (Position)\n        if (ax === 'x') {\n            // YZ Plane\n            if (faceCenter) clone.rotateX(angle);\n            clone.translate(0, radius * c, radius * s);\n        } else if (ax === 'z') {\n            // XY Plane\n            if (faceCenter) clone.rotateZ(angle);\n            clone.translate(radius * c, radius * s, 0);\n        } else {\n            // Y Axis (Default) - XZ Plane\n            // Note: -angle usually works better for Y-up coordinate systems to face center correctly\n            if (faceCenter) clone.rotateY(-angle);\n            clone.translate(radius * c, 0, radius * s);\n        }\n\n        results.push(clone);\n    }\n\n    return autoMerge ? BufferGeometryUtils.mergeGeometries(results) : results;",
     "outputType": "Geometry"
-  },
+},
   {
     "id": "repeatAlongCurve3d",
     "name": "repeatAlongCurve3d",
