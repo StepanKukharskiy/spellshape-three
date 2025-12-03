@@ -1151,49 +1151,97 @@ if (action.do) {
                 const paramSchema = getHelperParamSchema(action.do);
                 const params = getHelperParams(action.do);
                 
-                for (const [key, schema] of Object.entries(paramSchema)) {
-                    const fieldGroup = document.createElement('div');
-                    fieldGroup.className = 'field-group';
-                    
-                    const label = document.createElement('label');
-                    label.className = 'field-label';
-                    label.innerText = key;
-                    fieldGroup.appendChild(label);
-                    
-                    const input = document.createElement('input');
-                    input.type = schema.type === 'number' ? 'number' : 'text';
-                    input.className = 'helper-select';
-                    input.value = action.params[key] !== undefined ? action.params[key] : (schema.default !== undefined ? schema.default : '');
-                    input.onchange = (e) => {
-    let val = e.target.value;
+                // Parameters - get schema from registry
+const paramSchema = getHelperParamSchema(action.do);
+
+// 1. Create a container for parameters (this was missing before)
+const paramsContainer = document.createElement('div');
+paramsContainer.className = 'params-container';
+bodyDiv.appendChild(paramsContainer);
+
+// 2. Render each parameter with the Toggle
+for (const [key, schema] of Object.entries(paramSchema)) {
+    // Get current value
+    let paramVal = action.params && action.params[key] !== undefined 
+        ? action.params[key] 
+        : (schema.default !== undefined ? schema.default : '');
+
+    // Detect if currently an expression (string that looks like math/code)
+    const isExpression = typeof paramVal === 'string' && 
+                        (isNaN(Number(paramVal)) || paramVal.trim() === '');
+
+    const row = document.createElement('div');
+    row.className = 'param-row';
+
+    // Label
+    const label = document.createElement('div');
+    label.className = 'param-label';
+    label.title = key;
+    label.innerText = key;
+    row.appendChild(label);
+
+    // Toggle Button (fx)
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = `param-toggle ${isExpression ? 'active' : ''}`;
+    toggleBtn.innerText = 'fx';
+    toggleBtn.title = 'Toggle Expression';
     
-    if (schema.type === 'number') {
-        val = parseFloat(val);
-    } else if (schema.type === 'array') {
-        // Parse array string "[0,1,0]" back into a real array
-        try {
-            if (val.trim().startsWith('[')) {
-                val = JSON.parse(val);
-            } else {
-                // Handle "0, 1, 0" format just in case
-                val = val.split(',').map(n => parseFloat(n.trim()));
-            }
-        } catch (err) {
-            console.warn(`Failed to parse array for ${key}:`, val);
+    toggleBtn.onclick = (e) => {
+        e.stopPropagation(); // Prevent card collapse
+        const willBeExpression = !isExpression;
+        let newValue;
+
+        if (willBeExpression) {
+            // Switch to Expression: Convert to string
+            newValue = String(paramVal);
+        } else {
+            // Switch to Value: Try to parse, or reset to default
+            const parsed = parseFloat(paramVal);
+            newValue = isNaN(parsed) ? (schema.default || 0) : parsed;
+        }
+        window.updateStepField(i, `param-${key}`, newValue);
+    };
+    row.appendChild(toggleBtn);
+
+    // Input Field
+    const input = document.createElement('input');
+    input.className = `param-input ${isExpression ? 'expression' : ''}`;
+    
+    if (isExpression) {
+        // EXPRESSION MODE
+        input.type = 'text';
+        input.value = paramVal;
+        input.placeholder = 'Expression (e.g. ctx.w * 2)';
+    } else {
+        // VALUE MODE
+        if (schema.type === 'boolean') {
+            input.type = 'checkbox';
+            input.checked = !!paramVal;
+            input.style.flex = 'none'; // Checkbox shouldn't stretch
+            // Custom handler for checkbox
+            input.onchange = (e) => window.updateStepField(i, `param-${key}`, e.target.checked);
+        } else {
+            input.type = 'number';
+            input.step = 'any';
+            input.value = paramVal;
         }
     }
-    
-    window.updateStepField(i, 'param-' + key, val);
-};
-                    
-                    // Add min/max if available
-                    if (schema.min !== undefined) input.min = schema.min;
-                    if (schema.max !== undefined) input.max = schema.max;
-                    if (schema.step !== undefined) input.step = schema.step;
-                    
-                    fieldGroup.appendChild(input);
-                    bodyDiv.appendChild(fieldGroup);
-                }
+
+    // Standard change handler (skip for checkbox as it's handled above)
+    if (input.type !== 'checkbox') {
+        input.onchange = (e) => {
+            let val = e.target.value;
+            // If we are in value mode (not expression) and it's a number field, parse it
+            if (!isExpression && input.type === 'number') {
+                val = parseFloat(val);
+            }
+            window.updateStepField(i, `param-${key}`, val);
+        };
+    }
+
+    row.appendChild(input);
+    paramsContainer.appendChild(row);
+}
 
                 
                 // Material
