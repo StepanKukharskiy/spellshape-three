@@ -945,7 +945,7 @@
       },
       "axis": {
         "type": "string",
-        "default": "'x'"
+        "default": "x"
       },
       "centered": {
         "type": "boolean",
