@@ -1075,6 +1075,47 @@ headerContent.appendChild(helperBadge);
                 
                 helperGroup.appendChild(helperSelect);
                 bodyDiv.appendChild(helperGroup);
+
+              // 2. NEW: Add Info Box if a helper is selected
+if (action.do) {
+    const helperEntry = helpersRegistry.find(entry => entry.id === action.do);
+    
+    if (helperEntry) {
+        const infoBox = document.createElement('div');
+        infoBox.className = 'helper-info-box';
+        
+        // Description
+        if (helperEntry.description) {
+            const desc = document.createElement('div');
+            desc.className = 'helper-description';
+            desc.innerText = helperEntry.description;
+            infoBox.appendChild(desc);
+        }
+        
+        // Tags Container (Output & Category)
+        const tags = document.createElement('div');
+        tags.className = 'helper-meta-tags';
+        
+        // Output Type Tag
+        if (helperEntry.outputType) {
+            const outputTag = document.createElement('div');
+            outputTag.className = 'helper-tag output';
+            outputTag.innerText = `Output: ${helperEntry.outputType}`;
+            tags.appendChild(outputTag);
+        }
+        
+        // Category Tag
+        if (helperEntry.category) {
+            const catTag = document.createElement('div');
+            catTag.className = 'helper-tag';
+            catTag.innerText = helperEntry.category;
+            tags.appendChild(catTag);
+        }
+        
+        infoBox.appendChild(tags);
+        bodyDiv.appendChild(infoBox); // Append right after the helper select
+    }
+}
                 
                 // Output name
                 const asGroup = document.createElement('div');
