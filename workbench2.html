@@ -1299,13 +1299,25 @@ const expressionState = {};
             // Change Handler
             if (input.type !== 'checkbox') {
                 input.onchange = (e) => {
-                    let val = e.target.value;
-                    // Only parse as number if we are NOT in expression mode
-                    if (!isExpression && input.type === 'number') {
-                        val = parseFloat(val);
-                    }
-                    window.updateStepField(i, `param-${key}`, val);
-                };
+    let val = e.target.value;
+    
+    if (isExpression) {
+        // Try to auto-convert arrays/objects if possible
+        try {
+            // If it looks like an array/object, parse it
+            if (val.trim().startsWith('[') || val.trim().startsWith('{')) {
+                val = JSON.parse(val); 
+            }
+        } catch (err) {
+            // If parsing fails, keep it as a string (it might be a math expression like "ctx.x * 2")
+            console.log("Kept as string expression:", val);
+        }
+    } else if (input.type === 'number') {
+        val = parseFloat(val);
+    }
+    
+    window.updateStepField(i, `param-${key}`, val);
+};
             }
 
             row.appendChild(input);
