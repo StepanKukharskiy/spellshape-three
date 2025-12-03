@@ -1084,11 +1084,6 @@
       "autoMerge": {
         "type": "boolean",
         "default": true
-      },
-      "true": {
-        "type": "string",
-        "default": "",
-        "description": "Reference to true variable"
       }
     },
     "code": "const { geometry, rows = 3, cols = 3, spacing = [2, 0, 2], centered = true, autoMerge = true } = params;\n\n    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];\n\n    const [spacingX, spacingY, spacingZ] = Array.isArray(spacing) ? spacing : [spacing, 0, spacing];\n    const offsetX = centered ? -spacingX * (cols - 1) / 2 : 0;\n    const offsetZ = centered ? -spacingZ * (rows - 1) / 2 : 0;\n\n    const results = [];\n    for (let row = 0; row < rows; row++) {\n        for (let col = 0; col < cols; col++) {\n            const clone = geometry.clone();\n            clone.translate(offsetX + col * spacingX, row * spacingY, offsetZ + row * spacingZ);\n            results.push(clone);\n        }\n    }\n\n    return autoMerge ? BufferGeometryUtils.mergeGeometries(results) : results;",
