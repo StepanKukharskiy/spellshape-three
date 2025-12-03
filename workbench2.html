@@ -1319,7 +1319,7 @@ const expressionState = {};
         const matSelect = document.createElement('select');
         matSelect.className = 'helper-select';
         matSelect.disabled = !action.visible;
-        matSelect.value = action.material || 'default';
+        
         matSelect.onchange = (e) => window.updateStepField(i, 'material', e.target.value);
         
         // Note: schema.materials must exist globally or be passed in
@@ -1331,6 +1331,8 @@ const expressionState = {};
                 matSelect.appendChild(opt);
             }
         }
+
+      matSelect.value = action.material || 'default';
        
         matGroup.appendChild(matSelect);
         bodyDiv.appendChild(matGroup);
