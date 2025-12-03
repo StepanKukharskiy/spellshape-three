@@ -804,7 +804,11 @@
             const definitions = {};
             registry.forEach(entry => {
                 if (entry.id && entry.code) {
-                    definitions[entry.id] = { code: entry.code };
+                    definitions[entry.id] = { code: entry.code,
+                                            description: entry.description || '',
+    outputType: entry.outputType || 'Unknown',
+    category: entry.category || ''};
+                  
                 }
             });
             executor.registerDynamicHelpers(definitions);
