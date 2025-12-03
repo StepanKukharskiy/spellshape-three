@@ -1218,22 +1218,25 @@ const expressionState = {};
         paramsContainer.className = 'params-container';
         bodyDiv.appendChild(paramsContainer);
 
-        for (const [key, schema] of Object.entries(paramSchema)) {
-            // 1. Get Current Value
+        // 1. Pre-calculate available geometries from PREVIOUS steps for dropdowns
+        const availableGeometries = [];
+        schema.actions.forEach((act, idx) => {
+            if (idx < i && act.as) { // Only show outputs from steps BEFORE this one
+                availableGeometries.push(act.as);
+            }
+        });
+
+        // 2. Iterate over parameters
+        for (const [key, paramSchemaDef] of Object.entries(paramSchema)) {
+            // Get Current Value
             let paramVal = action.params && action.params[key] !== undefined 
                 ? action.params[key] 
-                : (schema.default !== undefined ? schema.default : '');
+                : (paramSchemaDef.default !== undefined ? paramSchemaDef.default : '');
 
-            // 2. Determine Mode (Expression vs Value)
-            // Unique key for this field's state: "stepIndex-paramName"
+            // Determine Mode (Expression vs Value)
             const stateKey = `${i}-${key}`;
-            
-            // Explicit check from our global state object
             const isExplicitExpression = expressionState[stateKey] === true;
-            // Implicit check: if it's already a string that isn't a simple number
-            const isImplicitExpression = typeof paramVal === 'string' && isNaN(Number(paramVal));
-            
-            // Final decision: It is an expression if either is true
+            const isImplicitExpression = typeof paramVal === 'string' && isNaN(Number(paramVal)) && paramVal !== '';
             const isExpression = isExplicitExpression || isImplicitExpression;
 
             const row = document.createElement('div');
@@ -1254,73 +1257,104 @@ const expressionState = {};
             
             toggleBtn.onclick = (e) => {
                 e.stopPropagation();
-                
-                // Toggle the global state for this field
                 expressionState[stateKey] = !isExpression;
-                const newIsExpression = expressionState[stateKey];
-
-                // Handle Value Conversion
-                if (newIsExpression) {
-                    // Switching to Expression: Ensure it is saved as a string
-                    window.updateStepField(i, `param-${key}`, String(paramVal));
-                } else {
-                    // Switching to Value: Try to parse back to number
-                    const parsed = parseFloat(paramVal);
-                    const safeVal = isNaN(parsed) ? (schema.default || 0) : parsed;
-                    window.updateStepField(i, `param-${key}`, safeVal);
-                }
-                // renderTimeline is called by updateStepField, refreshing the UI
+                
+                // When switching MODES, we might need to type-cast
+                // (Logic simplified here: let the re-render handle the UI state change)
+                window.renderTimeline();
             };
             row.appendChild(toggleBtn);
 
-            // Input Field
-            const input = document.createElement('input');
-            input.className = `param-input ${isExpression ? 'expression' : ''}`;
+            // --- INPUT FIELD LOGIC ---
             
-            if (isExpression) {
-                // EXPRESSION MODE
-                input.type = 'text';
-                input.value = paramVal;
-                input.placeholder = 'Expression (e.g. ctx.w * 2)';
-            } else {
-                // VALUE MODE
-                if (schema.type === 'boolean') {
-                    input.type = 'checkbox';
-                    input.checked = !!paramVal;
-                    input.style.flex = 'none';
-                    input.onchange = (e) => window.updateStepField(i, `param-${key}`, e.target.checked);
-                } else {
-                    input.type = 'number';
-                    input.step = 'any';
-                    input.value = paramVal;
+            // Check if this param is likely a geometry reference
+            const isGeometryField = ['geometry', 'profile', 'path', 'curve', 'target', 'lookAt', 'points'].includes(key);
+            
+            if (isGeometryField && !isExpression) {
+                // CASE A: GEOMETRY SELECT DROPDOWN
+                const select = document.createElement('select');
+                select.className = 'param-input';
+                
+                // Placeholder option
+                const emptyOpt = document.createElement('option');
+                emptyOpt.value = "";
+                emptyOpt.innerText = "-- Select Geometry --";
+                select.appendChild(emptyOpt);
+                
+                // Populate from previous steps
+                let foundCurrent = false;
+                availableGeometries.forEach(geoName => {
+                    const opt = document.createElement('option');
+                    opt.value = geoName;
+                    opt.innerText = geoName;
+                    if (paramVal === geoName) {
+                        opt.selected = true;
+                        foundCurrent = true;
+                    }
+                    select.appendChild(opt);
+                });
+
+                // If the current value isn't in the list (e.g. external var), add it so it's not lost
+                if (paramVal && !foundCurrent && typeof paramVal === 'string') {
+                    const opt = document.createElement('option');
+                    opt.value = paramVal;
+                    opt.innerText = `${paramVal} (External)`;
+                    opt.selected = true;
+                    select.appendChild(opt);
                 }
-            }
 
-            // Change Handler
-            if (input.type !== 'checkbox') {
+                select.onchange = (e) => window.updateStepField(i, `param-${key}`, e.target.value);
+                row.appendChild(select);
+
+            } else {
+                // CASE B: STANDARD INPUT (Text/Number/Checkbox)
+                const input = document.createElement('input');
+                input.className = `param-input ${isExpression ? 'expression' : ''}`;
+                
+                if (isExpression) {
+                    // Expression Mode: Always Text
+                    input.type = 'text';
+                    input.value = typeof paramVal === 'object' ? JSON.stringify(paramVal) : paramVal;
+                    input.placeholder = 'Expression (e.g. ctx.w * 2)';
+                } else {
+                    // Value Mode: Check type
+                    if (paramSchemaDef.type === 'boolean') {
+                        input.type = 'checkbox';
+                        input.checked = !!paramVal;
+                        input.style.flex = 'none';
+                    } else {
+                        input.type = 'number';
+                        input.step = 'any';
+                        input.value = paramVal;
+                    }
+                }
+
+                // Unified Change Handler
                 input.onchange = (e) => {
-    let val = e.target.value;
-    
-    if (isExpression) {
-        // Try to auto-convert arrays/objects if possible
-        try {
-            // If it looks like an array/object, parse it
-            if (val.trim().startsWith('[') || val.trim().startsWith('{')) {
-                val = JSON.parse(val); 
-            }
-        } catch (err) {
-            // If parsing fails, keep it as a string (it might be a math expression like "ctx.x * 2")
-            console.log("Kept as string expression:", val);
-        }
-    } else if (input.type === 'number') {
-        val = parseFloat(val);
-    }
-    
-    window.updateStepField(i, `param-${key}`, val);
-};
-            }
+                    let val = input.type === 'checkbox' ? input.checked : e.target.value;
 
-            row.appendChild(input);
+                    if (isExpression) {
+                        // Try to parse arrays/objects automatically
+                        try {
+                            const trimmed = String(val).trim();
+                            if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+                                val = JSON.parse(trimmed);
+                            }
+                        } catch (err) {
+                            // It's a string expression (e.g. "ctx.x + 10")
+                        }
+                    } else if (input.type === 'number') {
+                         // Parse number, fallback to default if invalid
+                        const parsed = parseFloat(val);
+                        val = isNaN(parsed) ? (paramSchemaDef.default || 0) : parsed;
+                    }
+
+                    window.updateStepField(i, `param-${key}`, val);
+                };
+                
+                row.appendChild(input);
+            }
+            
             paramsContainer.appendChild(row);
         }
         
