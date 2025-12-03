@@ -756,13 +756,27 @@
         // =========================================================================
         function registerJSONHelpers(executor, registry) {
             const definitions = {};
+            const helpersMetadata = {};  // NEW: Store metadata separately
+
             registry.forEach(entry => {
-                if (entry.id && entry.code) {
-                    definitions[entry.id] = { code: entry.code };
+                if (entry.id) {
+                    // Store metadata in separate object
+                    helpersMetadata[entry.id] = {
+                        description: entry.description || '',
+                        outputType: entry.outputType || 'Unknown',
+                        category: entry.category || ''
+                    };
+
+                    if (entry.code) {
+                        definitions[entry.id] = { code: entry.code };
+                    }
                 }
             });
+
             executor.registerDynamicHelpers(definitions);
+            window.helpersMetadata = helpersMetadata;  // NEW: Make globally accessible
             console.log(`✅ Registered ${Object.keys(definitions).length} helpers from JSON registry`);
+            console.log(`✅ Loaded ${Object.keys(helpersMetadata).length} helper metadata entries`);
         }
 
         // =========================================================================
@@ -1039,67 +1053,9 @@
                     const opt = document.createElement('option');
                     opt.value = helperName;
                     opt.text = helperName;
-
-                    // Store helper metadata from registry
-                    const helperData = executor.dynamicHelpers.get(helperName);
-                  console.log(helperData)
-                    if (helperData) {
-                        opt.dataset.description = helperData.description || '';
-                        opt.dataset.outputType = helperData.outputType || 'Unknown';
-                        opt.dataset.category = helperData.category || '';
-                    }
-
                     if (action.do === helperName) opt.selected = true;
                     helperSelect.appendChild(opt);
                 });
-
-                // Create info display element
-                const helperInfoDiv = document.createElement('div');
-                helperInfoDiv.className = 'helper-info';
-                helperInfoDiv.id = `helper-info-${i}`;
-                helperInfoDiv.style.display = 'none';
-                helperGroup.appendChild(helperInfoDiv);
-
-                helperGroup.appendChild(helperSelect);
-                bodyDiv.appendChild(helperGroup);
-
-                // Add onchange handler
-                helperSelect.onchange = (e) => {
-                    window.updateStepField(i, 'do', e.target.value);
-                    const infoDiv = document.getElementById(`helper-info-${i}`);
-                    const selectedOpt = e.target.options[e.target.selectedIndex];
-
-                    if (selectedOpt.value && selectedOpt.dataset.description) {
-                        const outputType = selectedOpt.dataset.outputType || 'Unknown';
-                        const typeClass = outputType === 'Data' ? 'data' : '';
-
-                        infoDiv.innerHTML = `
-                            <div class="helper-info-title">
-                                <span class="helper-output-type ${typeClass}">${outputType}</span>
-                            </div>
-                            <div class="helper-description">${selectedOpt.dataset.description}</div>
-                        `;
-                        infoDiv.style.display = 'block';
-                    } else {
-                        infoDiv.style.display = 'none';
-                    }
-                };
-
-                if (action.do) {
-                    const selectedOpt = helperSelect.options[helperSelect.selectedIndex];
-                    if (selectedOpt && selectedOpt.dataset.description) {
-                        const outputType = selectedOpt.dataset.outputType || 'Unknown';
-                        const typeClass = outputType === 'Data' ? 'data' : '';
-
-                        helperInfoDiv.innerHTML = `
-                            <div class="helper-info-title">
-                                <span class="helper-output-type ${typeClass}">${outputType}</span>
-                            </div>
-                            <div class="helper-description">${selectedOpt.dataset.description}</div>
-                        `;
-                        helperInfoDiv.style.display = 'block';
-                    }
-                }
                 
                 helperGroup.appendChild(helperSelect);
                 bodyDiv.appendChild(helperGroup);
