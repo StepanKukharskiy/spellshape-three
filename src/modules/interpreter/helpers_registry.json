@@ -1014,7 +1014,7 @@
         "description": "Reference to true variable"
       }
     },
-    "code": "const { geometry, count = 8, radius = 5, startAngle = 0, endAngle = Math.PI * 2, axis = 'y', faceCenter = true, autoMerge = true } = params;\n\n    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];\n\n    const results = [];\n    for (let i = 0; i < count; i++) {\n        const t = count === 1 ? 0 : i / (count - 1);\n        const angle = startAngle + (endAngle - startAngle) * t;\n        const x = radius * Math.cos(angle);\n        const z = radius * Math.sin(angle);\n        const clone = geometry.clone();\n\n        if (axis === 'y') {\n            clone.translate(x, 0, z);\n            if (faceCenter) clone.rotateY(angle + Math.PI / 2);\n        }\n\n        results.push(clone);\n    }\n\n    return autoMerge ? BufferGeometryUtils.mergeGeometries(results) : results;",
+    "code": "const { geometry, count = 8, radius = 5, startAngle = 0, endAngle = Math.PI * 2, axis = 'y', faceCenter = true, autoMerge = true } = params;\n\n    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];\n\n    const results = [];\n    for (let i = 0; i < count; i++) {\n        const t = count === 1 ? 0 : i / (count - 1);\n        const angle = startAngle + (endAngle - startAngle) * t;\n        const x = radius * Math.cos(angle);\n        const z = radius * Math.sin(angle);\n        const clone = geometry.clone();\n\n        if (axis === 'y') {\n            if (faceCenter) clone.rotateY(angle + Math.PI / 2);\n       clone.translate(x, 0, z); \n}\n\n        results.push(clone);\n    }\n\n    return autoMerge ? BufferGeometryUtils.mergeGeometries(results) : results;",
     "outputType": "Geometry"
   },
   {
