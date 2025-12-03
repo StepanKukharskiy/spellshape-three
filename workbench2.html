@@ -1323,7 +1323,7 @@ const expressionState = {};
         matSelect.onchange = (e) => window.updateStepField(i, 'material', e.target.value);
         
         // Note: schema.materials must exist globally or be passed in
-        if (window.schema && window.schema.materials) {
+        if (schema && schema.materials) {
              for (const matName in window.schema.materials) {
                 const opt = document.createElement('option');
                 opt.value = matName;
