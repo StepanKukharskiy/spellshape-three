@@ -998,7 +998,7 @@
       },
       "axis": {
         "type": "string",
-        "default": "'y'"
+        "default": "'y"
       },
       "faceCenter": {
         "type": "boolean",
