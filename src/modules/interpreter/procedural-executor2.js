@@ -8,6 +8,7 @@ import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 
 // =========================================================================
@@ -237,10 +238,12 @@ export class ProceduralExecutor {
       this.loadedFonts = new Map();              // Cache fonts
         this.fontLoader = new FontLoader();  // Font loader
         this.pendingFonts = new Map();             // Track loading
+      this.TextGeometry = new TextGeometry();
 
         // Initialize dependencies
         this.noise = new SimplexNoise(42);
         this.BufferGeometryUtils = BufferGeometryUtils;
+      
         this.resolvers = Resolvers;
         this.wrappers = Wrappers;
 
