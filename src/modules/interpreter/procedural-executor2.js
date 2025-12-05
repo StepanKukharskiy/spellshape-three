@@ -238,7 +238,7 @@ export class ProceduralExecutor {
       this.loadedFonts = new Map();              // Cache fonts
         this.fontLoader = new FontLoader();  // Font loader
         this.pendingFonts = new Map();             // Track loading
-      this.TextGeometry = new TextGeometry();
+      this.TextGeometry = TextGeometry;
 
         // Initialize dependencies
         this.noise = new SimplexNoise(42);
