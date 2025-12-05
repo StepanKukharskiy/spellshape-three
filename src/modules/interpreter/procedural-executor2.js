@@ -512,6 +512,20 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
     evaluateValue(item) {
         if (typeof item === 'number') return item;
         if (typeof item === 'string') {
+
+          // Handle font references
+        if (item.startsWith('font:')) {
+            const fontPath = item.substring(5);  // Remove 'font:' prefix
+            const font = this.loadedFonts.get(fontPath);
+            if (font) {
+                console.log(`✅ Injecting font: ${fontPath}`);
+                return font;
+            } else {
+                console.warn(`⚠️ Font not found: ${fontPath}`);
+                return null;
+            }
+        }
+          
             if (this.geometries.has(item)) {
                 const stored = this.geometries.get(item);
                 return stored.userData?.curve || stored;
