@@ -536,58 +536,23 @@
   {
   "id": "createText3D",
   "name": "createText3D",
-  "description": "Creates 3D text geometry from strings with automatic default font fallback. Supports customizable size, depth, bevels, and curve smoothing. Font parameter is optional - uses Helvetiker if not provided.",
+  "description": "Creates 3D text geometry. The 'height' parameter controls extrusion depth. Uses a pre-loaded default font if none is provided.",
   "category": "Basic Geometry",
   "paramsSchema": {
-    "text": {
-      "type": "string",
-      "description": "Text to render",
-      "default": "Hello"
-    },
-    "font": {
-      "type": "object",
-      "description": "THREE.Font object (optional - uses Helvetiker default)",
-      "default": null
-    },
-    "size": {
-      "type": "number",
-      "description": "Letter height",
-      "default": 1
-    },
-    "depth": {
-      "type": "number",
-      "description": "Extrusion depth",
-      "default": 0.2
-    },
-    "curveSegments": {
-      "type": "number",
-      "description": "Curve smoothness",
-      "default": 12
-    },
-    "bevelEnabled": {
-      "type": "boolean",
-      "description": "Rounded edges",
-      "default": true
-    },
-    "bevelThickness": {
-      "type": "number",
-      "description": "Bevel depth",
-      "default": 0.02
-    },
-    "bevelSize": {
-      "type": "number",
-      "description": "Bevel size",
-      "default": 0.01
-    },
-    "bevelSegments": {
-      "type": "number",
-      "description": "Bevel smoothness",
-      "default": 3
-    }
+    "text": { "type": "string", "description": "Text to render", "default": "Hello" },
+    "font": { "type": "object", "description": "THREE.Font object (optional)", "default": null },
+    "size": { "type": "number", "description": "Letter height / font size", "default": 1 },
+    "height": { "type": "number", "description": "Extrusion depth of the text", "default": 0.2 },
+    "curveSegments": { "type": "number", "description": "Curve smoothness", "default": 12 },
+    "bevelEnabled": { "type": "boolean", "description": "Enable rounded edges", "default": true },
+    "bevelThickness": { "type": "number", "description": "How deep the bevel goes", "default": 0.02 },
+    "bevelSize": { "type": "number", "description": "How far from the outline the bevel extends", "default": 0.01 },
+    "bevelSegments": { "type": "number", "description": "Bevel smoothness", "default": 3 }
   },
-  "code": "const DEFAULT_FONT_URL = 'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json';\nconst { text, font, size, depth, curveSegments, bevelEnabled, bevelThickness, bevelSize, bevelSegments } = params;\nif (!text || typeof text !== 'string') {\n    console.warn('⚠️ createText3D: text must be a string');\n    return new THREE.BoxGeometry(1, 1, 0.2);\n}\nlet fontToUse = font;\nif (!fontToUse) {\n    console.warn(`⚠️ No font provided. Using default: ${DEFAULT_FONT_URL}`);\n    if (loadedFonts && loadedFonts.has(DEFAULT_FONT_URL)) {\n        fontToUse = loadedFonts.get(DEFAULT_FONT_URL);\n        console.log('✅ Using cached default font');\n    } else {\n        console.error('❌ Default font not pre-loaded.');\n        return new THREE.BoxGeometry(1, 1, 0.2);\n    }\n}\nif (!fontToUse || !fontToUse.isFont) {\n    console.error('⚠️ createText3D: font object is invalid');\n    return new THREE.BoxGeometry(1, 1, 0.2);\n}\nconst textGeom = new TextGeometry(text, {\n    font: fontToUse,\n    size: size ?? 1,\n    height: depth ?? 0.2,\n    curveSegments: curveSegments ?? 12,\n    bevelEnabled: bevelEnabled ?? true,\n    bevelThickness: bevelThickness ?? 0.02,\n    bevelSize: bevelSize ?? 0.01,\n    bevelSegments: bevelSegments ?? 3\n});\ntextGeom.center();\nreturn textGeom;",
+  "code": "const DEFAULT_FONT_URL = 'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json';\nconst { text, font, size, height, curveSegments, bevelEnabled, bevelThickness, bevelSize, bevelSegments } = params;\n\nif (!text) return new THREE.BoxGeometry(0,0,0);\n\nlet fontToUse = font;\nif (!fontToUse) {\n    if (loadedFonts && loadedFonts.has(DEFAULT_FONT_URL)) {\n        fontToUse = loadedFonts.get(DEFAULT_FONT_URL);\n    } else {\n        console.error('❌ Default font not available. Cannot create text.');\n        return new THREE.BoxGeometry(1, 1, 0.2);\n    }\n}\n\nif (!fontToUse.isFont) {\n    console.error('⚠️ createText3D: Provided font object is invalid.');\n    return new THREE.BoxGeometry(1, 1, 0.2);\n}\n\nconst textGeom = new TextGeometry(text, {\n    font: fontToUse,\n    size: size ?? 1,\n    height: height ?? 0.2,\n    curveSegments: curveSegments ?? 12,\n    bevelEnabled: bevelEnabled ?? false,\n    bevelThickness: bevelThickness ?? 0.02,\n    bevelSize: bevelSize ?? 0.01,\n    bevelSegments: bevelSegments ?? 3\n});\n\ntextGeom.center();\nreturn textGeom;",
   "outputType": "Geometry"
-},
+}
+,
   {
     "id": "createLinePath",
     "name": "createLinePath",
