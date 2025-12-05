@@ -315,7 +315,7 @@ export class ProceduralExecutor {
             console.warn('⚠️ Some fonts failed to load:', error);
             // Continue anyway - fallback will be used
         }
-    }
+    
 
         const safeParams = (parameters && typeof parameters === 'object') ? parameters : {};
 
