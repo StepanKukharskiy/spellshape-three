@@ -409,6 +409,7 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
                     'wrapFieldAsObject',
                     'wrapGridAsObject',
                   'loadedFonts',
+                  'TextGeometry',
                     'Math',
                     body
                 );
@@ -429,6 +430,7 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
                     this.wrappers.wrapFieldAsObject,
                     this.wrappers.wrapGridAsObject,
                   this.loadedFonts, 
+                  this.TextGeometry,
                     Math
                 );
 
