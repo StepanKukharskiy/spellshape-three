@@ -869,6 +869,25 @@ const expressionState = {};
             console.log(`✅ Registered ${Object.keys(definitions).length} helpers from JSON registry`);
         }
 
+      // =========================================================================
+        // EXTRACT FONTS
+        // =========================================================================
+      function extractFontPathsFromSchema(schema) {
+    const fonts = new Set();
+    
+    // Collect fonts from all actions
+    if (schema.actions && Array.isArray(schema.actions)) {
+        schema.actions.forEach(action => {
+            if (action.params && action.params.font) {
+                fonts.add(action.params.font);
+                console.log(`📝 Font reference found: ${action.params.font}`);
+            }
+        });
+    }
+    
+    return Array.from(fonts);
+}
+
         // =========================================================================
         // THREE.JS SCENE SETUP
         // =========================================================================
@@ -1618,10 +1637,40 @@ const expressionState = {};
             }
         };
 
+
+      // Extract fonts from schema
+window.extractFontsFromSchema = function(schema) {
+    const fonts = new Set();
+    
+    // Check both procedures and actions format
+    if (schema.procedures?.length) {
+        schema.procedures.forEach(proc => {
+            proc.steps?.forEach(step => {
+                if (step.params?.font) fonts.add(step.params.font);
+            });
+        });
+    }
+    
+    if (schema.actions?.length) {
+        schema.actions.forEach(action => {
+            if (action.params?.font) fonts.add(action.params.font);
+        });
+    }
+    
+    return Array.from(fonts);
+};
+
         // =========================================================================
         // EXECUTION (GLOBAL)
         // =========================================================================
-        window.run = function() {
+        window.run = async function() {
+
+          // Add font extraction
+    const fonts = window.extractFontsFromSchema(schema);
+    if (fonts.length > 0) {
+        schema.fonts = fonts;  // Tell executor which fonts to load
+    }
+          
             if (currentGroup) scene.remove(currentGroup);
             
             try {
@@ -1630,7 +1679,7 @@ const expressionState = {};
                     params[key] = schema.globalParameters[key].value;
                 }
                 
-                currentGroup = executor.execute(schema, params);
+                currentGroup = await executor.execute(schema, params);
                 scene.add(currentGroup);
                 
                 let count = 0;
