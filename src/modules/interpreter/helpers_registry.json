@@ -534,14 +534,60 @@
     "outputType": "Geometry"
   },
   {
-    "id": "createText3D",
-    "name": "createText3D",
-    "description": "3D text geometry from strings. Requires loaded font file and THREE.TextGeometry. Outputs extruded text suitable for signage and typographic elements in architectural visualization.",
-    "category": "Basic Geometry",
-    "paramsSchema": {},
-    "code": "console.warn('createText3D: Requires THREE.TextGeometry and loaded font');\n    return new THREE.BoxGeometry(1, 1, 0.2);",
-    "outputType": "Geometry"
+  "id": "createText3D",
+  "name": "createText3D",
+  "description": "Creates 3D text geometry from strings, perfect for signage and typographic elements. Extrudes letters into solid forms you can manipulate like any geometry. Requires a loaded font file (JSON format from Three.js Font Converter). Think of it like stamping letters in clay. Useful for: architectural signage, parametric typography, branded installations, and text-based wayfinding.",
+  "category": "Basic Geometry",
+  "paramsSchema": {
+    "text": {
+      "type": "string",
+      "default": "Text",
+      "description": "The text string to render"
+    },
+    "font": {
+      "type": "string",
+      "default": "",
+      "description": "Reference to font variable (loaded via FontLoader)"
+    },
+    "size": {
+      "type": "number",
+      "default": 1
+    },
+    "depth": {
+      "type": "number",
+      "default": 0.2,
+      "description": "Extrusion depth (how thick the letters are)"
+    },
+    "curveSegments": {
+      "type": "number",
+      "default": 12,
+      "description": "Segments along letter curves (higher = smoother)"
+    },
+    "bevelEnabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "bevelThickness": {
+      "type": "number",
+      "default": 0.02
+    },
+    "bevelSize": {
+      "type": "number",
+      "default": 0.01
+    },
+    "bevelSegments": {
+      "type": "number",
+      "default": 3
+    },
+    "true": {
+      "type": "string",
+      "default": "",
+      "description": "Reference to true variable"
+    }
   },
+  "code": "const { \n    text = 'Text', \n    font = null, \n    size = 1, \n    depth = 0.2,\n    curveSegments = 12,\n    bevelEnabled = true,\n    bevelThickness = 0.02,\n    bevelSize = 0.01,\n    bevelSegments = 3\n} = params;\n\n// ============================================================\n// STEP 1: VALIDATE FONT\n// ============================================================\nif (!font) {\n    console.warn('createText3D: No font provided. Load font via FontLoader first.');\n    return new THREE.BoxGeometry(text.length * size * 0.5, size, depth);\n}\n\n// ============================================================\n// STEP 2: CREATE TEXT GEOMETRY\n// ============================================================\ntry {\n    const geometry = new THREE.TextGeometry(text, {\n        font: font,\n        size: size,\n        depth: depth,\n        curveSegments: curveSegments,\n        bevelEnabled: bevelEnabled,\n        bevelThickness: bevelThickness,\n        bevelSize: bevelSize,\n        bevelSegments: bevelSegments\n    });\n\n    // ============================================================\n    // STEP 3: CENTER THE TEXT (optional, but usually desired)\n    // ============================================================\n    geometry.computeBoundingBox();\n    const centerOffsetX = -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);\n    const centerOffsetY = -0.5 * (geometry.boundingBox.max.y - geometry.boundingBox.min.y);\n\n    geometry.translate(centerOffsetX, centerOffsetY, 0);\n    geometry.computeVertexNormals();\n\n    console.log('\u2705 Text geometry created:', { text, size, depth });\n    return geometry;\n\n} catch (e) {\n    console.error('\u274c createText3D failed:', e.message);\n    console.warn('Make sure: 1) Font is loaded via FontLoader, 2) Font file is JSON format');\n    return new THREE.BoxGeometry(1, 1, 0.2);\n}",
+  "outputType": "Geometry"
+},
   {
     "id": "createLinePath",
     "name": "createLinePath",
