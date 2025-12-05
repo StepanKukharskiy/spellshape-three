@@ -232,6 +232,10 @@ export class ProceduralExecutor {
         this.dynamicHelpers = new Map();
         this.context = {};
 
+      this.loadedFonts = new Map();              // Cache fonts
+        this.fontLoader = new THREE.FontLoader();  // Font loader
+        this.pendingFonts = new Map();             // Track loading
+
         // Initialize dependencies
         this.noise = new SimplexNoise(42);
         this.BufferGeometryUtils = BufferGeometryUtils;
