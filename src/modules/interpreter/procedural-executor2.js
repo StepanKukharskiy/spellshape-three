@@ -298,8 +298,14 @@ export class ProceduralExecutor {
     async execute(schema, parameters) {
         console.log("🚩 Checkpoint 1: Execute Start");
 
-      // Pre-load all fonts from schema
-    if (schema.fonts && Array.isArray(schema.fonts)) {
+      // Default font URL
+    const DEFAULT_FONT_URL = 'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json';
+    
+    // Pre-load all fonts from schema + default
+    if (!schema.fonts) schema.fonts = [];
+    if (!schema.fonts.includes(DEFAULT_FONT_URL)) {
+        schema.fonts.push(DEFAULT_FONT_URL);  // Always include default
+    }
         try {
             console.log(`🔄 Pre-loading ${schema.fonts.length} font(s)...`);
             const fontPromises = schema.fonts.map(path => this.loadFont(path));
