@@ -405,6 +405,7 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
                     'wrapCurveAsLine',
                     'wrapFieldAsObject',
                     'wrapGridAsObject',
+                  'loadedFonts',
                     'Math',
                     body
                 );
@@ -424,6 +425,7 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
                     this.wrappers.wrapCurveAsLine,
                     this.wrappers.wrapFieldAsObject,
                     this.wrappers.wrapGridAsObject,
+                  this.loadedFonts, 
                     Math
                 );
 
