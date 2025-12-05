@@ -235,7 +235,7 @@ export class ProceduralExecutor {
         this.context = {};
 
       this.loadedFonts = new Map();              // Cache fonts
-        this.fontLoader = new THREE.FontLoader();  // Font loader
+        this.fontLoader = new FontLoader();  // Font loader
         this.pendingFonts = new Map();             // Track loading
 
         // Initialize dependencies
