@@ -257,8 +257,59 @@ export class ProceduralExecutor {
         }
     }
 
-    execute(schema, parameters) {
+  async loadFont(fontPath) {
+    // Return cached font if available
+    if (this.loadedFonts.has(fontPath)) {
+        console.log(`✅ Font cached: ${fontPath}`);
+        return this.loadedFonts.get(fontPath);
+    }
+    
+    // Return existing promise if already loading
+    if (this.pendingFonts.has(fontPath)) {
+        console.log(`⏳ Font loading: ${fontPath}`);
+        return this.pendingFonts.get(fontPath);
+    }
+    
+    // Create new loading promise
+    const promise = new Promise((resolve, reject) => {
+        this.fontLoader.load(
+            fontPath,
+            (font) => {
+                console.log(`✅ Font loaded: ${fontPath}`);
+                this.loadedFonts.set(fontPath, font);
+                this.pendingFonts.delete(fontPath);
+                resolve(font);
+            },
+            (progress) => {
+                console.log(`⏳ Loading ${fontPath}: ${Math.round(progress.loaded / progress.total * 100)}%`);
+            },
+            (error) => {
+                console.error(`❌ Font failed: ${fontPath}`, error);
+                this.pendingFonts.delete(fontPath);
+                reject(error);
+            }
+        );
+    });
+    
+    this.pendingFonts.set(fontPath, promise);
+    return promise;
+}
+
+    async execute(schema, parameters) {
         console.log("🚩 Checkpoint 1: Execute Start");
+
+      // Pre-load all fonts from schema
+    if (schema.fonts && Array.isArray(schema.fonts)) {
+        try {
+            console.log(`🔄 Pre-loading ${schema.fonts.length} font(s)...`);
+            const fontPromises = schema.fonts.map(path => this.loadFont(path));
+            await Promise.all(fontPromises);
+            console.log('✅ All fonts pre-loaded');
+        } catch (error) {
+            console.warn('⚠️ Some fonts failed to load:', error);
+            // Continue anyway - fallback will be used
+        }
+    }
 
         const safeParams = (parameters && typeof parameters === 'object') ? parameters : {};
 
