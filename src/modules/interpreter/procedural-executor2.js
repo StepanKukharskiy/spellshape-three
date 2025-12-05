@@ -7,6 +7,8 @@ import * as THREE from 'three';
 import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+
 
 // =========================================================================
 // SIMPLEX NOISE IMPLEMENTATION (Inline)
