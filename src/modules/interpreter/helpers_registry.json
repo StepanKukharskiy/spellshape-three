@@ -1804,16 +1804,25 @@
     "outputType": "Data"
   },
   {
-    "id": "subdivisionSurface",
-    "name": "subdivisionSurface",
-    "description": "Mesh smoothing via Catmull-Clark subdivision. Recursively refines geometry while preserving original shape in limit. Used for creating smooth surfaces from coarse control meshes (NURBS approximation). Requires SubdivisionModifier from three/examples.",
-    "category": "Complex Algorithms",
-    "paramsSchema": {
-      "geometry": {
-        "type": "string",
-        "default": "new"
-      }
+  "id": "subdivisionSurface",
+  "name": "subdivisionSurface",
+  "description": "Mesh smoothing via Catmull-Clark subdivision. Recursively refines geometry while preserving original shape in limit. Used for creating smooth surfaces from coarse control meshes (NURBS approximation). Requires SubdivisionModifier from three/examples.",
+  "category": "Complex Algorithms",
+  "paramsSchema": {
+    "geometry": {
+      "type": "string",
+      "default": "",
+      "description": "Reference to geometry variable"
     },
+    "iterations": {
+      "type": "number",
+      "default": 1,
+      "description": "Number of subdivision iterations (1-3 typical, higher = smoother but slower)"
+    }
+  },
+  "code": "const { geometry, iterations = 1 } = params; if (!geometry) { console.warn('subdivisionSurface: No geometry provided'); return new THREE.BufferGeometry(); } let geom = geometry.isBufferGeometry ? geometry.clone() : geometry; if (!geom.isBufferGeometry) { console.warn('subdivisionSurface: Invalid geometry type'); return new THREE.BufferGeometry(); } if (geom.index) { geom = geom.toNonIndexed(); } const clampedIterations = Math.max(0, Math.min(5, Math.floor(iterations))); try { const modifier = new SubdivisionModifier(clampedIterations); const smoothed = modifier.modify(geom); smoothed.computeVertexNormals(); return smoothed; } catch (error) { console.error('subdivisionSurface failed:', error.message); return geom; }",
+  "outputType": "Geometry"
+},
     "code": "console.warn('subdivisionSurface: Requires SubdivisionModifier from three/examples');\n    return params.geometry || new THREE.BufferGeometry();",
     "outputType": "Geometry"
   },
