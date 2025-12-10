@@ -907,18 +907,50 @@ const expressionState = {};
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
         renderer.setSize(canvas.clientWidth, canvas.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  renderer.autoClear = false;
 
         const controls = new OrbitControls(camera, canvas);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
 
-        // Lights
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
+        /* Lights / ground (same as original) */
+  // Key Light (Main directional light from front-top-right)
+  const sun = new THREE.DirectionalLight("#ffffff", 2.5);
+  sun.position.set(80, 320, 60);
+  sun.castShadow = true;
+  sun.shadow.mapSize.width = 2048;
+  sun.shadow.mapSize.height = 2048;
+  sun.shadow.camera.near = 0.5;
+  sun.shadow.camera.far = 1000;
+  sun.shadow.camera.left = -150;
+  sun.shadow.camera.right = 150;
+  sun.shadow.camera.top = 250;
+  sun.shadow.camera.bottom = -50;
+  sun.shadow.bias = -0.00005;
+  scene.add(sun);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(5, 10, 7);
-        scene.add(directionalLight);
+  // Fill Light (Softer light from front-left to reduce harsh shadows)
+  const fillLight = new THREE.DirectionalLight("#e6f3ff", 0.8);
+  fillLight.position.set(-6, 8, 4);
+  scene.add(fillLight);
+
+  // Rim Light (Back light for edge definition and depth)
+  const rimLight = new THREE.DirectionalLight("#fff8e1", 1.2);
+  rimLight.position.set(-4, 6, -8);
+  scene.add(rimLight);
+
+  // Ambient Light (Soft overall illumination)
+  const ambientLight = new THREE.AmbientLight("#f0f8ff", 0.3);
+  scene.add(ambientLight);
+
+  // Environment Light (Hemisphere for natural feel)
+  const hemisphereLight = new THREE.HemisphereLight("#87ceeb", "#deb887", 0.6);
+  scene.add(hemisphereLight);
 
         // =========================================================================
         // EXECUTOR INITIALIZATION
