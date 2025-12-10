@@ -1402,9 +1402,9 @@
   "category": "Procedural",
   "paramsSchema": {
     "axiom": { "type": "string", "default": "X", "description": "Start string (e.g. F, X)" },
-    "rules": { 
-      "type": "string", 
-      "default": { "X": "F[&+X][^--X][&^X]", "F": "FF" }, 
+    "rules": {
+    "type": "string",
+    "default": "{\"X\": \"F[&+X][^--X][&^X]\", \"F\": \"FF\"}",
       "description": "Production rules" 
     },
     "iterations": { "type": "number", "default": 4, "description": "Generations (1-6)" },
