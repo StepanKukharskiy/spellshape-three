@@ -241,16 +241,29 @@ export class ProceduralExecutor {
         this.pendingFonts = new Map();             // Track loading
       this.TextGeometry = TextGeometry;
 
+      this.messages = [];
+
         // Initialize dependencies
         this.noise = new SimplexNoise(42);
         this.BufferGeometryUtils = BufferGeometryUtils;
       
         this.resolvers = Resolvers;
         this.wrappers = Wrappers;
+      
 
         console.log('✅ ProceduralExecutor initialized with dependencies');
       console.log('✅ BufferGeometryUtils loaded:', Object.keys(this.BufferGeometryUtils));
     }
+
+  addMessage(level, text) {
+  this.messages.push({
+    level,
+    text,
+    time: Date.now()
+  });
+  // Optionally cap length
+  if (this.messages.length > 200) this.messages.shift();
+}
 
     safeLoop(obj, callback) {
         if (obj === undefined || obj === null) return;
@@ -416,9 +429,17 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
                     body
                 );
 
+              const helperUtils = {
+  log: (level, text) => {
+    console[level] ? console[level](text) : console.log(text);
+    this.addMessage(level, text);
+  }
+};
+
                 const boundFunc = (p) => func(
                     p,
                     this.THREE,  // ← USE STORED THREE
+                  helperUtils,
                     {},
                     this.noise,
                     BufferGeometryUtils,
