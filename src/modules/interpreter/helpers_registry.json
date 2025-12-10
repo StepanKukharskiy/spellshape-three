@@ -1823,9 +1823,6 @@
   "code": "const { geometry, iterations = 1 } = params; if (!geometry) { console.warn('subdivisionSurface: No geometry provided'); return new THREE.BufferGeometry(); } let geom = geometry.isBufferGeometry ? geometry.clone() : geometry; if (!geom.isBufferGeometry) { console.warn('subdivisionSurface: Invalid geometry type'); return new THREE.BufferGeometry(); } if (geom.index) { geom = geom.toNonIndexed(); } const clampedIterations = Math.max(0, Math.min(5, Math.floor(iterations))); try { const modifier = new SubdivisionModifier(clampedIterations); const smoothed = modifier.modify(geom); smoothed.computeVertexNormals(); return smoothed; } catch (error) { console.error('subdivisionSurface failed:', error.message); return geom; }",
   "outputType": "Geometry"
 },
-    "code": "console.warn('subdivisionSurface: Requires SubdivisionModifier from three/examples');\n    return params.geometry || new THREE.BufferGeometry();",
-    "outputType": "Geometry"
-  },
   {
     "id": "voronoiDivision",
     "name": "voronoiDivision",
