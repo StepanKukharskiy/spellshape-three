@@ -1682,9 +1682,31 @@ window.extractFontsFromSchema = function(schema) {
                 currentGroup = await executor.execute(schema, params);
                 scene.add(currentGroup);
                 
-                let count = 0;
-                currentGroup.traverse(c => { if (c.isMesh) count++; });
-                document.getElementById('status-text').textContent = `Meshes: ${count}`;
+                let meshCount = 0;
+let triangleCount = 0;
+
+currentGroup.traverse(c => {
+  if (c.isMesh && c.geometry) {
+    meshCount++;
+    const geom = c.geometry;
+    const pos = geom.attributes && geom.attributes.position;
+    if (!pos) return;
+
+    if (geom.index) {
+      // Indexed: each 3 indices is one triangle
+      triangleCount += geom.index.count / 3;
+    } else {
+      // Non-indexed: each 3 positions is one triangle
+      triangleCount += pos.count / 3;
+    }
+  }
+});
+
+const statusEl = document.getElementById('status-text');
+if (statusEl) {
+  statusEl.textContent =
+    `Meshes: ${meshCount}  |  Triangles: ${Math.round(triangleCount).toLocaleString()}`;
+}
             } catch (e) {
                 document.getElementById('status-text').textContent = `Error: ${e.message.substring(0, 30)}`;
                 console.error(e);
