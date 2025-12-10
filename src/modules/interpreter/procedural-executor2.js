@@ -675,6 +675,94 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
         }
         return group;
     }
+
+      async runTests() {
+        console.group("🧪 ProceduralExecutor Helper Tests");
+        const results = {
+            passed: 0,
+            failed: 0,
+            warnings: 0,
+            report: []
+        };
+
+        const helpers = Array.from(this.dynamicHelpers.keys()).sort();
+        console.log(`Found ${helpers.length} registered helpers.`);
+
+        // Create a dummy group to catch outputs
+        const dummyGroup = new this.THREE.Group();
+
+        for (const name of helpers) {
+            const helperFn = this.dynamicHelpers.get(name);
+            
+            // 1. Get Default Params (simulate minimal valid input)
+            // We need to fetch the paramsSchema from the registry if possible, 
+            // but since we only have the function here, we'll try to execute with empty params
+            // or minimal mock params.
+            const mockParams = {
+                geometry: new this.THREE.BufferGeometry(), // Supply a dummy geometry for modifiers
+                width: 1, height: 1, radius: 1, // Common numerical defaults
+                text: "Test",
+                points: [new this.THREE.Vector3(0,0,0), new this.THREE.Vector3(1,1,1)],
+                // Add other common mocks as needed
+            };
+
+            let status = "✅";
+            let msg = "OK";
+            let outputType = "Unknown";
+
+            try {
+                // Execute Helper
+                const result = helperFn(mockParams);
+
+                if (!result) {
+                    status = "⚠️";
+                    msg = "Returned null/undefined";
+                    results.warnings++;
+                } else if (result.isBufferGeometry) {
+                    outputType = `Geometry (${result.attributes.position ? result.attributes.position.count : 0} verts)`;
+                    // Check for NaNs
+                    if (result.attributes.position && result.attributes.position.count > 0) {
+                        if (isNaN(result.attributes.position.array[0])) {
+                            status = "❌";
+                            msg = "Result contains NaNs";
+                            results.failed++;
+                        }
+                    }
+                    results.passed++;
+                } else if (result.isObject3D) {
+                    outputType = "Object3D";
+                    results.passed++;
+                } else {
+                    outputType = typeof result;
+                    results.passed++;
+                }
+
+            } catch (e) {
+                status = "❌";
+                msg = e.message;
+                results.failed++;
+            }
+
+            // Log entry
+            const logLine = `${status} ${name.padEnd(25)} | ${outputType.padEnd(20)} | ${msg}`;
+            results.report.push(logLine);
+            
+            // Console output (grouped by status for readability)
+            if (status === "❌") console.error(logLine);
+            else if (status === "⚠️") console.warn(logLine);
+            else console.log(logLine);
+        }
+
+        console.log(`\n--- TEST SUMMARY ---`);
+        console.log(`Total: ${helpers.length}`);
+        console.log(`✅ Passed: ${results.passed}`);
+        console.log(`❌ Failed: ${results.failed}`);
+        console.log(`⚠️ Warnings: ${results.warnings}`);
+        console.groupEnd();
+        
+        return results;
+    }
+
 }
 
 
