@@ -507,7 +507,7 @@
         "description": "List of points or variable name"
       }
     },
-    "code": "const { points } = params;\n\n    if (!points || points.length < 4) {\n        console.warn('createConvexHull: Need at least 4 points');\n        return new THREE.BufferGeometry();\n    }\n\n    const vectors = points.map(p => Array.isArray(p) ? new THREE.Vector3(...p) : p);\n    return new ConvexGeometry(vectors);",
+    "code": "const { points } = params;\n\n    if (!points || points.length < 4) {\n        console.warn('createConvexHull: Need at least 4 points');\n        return new THREE.BufferGeometry();\n    }\n\n    const vectors = points.map(p => Array.isArray(p) ? new THREE.Vector3(...p) : p); return new ConvexGeometry(vectors);",
     "outputType": "Geometry"
   },
   {
