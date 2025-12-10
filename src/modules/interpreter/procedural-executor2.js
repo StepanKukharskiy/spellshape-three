@@ -439,7 +439,7 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
                 const boundFunc = (p) => func(
                     p,
                     this.THREE,  // ← USE STORED THREE
-                    {},
+                    helperUtils,
                     this.noise,
                     BufferGeometryUtils,
                   MarchingCubes,
