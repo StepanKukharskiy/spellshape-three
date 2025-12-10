@@ -727,7 +727,12 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
     iterations: 2,
     angle: 25,
     axiom: "F",
-    rules: { "F": "FF" }
+    rules: { "F": "FF" },
+             field: (x, y, z) => new this.THREE.Vector3(0, 1, 0),
+             profiles: [
+    [new this.THREE.Vector3(0,0,0), new this.THREE.Vector3(1,0,0), new this.THREE.Vector3(1,1,0)], // Profile 1
+    [new this.THREE.Vector3(0,0,2), new this.THREE.Vector3(1,0,2), new this.THREE.Vector3(1,1,2)]  // Profile 2
+]
 };
 
 
