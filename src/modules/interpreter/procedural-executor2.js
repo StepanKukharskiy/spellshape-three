@@ -517,6 +517,11 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
             result = helperFn(evalParams);
         } catch (error) {
             console.error(`❌ Error in '${helperName}':`, error);
+
+          // PUSH ERROR TO UI LOG
+    if (this.addMessage) {
+        this.addMessage('error', msg);
+    }
             return;
         }
 
