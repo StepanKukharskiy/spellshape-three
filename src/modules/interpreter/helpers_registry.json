@@ -530,7 +530,7 @@
         "description": "Reference to func variable"
       }
     },
-    "code": "const { func, slices = 32, stacks = 32 } = params;\n    return new THREE.ParametricGeometry(func, slices, stacks);",
+    "code": "const { func, slices = 32, stacks = 32 } = params;\n    return new ParametricGeometry(func, slices, stacks);",
     "outputType": "Geometry"
   },
   {
