@@ -904,7 +904,7 @@
     "description": "Boolean operation: combines shapes like gluing them together. Where they overlap, they become one solid. (Note: full implementation requires CSG library)",
     "category": "Boolean Operations",
     "paramsSchema": {},
-    "code": "console.warn('unionGeometry: CSG operations require three-csg-ts library');\n    return mergeGeometries(params);",
+    "code": "console.warn('unionGeometry: CSG operations require three-csg-ts library');\n    return BufferGeometryUtils.mergeGeometries(params);",
     "outputType": "Geometry"
   },
   {
