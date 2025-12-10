@@ -698,13 +698,38 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
             // We need to fetch the paramsSchema from the registry if possible, 
             // but since we only have the function here, we'll try to execute with empty params
             // or minimal mock params.
-            const mockParams = {
-                geometry: new this.THREE.BufferGeometry(), // Supply a dummy geometry for modifiers
-                width: 1, height: 1, radius: 1, // Common numerical defaults
-                text: "Test",
-                points: [new this.THREE.Vector3(0,0,0), new this.THREE.Vector3(1,1,1)],
-                // Add other common mocks as needed
-            };
+           const mockParams = {
+    // Geometries
+    geometry: new this.THREE.BoxGeometry(1, 1, 1), // Real geometry with vertices
+    geometries: [new this.THREE.BoxGeometry(1, 1, 1)],
+    
+    // Common numerics
+    width: 1, height: 1, depth: 1, radius: 1,
+    
+    // Text
+    text: "Test",
+    
+    // Points and vectors
+    points: [
+        new this.THREE.Vector3(0, 0, 0),
+        new this.THREE.Vector3(1, 0, 0),
+        new this.THREE.Vector3(1, 1, 0),
+        new this.THREE.Vector3(0, 1, 1)
+    ],
+    
+    // Bezier/Path params
+    start: [0, 0, 0],
+    end: [1, 1, 1],
+    control1: [0.3, 0.5, 0],
+    control2: [0.7, 0.5, 0],
+    
+    // Other common defaults
+    iterations: 2,
+    angle: 25,
+    axiom: "F",
+    rules: { "F": "FF" }
+};
+
 
             let status = "✅";
             let msg = "OK";
