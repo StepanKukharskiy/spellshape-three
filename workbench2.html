@@ -1708,6 +1708,23 @@ if (statusEl) {
   statusEl.textContent =
     `Meshes: ${meshCount}  |  Triangles: ${Math.round(triangleCount).toLocaleString()}`;
 }
+
+              const logEl = document.getElementById('status-log');
+if (logEl) {
+  logEl.innerHTML = ''; // clear old
+
+  executor.messages.slice(-10).forEach(msg => {
+    const line = document.createElement('div');
+    line.textContent = `[${msg.level}] ${msg.text}`;
+    line.style.fontSize = '10px';
+    line.style.color =
+      msg.level === 'error' ? '#ff6464' :
+      msg.level === 'warn'  ? '#ffd27f' :
+      '#a0a0a0';
+    logEl.appendChild(line);
+  });
+}
+
             } catch (e) {
                 document.getElementById('status-text').textContent = `Error: ${e.message.substring(0, 30)}`;
                 console.error(e);
