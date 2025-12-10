@@ -9,7 +9,7 @@ import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUti
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
-import { SubdivisionModifier } from 'three/examples/jsm/modifiers/SubdivisionModifier.js';
+import { LoopSubdivision } from 'https://cdn.jsdelivr.net/npm/three-subdivide@1.1.5/build/index.module.js';
 
 
 // =========================================================================
@@ -402,6 +402,7 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
                     'BufferGeometryUtils',
                   'MarchingCubes',
                   'ConvexGeometry',
+                  'LoopSubdivision',
                     'resolveCurve',
                     'resolveField',
                     'resolvePoints2D',
@@ -423,6 +424,7 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
                     BufferGeometryUtils,
                   MarchingCubes,
                   ConvexGeometry,
+                  LoopSubdivision,
                     this.resolvers.resolveCurve,
                     this.resolvers.resolveField,
                     this.resolvers.resolvePoints2D,
