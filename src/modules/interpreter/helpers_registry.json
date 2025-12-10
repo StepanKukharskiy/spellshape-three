@@ -1815,15 +1815,6 @@
     "outputType": "Geometry"
   },
   {
-    "id": "convexHullGeometry",
-    "name": "convexHullGeometry",
-    "description": "Alias for createConvexHull - computes minimal convex polyhedron from point set.",
-    "category": "Advanced Geometry",
-    "paramsSchema": {},
-    "code": "return createConvexHull(params);",
-    "outputType": "Geometry"
-  },
-  {
     "id": "smoothGeometry",
     "name": "smoothGeometry",
     "description": "Laplacian mesh smoothing via iterative vertex averaging with adjacent neighbors. Each iteration moves vertices toward local average position. Used for noise removal, fairing, and geometric refinement. Iterations and factor control smoothing strength.",
