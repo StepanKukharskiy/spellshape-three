@@ -925,6 +925,7 @@ const expressionState = {};
         // =========================================================================
         const executor = new ProceduralExecutor(scene, THREE);
         registerJSONHelpers(executor, helpersRegistry);
+      window.executor = executor;
 
         // =========================================================================
         // UI STATE
@@ -1738,6 +1739,16 @@ if (logEl) {
         window.renderTimeline();
         window.renderMaterials();
         window.run();
+
+      // AUTO-TEST HELPERS
+setTimeout(async () => {
+    console.log("🚀 Starting Automatic Helper Tests...");
+    if (executor.runTests) {
+        await executor.runTests();
+    } else {
+        console.warn("runTests method not found on executor.");
+    }
+}, 2000); // Wait 2s for everything to settle
 
         // =========================================================================
         // ANIMATION LOOP
