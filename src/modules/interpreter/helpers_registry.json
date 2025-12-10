@@ -1403,7 +1403,7 @@
   "paramsSchema": {
     "axiom": { "type": "string", "default": "X", "description": "Start string (e.g. F, X)" },
     "rules": { 
-      "type": "object", 
+      "type": "string", 
       "default": { "X": "F[&+X][^--X][&^X]", "F": "FF" }, 
       "description": "Production rules" 
     },
