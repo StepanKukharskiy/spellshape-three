@@ -584,15 +584,26 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
         return item;
     }
 
-    evaluateExpression(expr) {
+        evaluateExpression(expr) {
         if (typeof expr !== 'string') return expr;
+        if (!isNaN(Number(expr))) return Number(expr);
+        
         try {
-            const processed = expr.replace(/ctx\.(\w+)/g, (_, v) => this.context[v] ?? 0);
-            return new Function('Math', 'ctx', `return ${processed};`)(Math, this.context);
+            // Use 'with' to allow natural access to ctx variables
+            // Example: 'Math.sin(i)' works if 'i' is in context
+            // Example: 'ctx.rows' works if 'rows' is in context
+            const func = new Function('Math', 'ctx', `
+                try {
+                    with (ctx) { return ${expr}; }
+                } catch (e) { return 0; }
+            `);
+            return func(Math, this.context || {});
         } catch (e) {
+            // console.warn("Eval failed:", expr);
             return 0;
         }
     }
+
 
     getMaterial(name) {
         return this.materials.get(name) || this.materials.get('default') || new this.THREE.MeshStandardMaterial({ color: 0x808080 });
