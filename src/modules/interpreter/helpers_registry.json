@@ -1859,7 +1859,20 @@
   },
   "code": "const { source, points, orientToNormal = true, scale = 1.0 } = params; if (!source || !points) return new THREE.BufferGeometry(); const posAttr = points.attributes.position; const normAttr = points.attributes.normal; const scaleAttr = points.attributes.scale; const colorAttr = points.attributes.color; const count = posAttr.count; if (count === 0) return new THREE.BufferGeometry(); const geometries = []; const dummy = new THREE.Object3D(); const _pos = new THREE.Vector3(); const _norm = new THREE.Vector3(); const _scale = new THREE.Vector3(); const up = new THREE.Vector3(0, 1, 0); for (let i = 0; i < count; i++) { _pos.fromBufferAttribute(posAttr, i); dummy.position.copy(_pos); dummy.quaternion.set(0, 0, 0, 1); if (orientToNormal && normAttr) { _norm.fromBufferAttribute(normAttr, i); dummy.quaternion.setFromUnitVectors(up, _norm.normalize()); } const s = scale * (scaleAttr ? scaleAttr.getX(i) : 1.0); dummy.scale.set(s, s, s); dummy.updateMatrix(); const instance = source.clone(); instance.applyMatrix4(dummy.matrix); if (colorAttr) { const r = colorAttr.getX(i); const g = colorAttr.getY(i); const b = colorAttr.getZ(i); const instanceColors = new Float32Array(instance.attributes.position.count * 3); for(let k=0; k<instance.attributes.position.count; k++) { instanceColors[k*3] = r; instanceColors[k*3+1] = g; instanceColors[k*3+2] = b; } instance.setAttribute('color', new THREE.BufferAttribute(instanceColors, 3)); } geometries.push(instance); } return geometries.length > 0 ? BufferGeometryUtils.mergeGeometries(geometries) : new THREE.BufferGeometry();",
   "outputType": "Geometry"
+},
+  {
+  "id": "filterPoints",
+  "name": "Filter Points",
+  "description": "Removes points from a geometry based on a noise function or expression.",
+  "category": "Modification",
+  "paramsSchema": {
+    "geometry": { "type": "string", "default": "" },
+    "expression": { "type": "string", "default": "return p.y > 0;", "description": "Return true to keep, false to delete" }
+  },
+  "code": "const { geometry, expression } = params; if (!geometry) return new THREE.BufferGeometry(); const posAttr = geometry.attributes.position; const normAttr = geometry.attributes.normal; const count = posAttr.count; const newPos = []; const newNorm = []; const p = new THREE.Vector3(); const fn = new Function('p', 'i', 'noise', `return ${expression}`); for(let i=0; i<count; i++) { p.fromBufferAttribute(posAttr, i); if (fn(p, i, noise)) { newPos.push(p.x, p.y, p.z); if(normAttr) newNorm.push(normAttr.getX(i), normAttr.getY(i), normAttr.getZ(i)); } } const out = new THREE.BufferGeometry(); out.setAttribute('position', new THREE.Float32BufferAttribute(newPos, 3)); if(normAttr) out.setAttribute('normal', new THREE.Float32BufferAttribute(newNorm, 3)); return out;",
+  "outputType": "Geometry"
 }
+
 
 
 ]
