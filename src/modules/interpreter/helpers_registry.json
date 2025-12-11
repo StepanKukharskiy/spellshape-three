@@ -1851,5 +1851,19 @@
     },
     "code": "const { geometry, tolerance = 0.0001 } = params;\n    if (!geometry) return new THREE.BufferGeometry();\n    \n    // Find merge function\n    let mergeFn = null;\n    if (typeof BufferGeometryUtils !== 'undefined') {\n         if (typeof BufferGeometryUtils.mergeVertices === 'function') mergeFn = BufferGeometryUtils.mergeVertices;\n         else if (BufferGeometryUtils.default && typeof BufferGeometryUtils.default.mergeVertices === 'function') mergeFn = BufferGeometryUtils.default.mergeVertices;\n    }\n\n    if (!mergeFn) {\n        console.warn('weldGeometry: mergeVertices not found');\n        return geometry.clone();\n    }\n\n    // Force merge\n    const welded = mergeFn(geometry, tolerance);\n    console.log(`weldGeometry: Reduced vertices from ${geometry.attributes.position.count} to ${welded.attributes.position.count}`);\n    return welded;",
     "outputType": "Geometry"
-  }
+  }, 
+  {
+  "id": "loop",
+  "name": "Loop",
+  "description": "Iterates a variable from Start to End, executing the body steps each time.",
+  "category": "Logic",
+  "paramsSchema": {
+    "var": { "type": "string", "default": "i", "description": "Iterator variable name" },
+    "from": { "type": "number", "default": 0, "description": "Start value" },
+    "to": { "type": "number", "default": 10, "description": "End value" }
+  },
+  "code": "// Loop is handled internally by Executor. This code is a stub.\nreturn null;",
+  "outputType": "Logic"
+}
+
 ]
