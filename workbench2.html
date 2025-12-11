@@ -1658,18 +1658,33 @@ const expressionState = {};
         };
 
         window.importJSON = function() {
-            try {
-                schema = JSON.parse(document.getElementById('json-input').value);
-                window.setTab('globals');
-                window.renderGlobals();
-                window.renderTimeline();
-                window.renderMaterials();
-                window.run();
-                alert('✅ Schema imported!');
-            } catch (e) {
-                alert('❌ Invalid JSON: ' + e.message);
-            }
-        };
+    try {
+        const jsonStr = document.getElementById('json-input').value;
+        schema = JSON.parse(jsonStr);
+        
+        // RESET TIMINGS TO PREVENT UI CRASH
+        window.stepTimings = []; 
+        
+        window.setTab('globals');
+        
+        // Render Globals (Safe)
+        if (window.renderGlobals) window.renderGlobals();
+        
+        // Render Timeline (Now Safe because timings are reset/empty)
+        if (window.renderTimeline) window.renderTimeline();
+        
+        if (window.renderMaterials) window.renderMaterials();
+        
+        // Run logic (will repopulate timings)
+        if (window.run) window.run();
+        
+        alert('✅ Schema imported!');
+    } catch (e) {
+        console.error(e); // See real error in console
+        alert('❌ Error: ' + e.message); // Better label
+    }
+};
+
 
 
       // Extract fonts from schema
