@@ -1398,21 +1398,17 @@
   {
   "id": "lSystemGeometry",
   "name": "lSystemGeometry",
-  "description": "Generates fractal patterns (plants/trees) using Lindenmayer systems. Now defaults to a 3D tree structure.",
+  "description": "Generates fractal patterns (plants/trees). Exports geometry AND raw segments for density field generation.",
   "category": "Procedural",
   "paramsSchema": {
-    "axiom": { "type": "string", "default": "X", "description": "Start string (e.g. F, X)" },
-    "rules": {
-    "type": "string",
-    "default": "{\"X\": \"F[&+X][^--X][&^X]\", \"F\": \"FF\"}",
-      "description": "Production rules" 
-    },
-    "iterations": { "type": "number", "default": 4, "description": "Generations (1-6)" },
-    "angle": { "type": "number", "default": 25, "description": "Branching angle in degrees" },
-    "scale": { "type": "number", "default": 0.8, "description": "Shrink factor per iteration" },
-    "segmentLength": { "type": "number", "default": 1, "description": "Base size of the tree" },
-    "thickness": { "type": "number", "default": 0.1, "description": "Tube thickness" },
-    "mode": { "type": "string", "default": "3d", "description": "'2d' or '3d'" }
+    "axiom": { "type": "string", "default": "X" },
+    "rules": { "type": "string", "default": "{\"X\": \"F[&+X][^--X][&^X]\", \"F\": \"FF\"}" },
+    "iterations": { "type": "number", "default": 4 },
+    "angle": { "type": "number", "default": 25 },
+    "scale": { "type": "number", "default": 0.8 },
+    "segmentLength": { "type": "number", "default": 1 },
+    "thickness": { "type": "number", "default": 0.1 },
+    "mode": { "type": "string", "default": "3d" }
   },
   "code": "const { axiom = 'X', rules = { 'X': 'F[&+X][^--X][&^X]', 'F': 'FF' }, iterations = 4, angle = 25, segmentLength = 1, thickness = 0.1, mode = '3d', scale = 0.8 } = params; let parsedRules = rules; if (typeof rules === 'string') { try { parsedRules = JSON.parse(rules); } catch (e) { console.warn('lSystemGeometry: Invalid JSON rules', e); parsedRules = {}; } } let current = axiom; for (let i = 0; i < iterations; i++) { let next = ''; for (const char of current) { next += parsedRules[char] || char; } current = next; } const segments = []; const angleRad = angle * Math.PI / 180; let position = new THREE.Vector3(0, 0, 0); const stepLength = segmentLength * Math.pow(scale, iterations > 0 ? iterations - 1 : 0); if (mode === '2d') { const stack = []; let direction = new THREE.Vector3(0, 1, 0); for (const char of current) { if (char === 'F') { const newPos = position.clone().add(direction.clone().multiplyScalar(stepLength)); segments.push([position.clone(), newPos.clone(), thickness]); position.copy(newPos); } else if (char === '+') { direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), angleRad); } else if (char === '-') { direction.applyAxisAngle(new THREE.Vector3(0, 0, 1), -angleRad); } else if (char === '[') { stack.push([position.clone(), direction.clone()]); } else if (char === ']') { if (stack.length > 0) { const [pos, dir] = stack.pop(); position.copy(pos); direction.copy(dir); } } } } else { const stack = []; let rotation = new THREE.Quaternion(); const rotateTurtle = (axis, rads) => { const rotQuat = new THREE.Quaternion(); rotQuat.setFromAxisAngle(axis, rads); rotation.multiply(rotQuat); }; for (const char of current) { if (char === 'F') { const direction = new THREE.Vector3(0, 1, 0).applyQuaternion(rotation); const newPos = position.clone().add(direction.multiplyScalar(stepLength)); segments.push([position.clone(), newPos.clone(), thickness]); position.copy(newPos); } else if (char === '+') { rotateTurtle(new THREE.Vector3(0, 0, 1), angleRad); } else if (char === '-') { rotateTurtle(new THREE.Vector3(0, 0, 1), -angleRad); } else if (char === '&') { rotateTurtle(new THREE.Vector3(1, 0, 0), angleRad); } else if (char === '^') { rotateTurtle(new THREE.Vector3(1, 0, 0), -angleRad); } else if (char === '\\\\') { rotateTurtle(new THREE.Vector3(0, 1, 0), angleRad); } else if (char === '/') { rotateTurtle(new THREE.Vector3(0, 1, 0), -angleRad); } else if (char === '[') { stack.push({ pos: position.clone(), rot: rotation.clone() }); } else if (char === ']') { if (stack.length > 0) { const state = stack.pop(); position.copy(state.pos); rotation.copy(state.rot); } } } } const geometries = []; for (const [start, end, thick] of segments) { const curve = new THREE.LineCurve3(start, end); const tubeGeom = new THREE.TubeGeometry(curve, 1, thick, 4, false); geometries.push(tubeGeom); } const finalGeom = geometries.length > 0 ? BufferGeometryUtils.mergeGeometries(geometries) : new THREE.BufferGeometry(); finalGeom.userData = { type: 'l-system', segments: segments }; return finalGeom;",
   "outputType": "Geometry"
