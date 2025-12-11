@@ -1060,44 +1060,22 @@
     "outputType": "Geometry"
   },
   {
-    "id": "distributeOnGrid3d",
-    "name": "distributeOnGrid3d",
-    "description": "Arranges copies in a rectangular grid, like a checkerboard but in 3D. You choose how many rows and columns, and the spacing between them. Can center the grid around a point for symmetric layouts. Fundamental for modular architecture, factory layouts, or any regular tiling pattern.",
-    "category": "Distribution",
-    "paramsSchema": {
-      "geometry": {
-        "type": "string",
-        "default": "",
-        "description": "Geometry variable to process"
-      },
-      "rows": {
-        "type": "number",
-        "default": 3
-      },
-      "cols": {
-        "type": "number",
-        "default": 3
-      },
-      "spacing": {
-        "type": "array",
-        "default": [
-          1,
-          1,
-          1
-        ]
-      },
-      "centered": {
-        "type": "boolean",
-        "default": true
-      },
-      "autoMerge": {
-        "type": "boolean",
-        "default": true
-      }
-    },
-    "code": "const { geometry, rows = 3, cols = 3, spacing = [2, 0, 2], centered = true, autoMerge = true } = params;\n\n    if (!geometry) return autoMerge ? new THREE.BufferGeometry() : [];\n\n    const [spacingX, spacingY, spacingZ] = Array.isArray(spacing) ? spacing : [spacing, 0, spacing];\n    const offsetX = centered ? -spacingX * (cols - 1) / 2 : 0;\n    const offsetZ = centered ? -spacingZ * (rows - 1) / 2 : 0;\n\n    const results = [];\n    for (let row = 0; row < rows; row++) {\n        for (let col = 0; col < cols; col++) {\n            const clone = geometry.clone();\n            clone.translate(offsetX + col * spacingX, row * spacingY, offsetZ + row * spacingZ);\n            results.push(clone);\n        }\n    }\n\n    return autoMerge ? BufferGeometryUtils.mergeGeometries(results) : results;",
-    "outputType": "Geometry"
+  "id": "distributeOnGrid3d",
+  "name": "distributeOnGrid3d",
+  "description": "Generates a grid of points OR clones an input geometry onto a grid.",
+  "category": "Distribution",
+  "paramsSchema": {
+    "geometry": { "type": "string", "default": "", "description": "Optional geometry to clone" },
+    "x": { "type": "number", "default": 3, "description": "Count X" },
+    "y": { "type": "number", "default": 1, "description": "Count Y" },
+    "z": { "type": "number", "default": 3, "description": "Count Z" },
+    "spacing": { "type": "number", "default": 1, "description": "Grid spacing" },
+    "centered": { "type": "boolean", "default": true }
   },
+  "code": "const { geometry, x=1, y=1, z=1, spacing = 1, centered = true, autoMerge = true } = params; const nx = params.x || params.cols || 1; const ny = params.y || 1; const nz = params.z || params.rows || 1; const sx = Array.isArray(spacing) ? spacing[0] : spacing; const sy = Array.isArray(spacing) ? spacing[1] : 0; const sz = Array.isArray(spacing) ? spacing[2] : spacing; const offsetX = centered ? -sx * (nx - 1) / 2 : 0; const offsetY = centered ? -sy * (ny - 1) / 2 : 0; const offsetZ = centered ? -sz * (nz - 1) / 2 : 0; if (!geometry) { const count = nx * ny * nz; const positions = new Float32Array(count * 3); const normals = new Float32Array(count * 3); let i = 0; for (let ix = 0; ix < nx; ix++) { for (let iy = 0; iy < ny; iy++) { for (let iz = 0; iz < nz; iz++) { positions[i*3] = offsetX + ix * sx; positions[i*3+1] = offsetY + iy * sy; positions[i*3+2] = offsetZ + iz * sz; normals[i*3] = 0; normals[i*3+1] = 1; normals[i*3+2] = 0; i++; } } } const pointsGeom = new THREE.BufferGeometry(); pointsGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3)); pointsGeom.setAttribute('normal', new THREE.BufferAttribute(normals, 3)); return pointsGeom; } const results = []; for (let ix = 0; ix < nx; ix++) { for (let iy = 0; iy < ny; iy++) { for (let iz = 0; iz < nz; iz++) { const clone = geometry.clone(); clone.translate(offsetX + ix * sx, offsetY + iy * sy, offsetZ + iz * sz); results.push(clone); } } } return autoMerge ? BufferGeometryUtils.mergeGeometries(results) : results;",
+  "outputType": "Geometry"
+}
+,
   {
     "id": "distributeRandom3d",
     "name": "distributeRandom3d",
