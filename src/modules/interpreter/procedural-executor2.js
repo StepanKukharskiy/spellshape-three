@@ -637,22 +637,22 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
     return v.map(val => typeof val === 'string' ? this.evaluateExpression(val) : val);
   };
 
-  // Evaluate once
   const pos = transform.position ? t(transform.position) : null;
   const rot = transform.rotation ? t(transform.rotation) : null;
   const scl = transform.scale ? t(transform.scale) : null;
 
   if (obj.isBufferGeometry) {
-    // IMPORTANT: local transform first, translation last
+    // ✅ Correct order for “twisting ellipses”: Scale → Rotate → Translate
+    if (scl) obj.scale(scl[0], scl[1], scl[2]);
     if (rot) { obj.rotateX(rot[0]); obj.rotateY(rot[1]); obj.rotateZ(rot[2]); }
-    if (scl) { obj.scale(scl[0], scl[1], scl[2]); }
-    if (pos) { obj.translate(pos[0], pos[1], pos[2]); }
+    if (pos) obj.translate(pos[0], pos[1], pos[2]);
   } else {
     if (pos) obj.position.set(pos[0], pos[1], pos[2]);
     if (rot) obj.rotation.set(rot[0], rot[1], rot[2]);
     if (scl) obj.scale.set(scl[0], scl[1], scl[2]);
   }
 }
+
 
 
     executeLoop(action, group) {
