@@ -1559,64 +1559,349 @@
     "code": "const { \n        geometry, \n        iterations = 20, \n        repulsionRadius = 0.5, \n        growthForce = 0.1, // Expansion speed\n        smoothing = 0.5,   // Laplacian smoothing strength\n        mode = 'line'      // 'line' (curve growth) or 'mesh' (surface folding)\n    } = params;\n\n    // ========================================================================\n    // MODE 1: LINE / RIBBON (Previous Implementation)\n    // ========================================================================\n    if (mode === 'line' || !geometry || !geometry.isBufferGeometry) {\n        // ... (Keep your existing Line/Ribbon logic here) ...\n        // [Paste the previous curve-based logic if you want to keep it]\n        return new THREE.BufferGeometry(); \n    }\n\n    // ========================================================================\n    // MODE 2: MESH SURFACE GROWTH (New)\n    // ========================================================================\n    // Clone to avoid modifying original\n    const geom = geometry.clone();\n    \n    // Ensure we have topological data (Index)\n    if (!geom.index) {\n        geom = BufferGeometryUtils.mergeVertices(geom); // Create index if missing\n    }\n    \n    const positions = geom.attributes.position;\n    const normals = geom.attributes.normal;\n    const vertexCount = positions.count;\n\n    // 1. Build Adjacency Graph (Neighbor lookup)\n    // This is expensive but needed for smoothing\n    const neighbors = new Array(vertexCount).fill(0).map(() => []);\n    const index = geom.index.array;\n    for (let i = 0; i < index.length; i += 3) {\n        const a = index[i], b = index[i+1], c = index[i+2];\n        if(!neighbors[a].includes(b)) neighbors[a].push(b);\n        if(!neighbors[a].includes(c)) neighbors[a].push(c);\n        if(!neighbors[b].includes(a)) neighbors[b].push(a);\n        if(!neighbors[b].includes(c)) neighbors[b].push(c);\n        if(!neighbors[c].includes(a)) neighbors[c].push(a);\n        if(!neighbors[c].includes(b)) neighbors[c].push(b);\n    }\n\n    // 2. Simulation Loop\n    const tempPos = new Float32Array(positions.array);\n    const p = new THREE.Vector3();\n    const n = new THREE.Vector3();\n    const neighborP = new THREE.Vector3();\n    const avgP = new THREE.Vector3();\n    \n    for (let iter = 0; iter < iterations; iter++) {\n        \n        for (let i = 0; i < vertexCount; i++) {\n            p.set(tempPos[i*3], tempPos[i*3+1], tempPos[i*3+2]);\n            n.set(normals.getX(i), normals.getY(i), normals.getZ(i));\n\n            // A. Laplacian Smoothing (Relaxation)\n            // Pull vertex towards average of neighbors to remove spikes\n            avgP.set(0,0,0);\n            const myNeighbors = neighbors[i];\n            if (myNeighbors.length === 0) continue;\n            \n            for(const nid of myNeighbors) {\n                neighborP.set(tempPos[nid*3], tempPos[nid*3+1], tempPos[nid*3+2]);\n                avgP.add(neighborP);\n            }\n            avgP.divideScalar(myNeighbors.length);\n            \n            // Vector to average\n            const smoothVec = avgP.sub(p); \n            \n            // B. Growth / Buckling Force\n            // We push vertices OUT along their normal, but constrained by smoothing.\n            // The conflict between expanding (Normal) and staying connected (Smooth) creates folds.\n            \n            // Tangential Repulsion approximation:\n            // If neighbors are too close, push away? \n            // For simple folding, just expanding surface area works well.\n            \n            // Apply forces\n            p.addScaledVector(smoothVec, smoothing); // Pull together\n            p.addScaledVector(n, growthForce);       // Push out (Expand)\n            \n            // Optional: Collision/Self-intersection check is too slow for JS\n            \n            // Store result\n            positions.setXYZ(i, p.x, p.y, p.z);\n        }\n        \n        // Recompute normals every few frames to guide growth\n        if (iter % 2 === 0) {\n            geom.computeVertexNormals();\n        }\n        \n        // Update temp array for next step dependency\n        for(let k=0; k<positions.array.length; k++) tempPos[k] = positions.array[k];\n    }\n\n    positions.needsUpdate = true;\n    geom.computeVertexNormals();\n    return geom;",
     "outputType": "Geometry"
   },
-  {
-    "id": "differentialSurfaceGrowth3D",
-    "name": "differentialSurfaceGrowth3D",
-    "description": "Complex 3D surface growth with normal-constrained movement. Points grow perpendicular to surface while maintaining local topology. Simulates biological growth and structural swelling in volumetric forms.",
-    "category": "Organic Growth",
-    "paramsSchema": {
-      "inputGeometry": {
-        "type": "string",
-        "default": "params.geometry"
-      },
-      "iterations": {
-        "type": "number",
-        "default": 45
-      },
-      "maxEdgeLength": {
-        "type": "number",
-        "default": 1.8
-      },
-      "minEdgeLength": {
-        "type": "number",
-        "default": 0.5
-      },
-      "repulsionRadius": {
-        "type": "number",
-        "default": 1.4
-      },
-      "repulsionStrength": {
-        "type": "number",
-        "default": 0.5
-      },
-      "springStiffness": {
-        "type": "number",
-        "default": 0.2
-      },
-      "boundaryGrowthPush": {
-        "type": "number",
-        "default": 0.15
-      },
-      "dt": {
-        "type": "number",
-        "default": 0.04
-      },
-      "maxVertices": {
-        "type": "number",
-        "default": 30000
-      },
-      "maxVelocity": {
-        "type": "number",
-        "default": 0.5
-      },
-      "initialJitter": {
-        "type": "number",
-        "default": 0.02
-      }
+ {
+  "id": "differentialSurfaceGrowth3D",
+  "name": "differentialSurfaceGrowth3D",
+  "description": "Complex 3D surface growth with normal-constrained movement. Points grow perpendicular to surface while maintaining local topology. Simulates biological growth and structural swelling in volumetric forms.",
+  "category": "Organic Growth",
+  "paramsSchema": {
+    "inputGeometry": {
+      "type": "string",
+      "default": "params.geometry"
     },
-    "code": "// --- 1. INPUT HANDLING & ORIENTATION FIX ---\n    let inputGeometry = params.inputGeometry || params.geometry;\n    if (inputGeometry && inputGeometry.isObject3D && inputGeometry.geometry) {\n        inputGeometry = inputGeometry.geometry;\n    }\n    if (!inputGeometry || !inputGeometry.isBufferGeometry) {\n        console.error(\"differentialSurfaceGrowth3D: Invalid geometry.\");\n        return new THREE.BufferGeometry();\n    }\n\n    // CLONE & ROTATE: Ensure we start flat on the XZ plane (Horizontal)\n    // Three.js CircleGeometry defaults to XY plane (facing Z). \n    // We rotate it -90 deg around X to make it lie flat on XZ.\n    const workingGeometry = inputGeometry.clone();\n    workingGeometry.rotateX(-Math.PI / 2); \n    // Now Y is \"Up\".\n\n    // --- 2. CONFIGURATION ---\n    const {\n        iterations = 50,\n        maxEdgeLength = 0.2,\n        minEdgeLength = 0.05,\n        repulsionRadius = 0.25,\n        repulsionStrength = 1.0,\n        springStiffness = 0.4,\n        boundaryGrowthPush = 0.2,\n        dt = 0.04,\n        maxVertices = 30000,\n        maxVelocity = 0.5,\n        initialJitter = 0.02\n    } = params;\n\n    // --- 3. DATA INITIALIZATION ---\n    let nodes = [];\n    let faces = [];\n    \n    const posAttr = workingGeometry.attributes.position;\n    const indexAttr = workingGeometry.index;\n\n    // Import Nodes with VERTICAL JITTER\n    for (let i = 0; i < posAttr.count; i++) {\n        const x = posAttr.getX(i);\n        const y = posAttr.getY(i);\n        const z = posAttr.getZ(i);\n        \n        // CRITICAL FIX: Apply noise primarily to Y (Up/Down) to force buckling\n        // The initial circle is on XZ plane (y=0). \n        // We disturb Y to break the 2D symmetry immediately.\n        const jitterY = (Math.random() - 0.5) * initialJitter * 2.0; \n        \n        nodes.push({\n            x: x,\n            y: y + jitterY, \n            z: z, \n            vx: 0, vy: 0, vz: 0, \n            fx: 0, fy: 0, fz: 0,\n            isBoundary: false\n        });\n    }\n\n    // Import Faces\n    if (indexAttr) {\n        for (let i = 0; i < indexAttr.count; i += 3) {\n            faces.push([indexAttr.getX(i), indexAttr.getY(i), indexAttr.getZ(i)]);\n        }\n    } else {\n        for (let i = 0; i < posAttr.count; i += 3) {\n            faces.push([i, i + 1, i + 2]);\n        }\n    }\n\n    // Spatial Hash Class (Same as before)\n    class SpatialHash {\n        constructor(cellSize) {\n            this.cellSize = cellSize;\n            this.cells = new Map();\n        }\n        key(x, y, z) {\n            return `${Math.floor(x/this.cellSize)},${Math.floor(y/this.cellSize)},${Math.floor(z/this.cellSize)}`;\n        }\n        add(idx, x, y, z) {\n            const k = this.key(x, y, z);\n            if (!this.cells.has(k)) this.cells.set(k, []);\n            this.cells.get(k).push(idx);\n        }\n        query(x, y, z) {\n            const k = this.key(x, y, z);\n            const [cx, cy, cz] = k.split(',').map(Number);\n            const neighbors = [];\n            for(let i=cx-1; i<=cx+1; i++) {\n                for(let j=cy-1; j<=cy+1; j++) {\n                    for(let l=cz-1; l<=cz+1; l++) {\n                        const cell = this.cells.get(`${i},${j},${l}`);\n                        if(cell) neighbors.push(...cell);\n                    }\n                }\n            }\n            return neighbors;\n        }\n    }\n\n    // --- SIMULATION LOOP ---\n    console.time(\"Differential Growth\");\n    \n    for (let iter = 0; iter < iterations; iter++) {\n        if (nodes.length >= maxVertices) break;\n\n        // A. TOPOLOGY (Same as before)\n        const edgeMap = new Map(); \n        nodes.forEach(n => n.isBoundary = false);\n        faces.forEach((f, fIdx) => {\n            const edges = [[f[0], f[1]], [f[1], f[2]], [f[2], f[0]]];\n            edges.forEach(([a, b]) => {\n                const key = a < b ? `${a},${b}` : `${b},${a}`;\n                if (!edgeMap.has(key)) edgeMap.set(key, []);\n                edgeMap.get(key).push(fIdx);\n            });\n        });\n        for (const [key, fIndices] of edgeMap) {\n            if (fIndices.length === 1) {\n                const [u, v] = key.split(',').map(Number);\n                nodes[u].isBoundary = true;\n                nodes[v].isBoundary = true;\n            }\n        }\n\n        // B. PHYSICS\n        const spatialHash = new SpatialHash(repulsionRadius);\n        nodes.forEach((n, i) => {\n            n.fx = 0; n.fy = 0; n.fz = 0;\n            spatialHash.add(i, n.x, n.y, n.z);\n        });\n\n        // 1. Repulsion\n        for (let i = 0; i < nodes.length; i++) {\n            const n = nodes[i];\n            const neighbors = spatialHash.query(n.x, n.y, n.z);\n            for (const otherIdx of neighbors) {\n                if (otherIdx === i) continue;\n                const other = nodes[otherIdx];\n                const dx = n.x - other.x, dy = n.y - other.y, dz = n.z - other.z;\n                const d2 = dx*dx + dy*dy + dz*dz;\n                if (d2 < repulsionRadius*repulsionRadius && d2 > 1e-6) {\n                    const d = Math.sqrt(d2);\n                    const f = (repulsionRadius - d) / d * repulsionStrength;\n                    n.fx += dx * f; n.fy += dy * f; n.fz += dz * f;\n                }\n            }\n        }\n\n        // 2. Springs & Boundary Push\n        for (const [key, fIndices] of edgeMap) {\n            const [u, v] = key.split(',').map(Number);\n            const n1 = nodes[u], n2 = nodes[v];\n            const dx = n2.x - n1.x, dy = n2.y - n1.y, dz = n2.z - n1.z;\n            const d = Math.sqrt(dx*dx + dy*dy + dz*dz);\n            \n            if (d > 1e-6) {\n                const isBoundary = (fIndices.length === 1);\n                const targetLen = isBoundary ? maxEdgeLength * 1.1 : minEdgeLength;\n                const force = (d - targetLen) * springStiffness;\n                \n                const fx = (dx/d) * force, fy = (dy/d) * force, fz = (dz/d) * force;\n                n1.fx += fx; n1.fy += fy; n1.fz += fz;\n                n2.fx -= fx; n2.fy -= fy; n2.fz -= fz;\n\n                if (isBoundary && boundaryGrowthPush > 0) {\n                    const push = boundaryGrowthPush;\n                    n2.fx += (dx/d)*push; n2.fy += (dy/d)*push; n2.fz += (dz/d)*push;\n                    n1.fx -= (dx/d)*push; n1.fy -= (dy/d)*push; n1.fz -= (dz/d)*push;\n                }\n            }\n        }\n\n        // 3. Integrate\n        const maxVelSq = maxVelocity * maxVelocity;\n        for (let i = 0; i < nodes.length; i++) {\n            const n = nodes[i];\n            n.vx = (n.vx + n.fx * dt) * 0.9;\n            n.vy = (n.vy + n.fy * dt) * 0.9;\n            n.vz = (n.vz + n.fz * dt) * 0.9;\n            \n            const vSq = n.vx*n.vx + n.vy*n.vy + n.vz*n.vz;\n            if (vSq > maxVelSq) {\n                const scale = maxVelocity / Math.sqrt(vSq);\n                n.vx *= scale; n.vy *= scale; n.vz *= scale;\n            }\n            n.x += n.vx; n.y += n.vy; n.z += n.vz;\n        }\n\n        // C. GROWTH (With Buckling Offset)\n        const edgesToSplit = [];\n        for (const [key, fIndices] of edgeMap) {\n            const [u, v] = key.split(',').map(Number);\n            const n1 = nodes[u], n2 = nodes[v];\n            const d2 = (n1.x - n2.x)**2 + (n1.y - n2.y)**2 + (n1.z - n2.z)**2;\n            if (d2 > maxEdgeLength * maxEdgeLength) {\n                edgesToSplit.push({ u, v, fIndices, isBoundary: fIndices.length===1 });\n            }\n        }\n        edgesToSplit.sort((a,b) => (b.isBoundary ? 1 : 0) - (a.isBoundary ? 1 : 0));\n\n        const processedFaces = new Set();\n        const facesToRemove = new Set();\n        const facesToAdd = [];\n        let splitsDone = 0;\n        const MAX_SPLITS = 200;\n\n        for (const split of edgesToSplit) {\n            if (splitsDone >= MAX_SPLITS) break;\n            if (split.fIndices.some(fIdx => processedFaces.has(fIdx))) continue;\n\n            const { u, v, fIndices } = split;\n            const n1 = nodes[u], n2 = nodes[v];\n            \n            // BUCKLING LOGIC:\n            // Instead of perfectly centering the new node, move it slightly \"Up\" or \"Down\" (Y axis)\n            // or along the surface normal (more expensive to compute).\n            // Simple Y-randomness works well for this \"Plate to Flower\" case.\n            const buckle = (Math.random() - 0.5) * 0.05; // Small offset\n            \n            nodes.push({\n                x: (n1.x + n2.x) * 0.5,\n                y: (n1.y + n2.y) * 0.5 + buckle, // Add offset here!\n                z: (n1.z + n2.z) * 0.5,\n                vx: (n1.vx+n2.vx)*0.5, vy: (n1.vy+n2.vy)*0.5, vz: (n1.vz+n2.vz)*0.5,\n                fx:0, fy:0, fz:0,\n                isBoundary: n1.isBoundary && n2.isBoundary\n            });\n            const midIdx = nodes.length - 1;\n\n            fIndices.forEach(fIdx => {\n                processedFaces.add(fIdx);\n                facesToRemove.add(fIdx);\n                const oldFace = faces[fIdx];\n                const t1 = [...oldFace]; t1[t1.indexOf(v)] = midIdx;\n                const t2 = [...oldFace]; t2[t2.indexOf(u)] = midIdx;\n                facesToAdd.push(t1, t2);\n            });\n            splitsDone++;\n        }\n\n        if (facesToAdd.length > 0) {\n            const nextFaces = [];\n            for(let i=0; i<faces.length; i++) {\n                if(!facesToRemove.has(i)) nextFaces.push(faces[i]);\n            }\n            faces = nextFaces.concat(facesToAdd);\n        }\n    }\n    \n    console.timeEnd(\"Differential Growth\");\n\n    // --- EXPORT ---\n    const newGeo = new THREE.BufferGeometry();\n    const positions = new Float32Array(nodes.length * 3);\n    for (let i = 0; i < nodes.length; i++) {\n        positions[i*3] = nodes[i].x;\n        positions[i*3+1] = nodes[i].y;\n        positions[i*3+2] = nodes[i].z;\n    }\n\n    const indices = [];\n    faces.forEach(f => indices.push(...f));\n\n    newGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));\n    newGeo.setIndex(indices);\n    newGeo.computeVertexNormals();\n    newGeo.computeBoundingSphere();\n\n    return newGeo;",
-    "outputType": "Geometry"
+    "iterations": {
+      "type": "number",
+      "default": 45
+    },
+    "maxEdgeLength": {
+      "type": "number",
+      "default": 1.8
+    },
+    "minEdgeLength": {
+      "type": "number",
+      "default": 0.5
+    },
+    "repulsionRadius": {
+      "type": "number",
+      "default": 1.4
+    },
+    "repulsionStrength": {
+      "type": "number",
+      "default": 0.5
+    },
+    "springStiffness": {
+      "type": "number",
+      "default": 0.2
+    },
+    "boundaryGrowthPush": {
+      "type": "number",
+      "default": 0.15
+    },
+    "dt": {
+      "type": "number",
+      "default": 0.04
+    },
+    "maxVertices": {
+      "type": "number",
+      "default": 30000
+    },
+    "maxVelocity": {
+      "type": "number",
+      "default": 0.5
+    },
+    "initialJitter": {
+      "type": "number",
+      "default": 0.02
+    }
   },
+  "code": "// --- 1. INPUT HANDLING & ORIENTATION FIX ---\\n\
+let inputGeometry = params.inputGeometry || params.geometry;\\n\
+if (inputGeometry && inputGeometry.isObject3D && inputGeometry.geometry) {\\n\
+  inputGeometry = inputGeometry.geometry;\\n\
+}\\n\
+if (!inputGeometry || !inputGeometry.isBufferGeometry) {\\n\
+  console.error(\"differentialSurfaceGrowth3D: Invalid geometry.\");\\n\
+  return new THREE.BufferGeometry();\\n\
+}\\n\
+\\n\
+// CLONE & ROTATE: Ensure we start flat on the XZ plane (Horizontal)\\n\
+// Three.js CircleGeometry defaults to XY plane (facing Z). \\n\
+// We rotate it -90 deg around X to make it lie flat on XZ.\\n\
+const workingGeometry = inputGeometry.clone();\\n\
+workingGeometry.rotateX(-Math.PI / 2);\\n\
+// Now Y is \"Up\".\\n\
+\\n\
+// --- 2. CONFIGURATION ---\\n\
+const {\\n\
+  iterations = 50,\\n\
+  maxEdgeLength = 0.2,\\n\
+  minEdgeLength = 0.05,\\n\
+  repulsionRadius = 0.25,\\n\
+  repulsionStrength = 1.0,\\n\
+  springStiffness = 0.4,\\n\
+  boundaryGrowthPush = 0.2,\\n\
+  dt = 0.04,\\n\
+  maxVertices = 30000,\\n\
+  maxVelocity = 0.5,\\n\
+  initialJitter = 0.02\\n\
+} = params;\\n\
+\\n\
+// When initialJitter is exactly 0, we keep symmetry by disabling randomness\\n\
+const keepSymmetry = (initialJitter === 0);\\n\
+\\n\
+// Split cap: unlimited when preserving symmetry, default cap otherwise\\n\
+const MAX_SPLITS_DEFAULT = 200;\\n\
+const MAX_SPLITS = keepSymmetry ? Number.MAX_SAFE_INTEGER : MAX_SPLITS_DEFAULT;\\n\
+\\n\
+// --- 3. DATA INITIALIZATION ---\\n\
+let nodes = [];\\n\
+let faces = [];\\n\
+\\n\
+const posAttr = workingGeometry.attributes.position;\\n\
+const indexAttr = workingGeometry.index;\\n\
+\\n\
+// Import Nodes with optional vertical jitter (disabled when keepSymmetry)\\n\
+for (let i = 0; i < posAttr.count; i++) {\\n\
+  const x = posAttr.getX(i);\\n\
+  const y = posAttr.getY(i);\\n\
+  const z = posAttr.getZ(i);\\n\
+\\n\
+  const jitterY = keepSymmetry\\n\
+    ? 0\\n\
+    : (Math.random() - 0.5) * initialJitter * 2.0;\\n\
+\\n\
+  nodes.push({\\n\
+    x: x,\\n\
+    y: y + jitterY,\\n\
+    z: z,\\n\
+    vx: 0, vy: 0, vz: 0,\\n\
+    fx: 0, fy: 0, fz: 0,\\n\
+    isBoundary: false\\n\
+  });\\n\
+}\\n\
+\\n\
+// Import Faces\\n\
+if (indexAttr) {\\n\
+  for (let i = 0; i < indexAttr.count; i += 3) {\\n\
+    faces.push([indexAttr.getX(i), indexAttr.getY(i), indexAttr.getZ(i)]);\\n\
+  }\\n\
+} else {\\n\
+  for (let i = 0; i < posAttr.count; i += 3) {\\n\
+    faces.push([i, i + 1, i + 2]);\\n\
+  }\\n\
+}\\n\
+\\n\
+// Spatial Hash Class\\n\
+class SpatialHash {\\n\
+  constructor(cellSize) {\\n\
+    this.cellSize = cellSize;\\n\
+    this.cells = new Map();\\n>\
+  }\\n\
+  key(x, y, z) {\\n>\
+    return `${Math.floor(x / this.cellSize)},${Math.floor(y / this.cellSize)},${Math.floor(z / this.cellSize)}`;\\n>\
+  }\\n>\
+  add(idx, x, y, z) {\\n>\
+    const k = this.key(x, y, z);\\n>\
+    if (!this.cells.has(k)) this.cells.set(k, []);\\n>\
+    this.cells.get(k).push(idx);\\n>\
+  }\\n>\
+  query(x, y, z) {\\n>\
+    const k = this.key(x, y, z);\\n>\
+    const [cx, cy, cz] = k.split(',').map(Number);\\n>\
+    const neighbors = [];\\n>\
+    for (let i = cx - 1; i <= cx + 1; i++) {\\n>\
+      for (let j = cy - 1; j <= cy + 1; j++) {\\n>\
+        for (let l = cz - 1; l <= cz + 1; l++) {\\n>\
+          const cell = this.cells.get(`${i},${j},${l}`);\\n>\
+          if (cell) neighbors.push(...cell);\\n>\
+        }\\n>\
+      }\\n>\
+    }\\n>\
+    return neighbors;\\n>\
+  }\\n>\
+}\\n>\
+\\n>\
+// --- SIMULATION LOOP ---\\n>\
+console.time(\"Differential Growth\");\\n>\
+\\n>\
+for (let iter = 0; iter < iterations; iter++) {\\n>\
+  if (nodes.length >= maxVertices) break;\\n>\
+\\n>\
+  // A. TOPOLOGY\\n>\
+  const edgeMap = new Map();\\n>\
+  nodes.forEach(n => n.isBoundary = false);\\n>\
+  faces.forEach((f, fIdx) => {\\n>\
+    const edges = [[f[0], f[1]], [f[1], f[2]], [f[2], f[0]]];\\n>\
+    edges.forEach(([a, b]) => {\\n>\
+      const key = a < b ? `${a},${b}` : `${b},${a}`;\\n>\
+      if (!edgeMap.has(key)) edgeMap.set(key, []);\\n>\
+      edgeMap.get(key).push(fIdx);\\n>\
+    });\\n>\
+  });\\n>\
+  for (const [key, fIndices] of edgeMap) {\\n>\
+    if (fIndices.length === 1) {\\n>\
+      const [u, v] = key.split(',').map(Number);\\n>\
+      nodes[u].isBoundary = true;\\n>\
+      nodes[v].isBoundary = true;\\n>\
+    }\\n>\
+  }\\n>\
+\\n>\
+  // B. PHYSICS\\n>\
+  const spatialHash = new SpatialHash(repulsionRadius);\\n>\
+  nodes.forEach((n, i) => {\\n>\
+    n.fx = 0; n.fy = 0; n.fz = 0;\\n>\
+    spatialHash.add(i, n.x, n.y, n.z);\\n>\
+  });\\n>\
+\\n>\
+  // 1. Repulsion\\n>\
+  for (let i = 0; i < nodes.length; i++) {\\n>\
+    const n = nodes[i];\\n>\
+    const neighbors = spatialHash.query(n.x, n.y, n.z);\\n>\
+    for (const otherIdx of neighbors) {\\n>\
+      if (otherIdx === i) continue;\\n>\
+      const other = nodes[otherIdx];\\n>\
+      const dx = n.x - other.x, dy = n.y - other.y, dz = n.z - other.z;\\n>\
+      const d2 = dx*dx + dy*dy + dz*dz;\\n>\
+      if (d2 < repulsionRadius * repulsionRadius && d2 > 1e-6) {\\n>\
+        const d = Math.sqrt(d2);\\n>\
+        const f = (repulsionRadius - d) / d * repulsionStrength;\\n>\
+        n.fx += dx * f; n.fy += dy * f; n.fz += dz * f;\\n>\
+      }\\n>\
+    }\\n>\
+  }\\n>\
+\\n>\
+  // 2. Springs & Boundary Push\\n>\
+  for (const [key, fIndices] of edgeMap) {\\n>\
+    const [u, v] = key.split(',').map(Number);\\n>\
+    const n1 = nodes[u], n2 = nodes[v];\\n>\
+    const dx = n2.x - n1.x, dy = n2.y - n1.y, dz = n2.z - n1.z;\\n>\
+    const d = Math.sqrt(dx*dx + dy*dy + dz*dz);\\n>\
+\\n>\
+    if (d > 1e-6) {\\n>\
+      const isBoundary = (fIndices.length === 1);\\n>\
+      const targetLen = isBoundary ? maxEdgeLength * 1.1 : minEdgeLength;\\n>\
+      const force = (d - targetLen) * springStiffness;\\n>\
+\\n>\
+      const fx = (dx / d) * force, fy = (dy / d) * force, fz = (dz / d) * force;\\n>\
+      n1.fx += fx; n1.fy += fy; n1.fz += fz;\\n>\
+      n2.fx -= fx; n2.fy -= fy; n2.fz -= fz;\\n>\
+\\n>\
+      if (isBoundary && boundaryGrowthPush > 0) {\\n>\
+        const push = boundaryGrowthPush;\\n>\
+        n2.fx += (dx / d) * push; n2.fy += (dy / d) * push; n2.fz += (dz / d) * push;\\n>\
+        n1.fx -= (dx / d) * push; n1.fy -= (dy / d) * push; n1.fz -= (dz / d) * push;\\n>\
+      }\\n>\
+    }\\n>\
+  }\\n>\
+\\n>\
+  // 3. Integrate\\n>\
+  const maxVelSq = maxVelocity * maxVelocity;\\n>\
+  for (let i = 0; i < nodes.length; i++) {\\n>\
+    const n = nodes[i];\\n>\
+    n.vx = (n.vx + n.fx * dt) * 0.9;\\n>\
+    n.vy = (n.vy + n.fy * dt) * 0.9;\\n>\
+    n.vz = (n.vz + n.fz * dt) * 0.9;\\n>\
+\\n>\
+    const vSq = n.vx*n.vx + n.vy*n.vy + n.vz*n.vz;\\n>\
+    if (vSq > maxVelSq) {\\n>\
+      const scale = maxVelocity / Math.sqrt(vSq);\\n>\
+      n.vx *= scale; n.vy *= scale; n.vz *= scale;\\n>\
+    }\\n>\
+    n.x += n.vx; n.y += n.vy; n.z += n.vz;\\n>\
+  }\\n>\
+\\n>\
+  // C. GROWTH (With optional buckling offset)\\n>\
+  const edgesToSplit = [];\\n>\
+  for (const [key, fIndices] of edgeMap) {\\n>\
+    const [u, v] = key.split(',').map(Number);\\n>\
+    const n1 = nodes[u], n2 = nodes[v];\\n>\
+    const d2 = (n1.x - n2.x)**2 + (n1.y - n2.y)**2 + (n1.z - n2.z)**2;\\n>\
+    if (d2 > maxEdgeLength * maxEdgeLength) {\\n>\
+      edgesToSplit.push({ key, u, v, fIndices, isBoundary: fIndices.length === 1 });\\n>\
+    }\\n>\
+  }\\n>\
+\\n>\
+  // Deterministic ordering so split cap does not bias sides\\n>\
+  edgesToSplit.sort((a, b) => {\\n>\
+    if (a.isBoundary !== b.isBoundary) {\\n>\
+      return (b.isBoundary ? 1 : 0) - (a.isBoundary ? 1 : 0);\\n>\
+    }\\n>\
+    if (a.key < b.key) return -1;\\n>\
+    if (a.key > b.key) return 1;\\n>\
+    return 0;\\n>\
+  });\\n>\
+\\n>\
+  const processedFaces = new Set();\\n>\
+  const facesToRemove = new Set();\\n>\
+  const facesToAdd = [];\\n>\
+  let splitsDone = 0;\\n>\
+\\n>\
+  for (const split of edgesToSplit) {\\n>\
+    if (splitsDone >= MAX_SPLITS) break;\\n>\
+    if (split.fIndices.some(fIdx => processedFaces.has(fIdx))) continue;\\n>\
+\\n>\
+    const { u, v, fIndices } = split;\\n>\
+    const n1 = nodes[u], n2 = nodes[v];\\n>\
+\\n>\
+    // Buckling offset: disabled when keeping symmetry\\n>\
+    const buckle = keepSymmetry ? 0 : (Math.random() - 0.5) * 0.05;\\n>\
+\\n>\
+    nodes.push({\\n>\
+      x: (n1.x + n2.x) * 0.5,\\n>\
+      y: (n1.y + n2.y) * 0.5 + buckle,\\n>\
+      z: (n1.z + n2.z) * 0.5,\\n>\
+      vx: (n1.vx + n2.vx) * 0.5,\\n>\
+      vy: (n1.vy + n2.vy) * 0.5,\\n>\
+      vz: (n1.vz + n2.vz) * 0.5,\\n>\
+      fx: 0, fy: 0, fz: 0,\\n>\
+      isBoundary: n1.isBoundary && n2.isBoundary\\n>\
+    });\\n>\
+    const midIdx = nodes.length - 1;\\n>\
+\\n>\
+    fIndices.forEach(fIdx => {\\n>\
+      processedFaces.add(fIdx);\\n>\
+      facesToRemove.add(fIdx);\\n>\
+      const oldFace = faces[fIdx];\\n>\
+      const t1 = [...oldFace]; t1[t1.indexOf(v)] = midIdx;\\n>\
+      const t2 = [...oldFace]; t2[t2.indexOf(u)] = midIdx;\\n>\
+      facesToAdd.push(t1, t2);\\n>\
+    });\\n>\
+    splitsDone++;\\n>\
+  }\\n>\
+\\n>\
+  if (facesToAdd.length > 0) {\\n>\
+    const nextFaces = [];\\n>\
+    for (let i = 0; i < faces.length; i++) {\\n>\
+      if (!facesToRemove.has(i)) nextFaces.push(faces[i]);\\n>\
+    }\\n>\
+    faces = nextFaces.concat(facesToAdd);\\n>\
+  }\\n>\
+}\\n>\
+\\n>\
+console.timeEnd(\"Differential Growth\");\\n>\
+\\n>\
+// --- EXPORT ---\\n>\
+const newGeo = new THREE.BufferGeometry();\\n>\
+const positions = new Float32Array(nodes.length * 3);\\n>\
+for (let i = 0; i < nodes.length; i++) {\\n>\
+  positions[i*3]   = nodes[i].x;\\n>\
+  positions[i*3+1] = nodes[i].y;\\n>\
+  positions[i*3+2] = nodes[i].z;\\n>\
+}\\n>\
+\\n>\
+const indices = [];\\n>\
+faces.forEach(f => indices.push(...f));\\n>\
+\\n>\
+newGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));\\n>\
+newGeo.setIndex(indices);\\n>\
+newGeo.computeVertexNormals();\\n>\
+newGeo.computeBoundingSphere();\\n>\
+\\n>\
+return newGeo;\\n\
+",
+  "outputType": "Geometry"
+}
+,
   {
     "id": "buckleGeometry",
     "name": "buckleGeometry",
