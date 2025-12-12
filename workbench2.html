@@ -1464,117 +1464,129 @@ const expressionState = {};
         };
 
         window.renderMaterials = function() {
-            const container = document.getElementById('materials-container');
-            container.innerHTML = '';
-            
-            for (const [name, material] of Object.entries(schema.materials)) {
-                const item = document.createElement('div');
-                item.className = 'material-item';
-                
-                const headerDiv = document.createElement('div');
-                headerDiv.className = 'material-header';
-                
-                const nameInput = document.createElement('input');
-                nameInput.type = 'text';
-                nameInput.style.background = 'rgba(255, 255, 255, 0.05)';
-                nameInput.style.border = '1px solid var(--border)';
-                nameInput.style.borderRadius = '4px';
-                nameInput.style.padding = '6px 10px';
-                nameInput.style.color = 'var(--text)';
-                nameInput.style.fontSize = '11px';
-                nameInput.style.flex = '1';
-                nameInput.style.marginRight = '8px';
-                nameInput.value = name;
-                nameInput.onchange = (e) => {
-                    const newName = e.target.value;
-                    if (newName && newName !== name && !schema.materials[newName]) {
-                        schema.materials[newName] = schema.materials[name];
-                        delete schema.materials[name];
-                        window.renderMaterials();
-                        window.renderTimeline();
-                    }
-                };
-                headerDiv.appendChild(nameInput);
-                
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'material-btn material-delete';
-                deleteBtn.innerText = '✕';
-                deleteBtn.onclick = () => window.removeMaterial(name);
-                headerDiv.appendChild(deleteBtn);
-                item.appendChild(headerDiv);
-                
-                // Color
-                const colorDiv = document.createElement('div');
-                colorDiv.style.display = 'flex';
-                colorDiv.style.gap = '8px';
-                colorDiv.style.alignItems = 'center';
-                colorDiv.style.marginBottom = '8px';
-                
-                const colorLabel = document.createElement('label');
-                colorLabel.style.fontSize = '10px';
-                colorLabel.style.fontWeight = '600';
-                colorLabel.style.color = 'var(--text-dim)';
-                colorLabel.style.minWidth = '60px';
-                colorLabel.innerText = 'Color';
-                colorDiv.appendChild(colorLabel);
-                
-                const colorInput = document.createElement('input');
-                colorInput.type = 'color';
-                colorInput.value = material.color;
-                colorInput.style.cursor = 'pointer';
-                colorInput.style.width = '40px';
-                colorInput.style.height = '30px';
-                colorInput.style.border = '1px solid var(--border)';
-                colorInput.style.borderRadius = '4px';
-                colorInput.onchange = (e) => window.updateMaterial(name, 'color', e.target.value);
-                colorDiv.appendChild(colorInput);
-                
-                item.appendChild(colorDiv);
-                
-                // Roughness
-                const roughDiv = document.createElement('div');
-                roughDiv.style.marginBottom = '8px';
-                roughDiv.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 4px; color: var(--text-dim)">
-                        <span>Roughness</span>
-                        <span style="color: var(--accent); font-family: monospace">${material.roughness.toFixed(2)}</span>
-                    </div>
-                `;
-                const roughSlider = document.createElement('input');
-                roughSlider.type = 'range';
-                roughSlider.min = '0';
-                roughSlider.max = '1';
-                roughSlider.step = '0.01';
-                roughSlider.value = material.roughness;
-                roughSlider.style.width = '100%';
-                roughSlider.style.cursor = 'pointer';
-                roughSlider.onchange = (e) => window.updateMaterial(name, 'roughness', parseFloat(e.target.value));
-                roughDiv.appendChild(roughSlider);
-                item.appendChild(roughDiv);
-                
-                // Metalness
-                const metalDiv = document.createElement('div');
-                metalDiv.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 4px; color: var(--text-dim)">
-                        <span>Metalness</span>
-                        <span style="color: var(--accent); font-family: monospace">${material.metalness.toFixed(2)}</span>
-                    </div>
-                `;
-                const metalSlider = document.createElement('input');
-                metalSlider.type = 'range';
-                metalSlider.min = '0';
-                metalSlider.max = '1';
-                metalSlider.step = '0.01';
-                metalSlider.value = material.metalness;
-                metalSlider.style.width = '100%';
-                metalSlider.style.cursor = 'pointer';
-                metalSlider.onchange = (e) => window.updateMaterial(name, 'metalness', parseFloat(e.target.value));
-                metalDiv.appendChild(metalSlider);
-                item.appendChild(metalDiv);
-                
-                container.appendChild(item);
+    const container = document.getElementById('materials-container');
+    container.innerHTML = '';
+    
+    // Safety check
+    if (!schema.materials) {
+        schema.materials = {};
+        return;
+    }
+    
+    for (const [name, material] of Object.entries(schema.materials)) {
+        // --- SAFE DEFAULTS ---
+        const color = material.color || '#888888';
+        const roughness = (material.roughness !== undefined) ? material.roughness : 0.5; // Default 0.5
+        const metalness = (material.metalness !== undefined) ? material.metalness : 0.0; // Default 0.0
+
+        const item = document.createElement('div');
+        item.className = 'material-item';
+        
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'material-header';
+        
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.style.background = 'rgba(255, 255, 255, 0.05)';
+        nameInput.style.border = '1px solid var(--border)';
+        nameInput.style.borderRadius = '4px';
+        nameInput.style.padding = '6px 10px';
+        nameInput.style.color = 'var(--text)';
+        nameInput.style.fontSize = '11px';
+        nameInput.style.flex = '1';
+        nameInput.style.marginRight = '8px';
+        nameInput.value = name;
+        nameInput.onchange = (e) => {
+            const newName = e.target.value;
+            if (newName && newName !== name && !schema.materials[newName]) {
+                schema.materials[newName] = schema.materials[name];
+                delete schema.materials[name];
+                window.renderMaterials();
+                window.renderTimeline();
             }
         };
+        headerDiv.appendChild(nameInput);
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'material-btn material-delete';
+        deleteBtn.innerText = '✕';
+        deleteBtn.onclick = () => window.removeMaterial(name);
+        headerDiv.appendChild(deleteBtn);
+        item.appendChild(headerDiv);
+        
+        // Color
+        const colorDiv = document.createElement('div');
+        colorDiv.style.display = 'flex';
+        colorDiv.style.gap = '8px';
+        colorDiv.style.alignItems = 'center';
+        colorDiv.style.marginBottom = '8px';
+        
+        const colorLabel = document.createElement('label');
+        colorLabel.style.fontSize = '10px';
+        colorLabel.style.fontWeight = '600';
+        colorLabel.style.color = 'var(--text-dim)';
+        colorLabel.style.minWidth = '60px';
+        colorLabel.innerText = 'Color';
+        colorDiv.appendChild(colorLabel);
+        
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.value = color; // Use safe local var
+        colorInput.style.cursor = 'pointer';
+        colorInput.style.width = '40px';
+        colorInput.style.height = '30px';
+        colorInput.style.border = '1px solid var(--border)';
+        colorInput.style.borderRadius = '4px';
+        colorInput.onchange = (e) => window.updateMaterial(name, 'color', e.target.value);
+        colorDiv.appendChild(colorInput);
+        
+        item.appendChild(colorDiv);
+        
+        // Roughness
+        const roughDiv = document.createElement('div');
+        roughDiv.style.marginBottom = '8px';
+        roughDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 4px; color: var(--text-dim)">
+                <span>Roughness</span>
+                <span style="color: var(--accent); font-family: monospace">${Number(roughness).toFixed(2)}</span>
+            </div>
+        `;
+        const roughSlider = document.createElement('input');
+        roughSlider.type = 'range';
+        roughSlider.min = '0';
+        roughSlider.max = '1';
+        roughSlider.step = '0.01';
+        roughSlider.value = roughness; // Use safe local var
+        roughSlider.style.width = '100%';
+        roughSlider.style.cursor = 'pointer';
+        roughSlider.onchange = (e) => window.updateMaterial(name, 'roughness', parseFloat(e.target.value));
+        roughDiv.appendChild(roughSlider);
+        item.appendChild(roughDiv);
+        
+        // Metalness
+        const metalDiv = document.createElement('div');
+        metalDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 4px; color: var(--text-dim)">
+                <span>Metalness</span>
+                <span style="color: var(--accent); font-family: monospace">${Number(metalness).toFixed(2)}</span>
+            </div>
+        `;
+        const metalSlider = document.createElement('input');
+        metalSlider.type = 'range';
+        metalSlider.min = '0';
+        metalSlider.max = '1';
+        metalSlider.step = '0.01';
+        metalSlider.value = metalness; // Use safe local var
+        metalSlider.style.width = '100%';
+        metalSlider.style.cursor = 'pointer';
+        metalSlider.onchange = (e) => window.updateMaterial(name, 'metalness', parseFloat(e.target.value));
+        metalDiv.appendChild(metalSlider);
+        item.appendChild(metalDiv);
+        
+        container.appendChild(item);
+    }
+};
+
 
         // =========================================================================
         // GLOBALS MANAGEMENT (GLOBAL)
