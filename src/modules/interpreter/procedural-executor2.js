@@ -372,7 +372,8 @@ export class ProceduralExecutor {
                     metalness: config.metalness ?? 0.0,
                     transparent: config.transparent ?? false,
                     opacity: config.opacity ?? 1.0,
-                    side: this.THREE.DoubleSide
+                    side: this.THREE.DoubleSide, 
+                  vertexColors: config.vertexColors ?? false
                 }));
             });
         }
