@@ -2060,14 +2060,15 @@
   "description": "Combine multiple geometries into an array (group) for use with distribution helpers.",
   "paramsSchema": {
     "geometries": { 
-      "type": "array", 
-      "default": [], 
-      "description": "Array of geometry variable names" 
+      "type": "string", 
+      "default": "", 
+      "description": "Comma-separated geometry names (e.g., 'c, s, box')" 
     }
   },
-  "code": "const { geometries = [] } = params;\n\n// Resolve each variable name\nconst result = geometries.map(varName => {\n  try {\n    const resolved = eval(varName);\n    return resolved && resolved.isBufferGeometry ? resolved : null;\n  } catch (e) {\n    console.warn(`createGroup: Could not resolve '${varName}'`, e);\n    return null;\n  }\n}).filter(g => g !== null);\n\nreturn result.length > 0 ? result : [];",
+  "code": "const { geometries = '' } = params;\n\n// Parse comma-separated variable names\nlet varNames = [];\nif (typeof geometries === 'string') {\n  const trimmed = geometries.trim();\n  // Remove brackets if present: [c, s] -> c, s\n  const cleaned = trimmed.replace(/^\\[|\\]$/g, '');\n  // Split by comma and trim each name\n  varNames = cleaned.split(',').map(name => name.trim()).filter(name => name.length > 0);\n} else if (Array.isArray(geometries)) {\n  varNames = geometries;\n}\n\n// Resolve each variable name from execution context\nconst result = varNames.map(varName => {\n  try {\n    const resolved = eval(varName);\n    return resolved && resolved.isBufferGeometry ? resolved : null;\n  } catch (e) {\n    console.warn(`createGroup: Could not resolve '${varName}'`, e);\n    return null;\n  }\n}).filter(g => g !== null);\n\nreturn result.length > 0 ? result : [];",
   "outputType": "Geometry"
 }
+
 
 
 
