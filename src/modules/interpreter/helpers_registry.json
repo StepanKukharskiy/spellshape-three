@@ -2053,7 +2053,22 @@
     },
     "code": "const { group, curve, count = 10, align = true, up = [0,1,0], levelName = '', clone = true, autoMerge = false } = params;\n\n// Normalize group -> array\nlet base = [];\nif (Array.isArray(group)) base = group;\nelse if (group && group.isBufferGeometry) base = [group];\nelse return autoMerge ? new THREE.BufferGeometry() : [];\n\nconst n = Math.max(0, Math.floor(count));\nif (n === 0) return autoMerge ? new THREE.BufferGeometry() : [];\n\n// Resolve curve (supports your existing resolveCurve wrapper if present)\nlet resolvedCurve = curve;\ntry {\n  if (typeof resolveCurve === 'function') resolvedCurve = resolveCurve(curve);\n} catch (e) {}\n\nif (!resolvedCurve || typeof resolvedCurve.getPoint !== 'function') {\n  return autoMerge ? new THREE.BufferGeometry() : [];\n}\n\nconst upVec = Array.isArray(up) ? new THREE.Vector3(up[0] ?? 0, up[1] ?? 1, up[2] ?? 0) : new THREE.Vector3(0,1,0);\nif (upVec.lengthSq() < 1e-12) upVec.set(0,1,0);\nupVec.normalize();\n\n// Determine level variable name\nconst varName = (levelName && String(levelName).trim() !== '') ? String(levelName).trim() : 'level_0';\n\nconst results = [];\nconst pos = new THREE.Vector3();\nconst tangent = new THREE.Vector3();\n\nfor (let i = 0; i < n; i++) {\n  const t = (n <= 1) ? 0.5 : i / (n - 1);\n  const p = resolvedCurve.getPoint(t);\n  pos.set(p.x, p.y, p.z);\n\n  if (align && typeof resolvedCurve.getTangent === 'function') {\n    const tg = resolvedCurve.getTangent(t);\n    tangent.set(tg.x, tg.y, tg.z);\n    if (tangent.lengthSq() < 1e-12) tangent.set(1,0,0);\n    tangent.normalize();\n  } else {\n    tangent.set(1,0,0);\n  }\n\n  // Build a stable frame: x=tangent, y=orthogonalUp, z=normal\n  const normal = new THREE.Vector3().crossVectors(tangent, upVec);\n  if (normal.lengthSq() < 1e-12) {\n    // Tangent nearly parallel to up -> pick another up\n    const altUp = Math.abs(upVec.y) > 0.9 ? new THREE.Vector3(1,0,0) : new THREE.Vector3(0,1,0);\n    normal.crossVectors(tangent, altUp);\n  }\n  normal.normalize();\n  const orthUp = new THREE.Vector3().crossVectors(normal, tangent).normalize();\n\n  const rotMatrix = new THREE.Matrix4().makeBasis(tangent, orthUp, normal);\n\n  for (let gi = 0; gi < base.length; gi++) {\n    const g0 = base[gi];\n    if (!g0 || !g0.isBufferGeometry) continue;\n\n    const g = (clone && g0.clone) ? g0.clone() : g0;\n\n    // Position\n    g.translate(pos.x, pos.y, pos.z);\n\n    // Orientation\n    if (align) g.applyMatrix4(rotMatrix);\n\n    const ud0 = g0.userData || {};\n    const udG = g.userData || {};\n    \n    // Preserve earlier hierarchy metadata, add current level\n    g.userData = {\n      ...ud0,\n      ...udG,\n      [varName]: i,\n      [`${varName}T`]: t,\n      [`${varName}Count`]: n,\n      [`${varName}Position`]: { x: pos.x, y: pos.y, z: pos.z },\n      [`${varName}Tangent`]: { x: tangent.x, y: tangent.y, z: tangent.z },\n      [`${varName}Align`]: align\n    };\n\n    results.push(g);\n  }\n}\n\nreturn autoMerge ? BufferGeometryUtils.mergeGeometries(results.filter(r => r && r.isBufferGeometry)) : results;",
     "outputType": "Geometry"
-  }
+  },
+  {
+  "id": "createGroup",
+  "name": "createGroup",
+  "description": "Combine multiple geometries into an array (group) for use with distribution helpers.",
+  "paramsSchema": {
+    "geometries": { 
+      "type": "array", 
+      "default": [], 
+      "description": "Array of geometry variable names to group" 
+    }
+  },
+  "code": "const { geometries = [] } = params;\nconst result = geometries.filter(g => g && g.isBufferGeometry);\nreturn result.length > 0 ? result : [];",
+  "outputType": "Geometry"
+}
+
 
 
 
