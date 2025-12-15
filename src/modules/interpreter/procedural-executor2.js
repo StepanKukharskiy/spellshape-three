@@ -545,22 +545,37 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
     }
 
     evaluateParamsCarefully(params) {
-        if (!params || typeof params !== 'object') return {};
+    if (!params || typeof params !== 'object') return {};
 
-        const evaluated = {};
+    const evaluated = {};
 
-        this.safeLoop(params, (key, value) => {
-            if (Array.isArray(value)) {
-                evaluated[key] = value.map(item => this.evaluateValue(item));
-            } else if (value && typeof value === 'object') {
-                evaluated[key] = this.evaluateParamsCarefully(value);
+    this.safeLoop(params, (key, value) => {
+        if (Array.isArray(value)) {
+            // Already an array - resolve each item
+            evaluated[key] = value.map(item => this.evaluateValue(item));
+        } else if (value && typeof value === 'object') {
+            evaluated[key] = this.evaluateParamsCarefully(value);
+        } else if (typeof value === 'string') {
+            // NEW: Check if it's a comma-separated list (for createGroup)
+            if (key === 'geometries' && value.includes(',')) {
+                const names = value.trim()
+                    .replace(/^\[|\]$/g, '') // Remove outer brackets
+                    .split(',')
+                    .map(n => n.trim())
+                    .filter(n => n.length > 0);
+                
+                evaluated[key] = names.map(name => this.evaluateValue(name));
             } else {
                 evaluated[key] = this.evaluateValue(value);
             }
-        });
+        } else {
+            evaluated[key] = this.evaluateValue(value);
+        }
+    });
 
-        return evaluated;
-    }
+    return evaluated;
+}
+
 
     evaluateValue(item) {
         if (typeof item === 'number') return item;
