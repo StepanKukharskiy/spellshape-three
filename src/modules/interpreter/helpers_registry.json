@@ -1935,20 +1935,49 @@
   {
   "id": "transformEach",
   "name": "transformEach",
-  "description": "Apply per-element translate/rotate/scale to an array of geometries using expressions (i, t, pos, userData).",
+  "description": "Apply per-element translate/rotate/scale to an array of geometries using expressions (i, n, t, pos, userData). Supports pivoted rotation/scale around each geometry’s bbox center by default.",
   "category": "Distribution",
   "paramsSchema": {
-    "geometries": { "type": "string", "default": "", "description": "Array of geometries (or a single geometry) to transform" },
-
-    "translate": { "type": "array", "default": [0, 0, 0], "description": "Either [x,y,z] numbers/expressions or a single number/expression (applied to all axes = 0 except x)" },
-    "rotate": { "type": "array", "default": [0, 0, 0], "description": "Rotation [rx,ry,rz] in radians, numbers or expressions" },
-    "scale": { "type": "array", "default": [1, 1, 1], "description": "Scale [sx,sy,sz] numbers/expressions" },
-
-    "clone": { "type": "boolean", "default": true, "description": "Clone each geometry before transforming (recommended)" },
-    "autoMerge": { "type": "boolean", "default": false, "description": "Merge output into one BufferGeometry" }
+    "geometries": {
+      "type": "string",
+      "default": "",
+      "description": "Array of geometries (or a single geometry) to transform"
+    },
+    "translate": {
+      "type": "array",
+      "default": [0, 0, 0],
+      "description": "Translate [x,y,z] numbers/expressions (can also be a JSON string like \"[0,i,0]\")"
+    },
+    "rotate": {
+      "type": "array",
+      "default": [0, 0, 0],
+      "description": "Rotate [rx,ry,rz] in radians (can also be a JSON string like \"[0,i*0.2,0]\")"
+    },
+    "scale": {
+      "type": "array",
+      "default": [1, 1, 1],
+      "description": "Scale [sx,sy,sz] numbers/expressions (can also be a JSON string)"
+    },
+    "pivot": {
+      "type": "string",
+      "default": "center",
+      "description": "Pivot for rotate/scale: \"center\" | \"origin\" | \"bboxMin\" | \"bboxMax\" | JSON vec3 string like \"[pos.x,pos.y,pos.z]\""
+    },
+    "clone": {
+      "type": "boolean",
+      "default": true,
+      "description": "Clone each geometry before transforming"
+    },
+    "autoMerge": {
+      "type": "boolean",
+      "default": false,
+      "description": "Merge output into one BufferGeometry"
+    }
   },
-  "code": "const { geometries, translate = [0,0,0], rotate = [0,0,0], scale = [1,1,1], clone = true, autoMerge = false } = params;\n\n// Normalize input to array\nlet items = [];\nif (Array.isArray(geometries)) items = geometries;\nelse if (geometries && geometries.isBufferGeometry) items = [geometries];\nelse return autoMerge ? new THREE.BufferGeometry() : [];\n\n// Parse [x,y,z] that might arrive as string JSON or comma string\nconst parseVec3 = (v, fallback) => {\n  if (v == null) return fallback;\n  if (Array.isArray(v)) return [v[0], v[1], v[2]];\n  if (typeof v === 'string') {\n    try {\n      const j = JSON.parse(v);\n      if (Array.isArray(j)) return [j[0], j[1], j[2]];\n    } catch (e) {\n      // allow \"a,b,c\"\n      const parts = v.split(',').map(s => s.trim());\n      if (parts.length >= 3) return [parts[0], parts[1], parts[2]];\n    }\n  }\n  // If scalar, treat as uniform for scale, or x-only for translate\n  return [v, v, v];\n};\n\nconst trV = parseVec3(translate, [0,0,0]);\nconst rotV = parseVec3(rotate, [0,0,0]);\nconst sclV = parseVec3(scale, [1,1,1]);\n\nconst evalExpr = (expr, ctx) => {\n  if (expr == null) return 0;\n  if (typeof expr === 'number') return expr;\n  if (typeof expr !== 'string') return Number(expr) || 0;\n  const s = expr.trim();\n  if (s === '') return 0;\n  if (!isNaN(Number(s))) return Number(s);\n  try {\n    // ctx: { i, n, t, pos, userData }\n    const fn = new Function('i','n','t','pos','userData','Math', `return (${s});`);\n    return fn(ctx.i, ctx.n, ctx.t, ctx.pos, ctx.userData, Math);\n  } catch (e) {\n    return 0;\n  }\n};\n\nconst results = [];\nconst n = items.length;\nconst tmpCenter = new THREE.Vector3();\n\nfor (let i = 0; i < n; i++) {\n  const g0 = items[i];\n  if (!g0 || !g0.isBufferGeometry) continue;\n\n  const g = (clone && g0.clone) ? g0.clone() : g0;\n\n  // Determine per-instance position proxy:\n  // 1) prefer userData.instancePosition/worldPos if you later add it in repeat helpers\n  // 2) otherwise use bbox center\n  let pos = new THREE.Vector3(0,0,0);\n  const ud = g0.userData || {};\n  if (ud.instanceWorldPos && Array.isArray(ud.instanceWorldPos)) {\n    pos.set(ud.instanceWorldPos[0]||0, ud.instanceWorldPos[1]||0, ud.instanceWorldPos[2]||0);\n  } else {\n    g.computeBoundingBox();\n    if (g.boundingBox) g.boundingBox.getCenter(tmpCenter);\n    pos.copy(tmpCenter);\n  }\n\n  const ctx = { i, n, t: (n <= 1 ? 0 : i / (n - 1)), pos, userData: ud };\n\n  // Evaluate TRS (Scale → Rotate → Translate) to match your executor's geometry transform order\n  const sx = evalExpr(sclV[0], ctx), sy = evalExpr(sclV[1], ctx), sz = evalExpr(sclV[2], ctx);\n  const rx = evalExpr(rotV[0], ctx), ry = evalExpr(rotV[1], ctx), rz = evalExpr(rotV[2], ctx);\n  const tx = evalExpr(trV[0], ctx), ty = evalExpr(trV[1], ctx), tz = evalExpr(trV[2], ctx);\n\n  // Safety clamps\n  const safe = (v, d) => (Number.isFinite(v) ? v : d);\n\n  g.scale(safe(sx, 1), safe(sy, 1), safe(sz, 1));\n  if (safe(rx,0) !== 0) g.rotateX(rx);\n  if (safe(ry,0) !== 0) g.rotateY(ry);\n  if (safe(rz,0) !== 0) g.rotateZ(rz);\n  if (safe(tx,0) !== 0 || safe(ty,0) !== 0 || safe(tz,0) !== 0) g.translate(tx, ty, tz);\n\n  // Preserve/extend metadata\n  g.userData = { ...ud, ...g.userData, _transformEach: { i, n } };\n\n  results.push(g);\n}\n\nreturn autoMerge ? BufferGeometryUtils.mergeGeometries(results.filter(r => r && r.isBufferGeometry)) : results;"
+  "code": "const { geometries, translate = [0,0,0], rotate = [0,0,0], scale = [1,1,1], pivot = 'center', clone = true, autoMerge = false } = params;\n\n// Normalize input to array\nlet items = [];\nif (Array.isArray(geometries)) items = geometries;\nelse if (geometries && geometries.isBufferGeometry) items = [geometries];\nelse return autoMerge ? new THREE.BufferGeometry() : [];\n\n// Parse a vec3 that may arrive as:\n// - Array [a,b,c]\n// - JSON string \"[a,b,c]\"\n// - CSV string \"a,b,c\"\nconst parseVec3 = (v, fallback) => {\n  if (v == null) return fallback;\n  if (Array.isArray(v)) return [v[0], v[1], v[2]];\n  if (typeof v === 'string') {\n    const s = v.trim();\n    try {\n      const j = JSON.parse(s);\n      if (Array.isArray(j)) return [j[0], j[1], j[2]];\n    } catch (e) {\n      const parts = s.split(',').map(x => x.trim());\n      if (parts.length >= 3) return [parts[0], parts[1], parts[2]];\n    }\n  }\n  // Scalar fallback -> make it uniform\n  return [v, v, v];\n};\n\nconst trV  = parseVec3(translate, [0,0,0]);\nconst rotV = parseVec3(rotate,    [0,0,0]);\nconst sclV = parseVec3(scale,     [1,1,1]);\n\nconst evalExpr = (expr, ctx, fallback = 0) => {\n  if (expr == null) return fallback;\n  if (typeof expr === 'number') return expr;\n  if (typeof expr !== 'string') {\n    const n = Number(expr);\n    return Number.isFinite(n) ? n : fallback;\n  }\n\n  const s = expr.trim();\n  if (s === '') return fallback;\n  if (!isNaN(Number(s))) return Number(s);\n\n  try {\n    const fn = new Function('i','n','t','pos','userData','Math', `return (${s});`);\n    const v = fn(ctx.i, ctx.n, ctx.t, ctx.pos, ctx.userData, Math);\n    return Number.isFinite(v) ? v : fallback;\n  } catch (e) {\n    return fallback;\n  }\n};\n\nconst results = [];\nconst n = items.length;\n\nconst tmpCenter = new THREE.Vector3();\nconst tmpMin = new THREE.Vector3();\nconst tmpMax = new THREE.Vector3();\n\nfor (let i = 0; i < n; i++) {\n  const g0 = items[i];\n  if (!g0 || !g0.isBufferGeometry) continue;\n\n  const g = (clone && g0.clone) ? g0.clone() : g0;\n\n  // Always compute bbox -> used for pivot and for pos proxy\n  g.computeBoundingBox();\n  const bb = g.boundingBox;\n  if (!bb) continue;\n\n  bb.getCenter(tmpCenter);\n  tmpMin.copy(bb.min);\n  tmpMax.copy(bb.max);\n\n  const ud = g0.userData || {};\n  const pos = tmpCenter.clone();\n  const ctx = { i, n, t: (n <= 1 ? 0 : i / (n - 1)), pos, userData: ud };\n\n  // Resolve pivot\n  let px = tmpCenter.x, py = tmpCenter.y, pz = tmpCenter.z;\n\n  if (typeof pivot === 'string') {\n    const p = pivot.trim();\n    if (p === 'origin') { px = 0; py = 0; pz = 0; }\n    else if (p === 'bboxMin') { px = tmpMin.x; py = tmpMin.y; pz = tmpMin.z; }\n    else if (p === 'bboxMax') { px = tmpMax.x; py = tmpMax.y; pz = tmpMax.z; }\n    else if (p === 'center' || p === '') { px = tmpCenter.x; py = tmpCenter.y; pz = tmpCenter.z; }\n    else {\n      // allow vec3 string expression, e.g. \"[pos.x, pos.y, pos.z]\"\n      const pv = parseVec3(p, [tmpCenter.x, tmpCenter.y, tmpCenter.z]);\n      px = evalExpr(pv[0], ctx, tmpCenter.x);\n      py = evalExpr(pv[1], ctx, tmpCenter.y);\n      pz = evalExpr(pv[2], ctx, tmpCenter.z);\n    }\n  } else if (Array.isArray(pivot)) {\n    const pv = parseVec3(pivot, [tmpCenter.x, tmpCenter.y, tmpCenter.z]);\n    px = evalExpr(pv[0], ctx, tmpCenter.x);\n    py = evalExpr(pv[1], ctx, tmpCenter.y);\n    pz = evalExpr(pv[2], ctx, tmpCenter.z);\n  }\n\n  // Evaluate TRS\n  const sx = evalExpr(sclV[0], ctx, 1);\n  const sy = evalExpr(sclV[1], ctx, 1);\n  const sz = evalExpr(sclV[2], ctx, 1);\n\n  const rx = evalExpr(rotV[0], ctx, 0);\n  const ry = evalExpr(rotV[1], ctx, 0);\n  const rz = evalExpr(rotV[2], ctx, 0);\n\n  const tx = evalExpr(trV[0], ctx, 0);\n  const ty = evalExpr(trV[1], ctx, 0);\n  const tz = evalExpr(trV[2], ctx, 0);\n\n  // Pivoted: move pivot to origin -> scale/rotate -> move back -> final translation\n  g.translate(-px, -py, -pz);\n  g.scale(sx, sy, sz);\n  if (rx) g.rotateX(rx);\n  if (ry) g.rotateY(ry);\n  if (rz) g.rotateZ(rz);\n  g.translate(px, py, pz);\n\n  if (tx || ty || tz) g.translate(tx, ty, tz);\n\n  // Keep metadata\n  g.userData = { ...ud, ...g.userData, _transformEach: { i, n, t: ctx.t } };\n\n  results.push(g);\n}\n\nreturn autoMerge ? BufferGeometryUtils.mergeGeometries(results.filter(r => r && r.isBufferGeometry)) : results;",
+  "outputType": "Geometry"
 }
+
 
 
 
