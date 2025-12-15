@@ -2060,14 +2060,15 @@
   "description": "Combine multiple geometries into an array (group) for use with distribution helpers.",
   "paramsSchema": {
     "geometries": { 
-      "type": "array", 
-      "default": [], 
-      "description": "Array of geometry variable names to group" 
+      "type": "string", 
+      "default": "", 
+      "description": "Comma-separated geometry names (e.g., 'c, s') or JSON array" 
     }
   },
-  "code": "const { geometries = [] } = params;\nconst result = geometries.filter(g => g && g.isBufferGeometry);\nreturn result.length > 0 ? result : [];",
+  "code": "const { geometries = '' } = params;\n\n// Parse string input\nlet geomList = [];\nif (typeof geometries === 'string') {\n  const trimmed = geometries.trim();\n  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {\n    // JSON array format: \"[c, s]\"\n    try {\n      geomList = JSON.parse(trimmed);\n    } catch (e) {\n      console.warn('createGroup: Failed to parse JSON array', e);\n      geomList = [];\n    }\n  } else {\n    // Comma-separated format: \"c, s\"\n    geomList = trimmed.split(',').map(g => g.trim()).filter(g => g.length > 0);\n  }\n} else if (Array.isArray(geometries)) {\n  geomList = geometries;\n}\n\n// Filter to only valid geometries\nconst result = geomList.filter(g => g && (g.isBufferGeometry || typeof g === 'string'));\nreturn result.length > 0 ? result : [];",
   "outputType": "Geometry"
 }
+
 
 
 
