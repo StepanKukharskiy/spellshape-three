@@ -436,6 +436,11 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
   log: (level, text) => {
     console[level] ? console[level](text) : console.log(text);
     this.addMessage(level, text);
+  },
+  call: (name, p) => {
+    const fn = this.dynamicHelpers.get(name);
+    if (!fn) throw new Error(`Helper not found: ${name}`);
+    return fn(p);
   }
 };
 
