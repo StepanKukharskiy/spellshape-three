@@ -2062,12 +2062,13 @@
     "geometries": { 
       "type": "string", 
       "default": "", 
-      "description": "Comma-separated geometry names (e.g., 'c, s, box')" 
+      "description": "Comma-separated geometry names (e.g., 'cg, st') OR array (e.g., [\"cg\", \"st\"])" 
     }
   },
-  "code": "const { geometries = '' } = params;\n\n// Parse comma-separated variable names\nlet varNames = [];\nif (typeof geometries === 'string') {\n  const trimmed = geometries.trim();\n  // Remove brackets if present: [c, s] -> c, s\n  const cleaned = trimmed.replace(/^\\[|\\]$/g, '');\n  // Split by comma and trim each name\n  varNames = cleaned.split(',').map(name => name.trim()).filter(name => name.length > 0);\n} else if (Array.isArray(geometries)) {\n  varNames = geometries;\n}\n\n// Resolve each variable name from execution context\nconst result = varNames.map(varName => {\n  try {\n    const resolved = eval(varName);\n    return resolved && resolved.isBufferGeometry ? resolved : null;\n  } catch (e) {\n    console.warn(`createGroup: Could not resolve '${varName}'`, e);\n    return null;\n  }\n}).filter(g => g !== null);\n\nreturn result.length > 0 ? result : [];",
+  "code": "const { geometries = '' } = params;\n\nlet varNames = [];\n\nif (Array.isArray(geometries)) {\n  // Already an array\n  varNames = geometries.map(g => String(g).trim()).filter(g => g.length > 0);\n} else if (typeof geometries === 'string') {\n  const trimmed = geometries.trim();\n  // Remove outer brackets if present: [cg, st] -> cg, st\n  const cleaned = trimmed.replace(/^\\[|\\]$/g, '');\n  // Split by comma\n  varNames = cleaned.split(',').map(name => name.trim()).filter(name => name.length > 0);\n}\n\n// Resolve each variable name\nconst result = varNames.map(varName => {\n  try {\n    const resolved = eval(varName);\n    return resolved && resolved.isBufferGeometry ? resolved : null;\n  } catch (e) {\n    console.warn(`createGroup: Could not resolve '${varName}'`, e);\n    return null;\n  }\n}).filter(g => g !== null);\n\nreturn result.length > 0 ? result : [];",
   "outputType": "Geometry"
 }
+
 
 
 
