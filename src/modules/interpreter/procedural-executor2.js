@@ -553,11 +553,12 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
         if (Array.isArray(value)) {
             // Already an array - resolve each item
             evaluated[key] = value.map(item => this.evaluateValue(item));
-        } else if (value && typeof value === 'object') {
+        } else if (value && typeof value === 'object' && !value.isBufferGeometry) {
+            // Recurse for nested objects (but not geometry objects)
             evaluated[key] = this.evaluateParamsCarefully(value);
         } else if (typeof value === 'string') {
-            // NEW: Check if it's a comma-separated list (for createGroup)
-            if (key === 'geometries' && value.includes(',')) {
+            // Check if it's a comma-separated list for geometry arrays
+            if ((key === 'geometries' || key === 'group') && value.includes(',')) {
                 const names = value.trim()
                     .replace(/^\[|\]$/g, '') // Remove outer brackets
                     .split(',')
@@ -569,6 +570,7 @@ if (schema.definitions && Object.keys(schema.definitions).length > 0) {
                 evaluated[key] = this.evaluateValue(value);
             }
         } else {
+            // Pass through numbers, booleans, geometry objects, etc.
             evaluated[key] = this.evaluateValue(value);
         }
     });
