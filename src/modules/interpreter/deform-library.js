@@ -1200,11 +1200,3 @@ export const DeformerRegistry = {
   magneticField,
   shockwave
 };
-
-// ============================================================================
-// EXPORT FOR DIFFERENT MODULE SYSTEMS
-// ============================================================================
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { DeformerRegistry };
-}
