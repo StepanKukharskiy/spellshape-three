@@ -2075,7 +2075,7 @@
   "category": "Deformation",
   "paramsSchema": {
     "geometry": { "type": "string", "description": "Geometry to deform" },
-    "mode": { "type": "string", "default": "noise", "description": "Deformer ID (e.g. 'twist', 'bend', 'noise')" },
+    "mode": { "type": "string", "default": "simpleNoiseDeform", "description": "Deformer ID (e.g. 'twist', 'bend', 'noise')" },
     "params": { "type": "object", "default": {}, "description": "Parameters specific to the chosen mode" },
     "recomputeNormals": { "type": "boolean", "default": true, "description": "Recalculate lighting normals after deformation" },
     "recomputeNormalsBefore": { "type": "boolean", "default": false, "description": "Recalculate normals BEFORE deformation (recommended for normal-displacement based deformers)" },
