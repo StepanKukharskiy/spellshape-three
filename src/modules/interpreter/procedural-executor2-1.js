@@ -11,7 +11,7 @@
 // import DeformerRegistry from './vertex-shader-library.js';
 // import { deformGeometry, deformGeometryStack } from './deform-helpers.js';
 
-import DeformerRegistry from './deform-library.js';
+import {DeformerRegistry} from './deform-library.js';
 import * as THREE from 'three';
 import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
