@@ -692,6 +692,12 @@ export class ProceduralExecutor {
     // ========================================================================
     if (helperName === 'deformGeometry') {
       const evalParams = this.evaluateParamsCarefully(params);
+
+      if (typeof evalParams.geometry === 'string') {
+  if (this.geometries.has(evalParams.geometry)) {
+    evalParams.geometry = this.geometries.get(evalParams.geometry);  // Resolve!
+  }
+}
       try {
         const result = this.deformGeometry(evalParams);
         if (!result) return;
@@ -706,6 +712,8 @@ export class ProceduralExecutor {
       }
       return;
     }
+
+    
 
     if (helperName === 'deformGeometryStack') {
       const evalParams = this.evaluateParamsCarefully(params);
