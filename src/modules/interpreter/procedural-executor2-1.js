@@ -11,6 +11,16 @@
 // import DeformerRegistry from './vertex-shader-library.js';
 // import { deformGeometry, deformGeometryStack } from './deform-helpers.js';
 
+import DeformerRegistry from './deform-library.js';
+import * as THREE from 'three';
+import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+import { LoopSubdivision } from 'https://cdn.jsdelivr.net/npm/three-subdivide@1.1.5/build/index.module.js';
+import { ParametricGeometry } from 'three/examples/jsm/geometries/ParametricGeometry.js';
+
 export class ProceduralExecutor {
   constructor(scene, THREE) {
     this.scene = scene;
