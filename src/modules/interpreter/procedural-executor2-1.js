@@ -30,9 +30,9 @@ export class ProceduralExecutor {
     this.dynamicHelpers = new Map();
     this.context = {};
     this.loadedFonts = new Map();
-    this.fontLoader = new THREE.FontLoader();
+    this.fontLoader = new FontLoader();
     this.pendingFonts = new Map();
-    this.TextGeometry = THREE.TextGeometry;
+    this.TextGeometry = TextGeometry;
     this.messages = [];
 
     // ============================================================================
