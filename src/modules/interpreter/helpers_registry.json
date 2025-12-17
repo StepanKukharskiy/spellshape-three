@@ -2087,34 +2087,21 @@
 },
   {
   "id": "deformGeometry",
-  "name": "Deform Geometry",
-  "description": "Applies a single deformer from the registry to a geometry. Handles Mesh or BufferGeometry input. CRITICAL: Always recomputes normals after deformation to maintain face connectivity and prevent visual seams.",
+  "name": "deformGeometry",
+  "description": "Applies a specific deformation from the standard library to a geometry.",
   "category": "Deformation",
-  "tags": ["deformation", "vertex", "mesh", "geometry"],
   "paramsSchema": {
-    "geometry": {
-      "type": ["geometry", "mesh", "string"],
-      "description": "Input geometry or mesh to deform. Can be a BufferGeometry, Mesh, or geometry reference name."
-    },
-    "mode": {
-      "type": "string",
-      "default": "simpleNoiseDisplacement",
-      "description": "Deformer ID from the registry (e.g., 'simpleNoiseDisplacement', 'displacementMap', 'bendWarp')"
-    },
-    "params": {
-      "type": "object",
-      "default": {},
-      "description": "Deformer-specific parameters (e.g., { amount: 0.1, scale: 1.0 })"
-    },
-    "recomputeNormals": {
-      "type": "boolean",
-      "default": true,
-      "description": "ALWAYS leave true. Recomputes normals after deformation to prevent seams and holes at geometry boundaries."
-    }
+    "geometry": { "type": "string", "description": "Geometry to deform" },
+    "mode": { "type": "string", "default": "noise", "description": "Deformer ID (e.g. 'twist', 'bend', 'noise')" },
+    "params": { "type": "object", "default": {}, "description": "Parameters specific to the chosen mode" },
+    "recomputeNormals": { "type": "boolean", "default": true, "description": "Recalculate lighting normals after deformation" },
+    "recomputeNormalsBefore": { "type": "boolean", "default": false, "description": "Recalculate normals BEFORE deformation (recommended for normal-displacement based deformers)" },
+    "ensureIndexed": { "type": "boolean", "default": false, "description": "If geometry is non-indexed, attempt to merge vertices (requires BufferGeometryUtils.mergeVertices) to improve normal consistency" }
   },
-  "outputType": "Geometry",
-  "code": "const { geometry, mode = 'simpleNoiseDisplacement', params: userParams = {}, recomputeNormals = true } = params;\n\nif (!geometry) {\n  console.warn('deformGeometry: No geometry provided');\n  return new THREE.BufferGeometry();\n}\n\n// Extract geometry from Mesh if needed\nlet inputGeom = geometry;\nif (geometry.isObject3D && geometry.geometry && geometry.geometry.isBufferGeometry) {\n  inputGeom = geometry.geometry;\n} else if (geometry.isBufferGeometry) {\n  inputGeom = geometry;\n} else {\n  console.warn('deformGeometry: Invalid input type', typeof geometry);\n  return new THREE.BufferGeometry();\n}\n\n// Get deformer from registry\nconst deformer = DeformerRegistry[mode];\nif (!deformer || typeof deformer.func !== 'function') {\n  console.warn('deformGeometry: Unknown deformer \"' + mode + '\"');\n  return inputGeom.clone();\n}\n\n// Clone to avoid mutating original\nconst result = inputGeom.clone();\nconst posAttr = result.attributes.position;\nif (!posAttr) {\n  console.warn('deformGeometry: No position attribute');\n  return result;\n}\n\nconst count = posAttr.count;\nconst mergedParams = { ...(deformer.defaults || {}), ...userParams };\nconst ctx = { params: mergedParams, geometry: result };\n\nlet deformCount = 0;\n\n// Apply deformer to each vertex\nfor (let i = 0; i < count; i++) {\n  const x = posAttr.getX(i);\n  const y = posAttr.getY(i);\n  const z = posAttr.getZ(i);\n  \n  const p = { x, y, z };\n  \n  // Get normal (used by some deformers for direction)\n  let nx = 0, ny = 1, nz = 0;\n  const normAttr = result.attributes.normal;\n  if (normAttr) {\n    nx = normAttr.getX(i);\n    ny = normAttr.getY(i);\n    nz = normAttr.getZ(i);\n  }\n  const n = { x: nx, y: ny, z: nz };\n  \n  const transformed = deformer.func(p, n, ctx);\n  if (transformed && !isNaN(transformed.x) && !isNaN(transformed.y) && !isNaN(transformed.z)) {\n    posAttr.setXYZ(i, transformed.x, transformed.y, transformed.z);\n    deformCount++;\n  }\n}\n\nposAttr.needsUpdate = true;\n\n// CRITICAL: Always recompute normals after ANY vertex deformation\n// This ensures face normals are correct across all boundaries and shared vertices\nresult.computeVertexNormals();\n\nreturn result;"
+  "code": "const {\\n  geometry,\\n  mode = 'noise',\\n  params: userParams = {},\\n  recomputeNormals = true,\\n  recomputeNormalsBefore = false,\\n  ensureIndexed = false\\n} = params;\\n\\nif (!geometry || !geometry.isBufferGeometry) return new THREE.BufferGeometry();\\n\\n// Deformer registry must exist in scope\\nconst def = (typeof DeformerRegistry !== 'undefined') ? DeformerRegistry[mode] : null;\\nif (!def) {\\n  console.warn('deformGeometry: Unknown mode ' + String(mode));\\n  return geometry.clone();\\n}\\n\\nlet geom = geometry.clone();\\n\\n// Optional: merge vertices to improve adjacency + normal continuity (if tools exist)\\nif (ensureIndexed && !geom.index) {\\n  let mergeFn = null;\\n  if (typeof BufferGeometryUtils !== 'undefined') {\\n    if (typeof BufferGeometryUtils.mergeVertices === 'function') mergeFn = BufferGeometryUtils.mergeVertices;\\n    else if (BufferGeometryUtils.default && typeof BufferGeometryUtils.default.mergeVertices === 'function') mergeFn = BufferGeometryUtils.default.mergeVertices;\\n  }\\n\\n  if (mergeFn) {\\n    try {\\n      const merged = mergeFn(geom, 1e-4);\\n      if (merged && merged.isBufferGeometry) geom = merged;\\n    } catch (e) {\\n      console.warn('deformGeometry: mergeVertices failed', e);\\n    }\\n  }\\n}\\n\\n// Important for normal-displacement based deformers: compute normals BEFORE sampling them\\nif (recomputeNormalsBefore) geom.computeVertexNormals();\\n\\nconst posAttr = geom.attributes.position;\\nlet normAttr = geom.attributes.normal;\\nconst count = posAttr ? posAttr.count : 0;\\n\\nif (!posAttr || count === 0) return geom;\\n\\nconst p = new THREE.Vector3();\\nconst n = new THREE.Vector3();\\nconst ctx = { params: { ...(def.defaults || {}), ...userParams } };\\n\\nfor (let i = 0; i < count; i++) {\\n  p.fromBufferAttribute(posAttr, i);\\n\\n  // Refresh reference in case normals were generated above\\n  normAttr = geom.attributes.normal;\\n\\n  if (normAttr) n.fromBufferAttribute(normAttr, i);\\n  else n.set(0, 1, 0);\\n\\n  const result = def.func(p, n, ctx);\\n\\n  // Allow deformers to either mutate p or return a new vector-like object\\n  const rx = (result && result.x !== undefined) ? result.x : p.x;\\n  const ry = (result && result.y !== undefined) ? result.y : p.y;\\n  const rz = (result && result.z !== undefined) ? result.z : p.z;\\n\\n  posAttr.setXYZ(i, rx, ry, rz);\\n}\\n\\nposAttr.needsUpdate = true;\\nif (recomputeNormals) geom.computeVertexNormals();\\n\\nreturn geom;",
+  "outputType": "Geometry"
 }
+
 
 
 
