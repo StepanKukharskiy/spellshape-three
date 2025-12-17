@@ -186,10 +186,25 @@ const simpleNoiseDisplacement = {
     axis: [0, 1, 0],
     frequency: 1.0
   },
-  func: (p, n, ctx) => {    const { amount = 0.1, axis = [0, 1, 0], frequency = 1.0 } = ctx.params;     // Use fixed axis (like deformByNoise), not vertex normal
-const axisVec = new THREE.Vector3(...axis).normalize();  // Generate noise based on position    
-const noise = Math.sin(p.x * frequency * 10) * Math.cos(p.y * frequency * 10) * Math.sin(p.z * frequency * 10); // Displace along fixed axis, not along normal
-const offset = axisVec.clone().multiplyScalar(noise * amount);       return {      x: p.x + offset.x,     y: p.y + offset.y,      z: p.z + offset.z    };  }
+  func: (p, n, ctx) => {    const { amount = 0.1, axis = [0, 1, 0], frequency = 1.0 } = ctx.params;
+    
+    // Normalize axis vector using plain math (no THREE dependency)
+    const len = Math.sqrt(axis[0]*axis[0] + axis[1]*axis[1] + axis[2]*axis[2]);
+    const axisX = axis[0] / len;
+    const axisY = axis[1] / len;
+    const axisZ = axis[2] / len;
+    
+    // Generate noise based on position
+    const noise = Math.sin(p.x * frequency * 10) * Math.cos(p.y * frequency * 10) * Math.sin(p.z * frequency * 10);
+    
+    // Displace along fixed axis
+    const displacement = noise * amount;
+    
+    return {
+      x: p.x + axisX * displacement,
+      y: p.y + axisY * displacement,
+      z: p.z + axisZ * displacement
+    }; }
 };
 
 const turbulence = {
