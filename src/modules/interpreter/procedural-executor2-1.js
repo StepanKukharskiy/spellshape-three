@@ -21,6 +21,218 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { LoopSubdivision } from 'https://cdn.jsdelivr.net/npm/three-subdivide@1.1.5/build/index.module.js';
 import { ParametricGeometry } from 'three/examples/jsm/geometries/ParametricGeometry.js';
 
+// =========================================================================
+// SIMPLEX NOISE IMPLEMENTATION (Inline)
+// =========================================================================
+class SimplexNoise {
+    constructor(seed = 0) {
+        this.p = [];
+        this.permMod12 = [];
+        this.perm = [];
+        
+        // Initialize permutation table with seed
+        for (let i = 0; i < 256; i++) {
+            const pi = Math.floor(Math.sin(seed + i) * 43758.5453) % 256;
+            this.p[i] = pi;
+        }
+        
+        // Duplicate for wrapping
+        for (let i = 0; i < 512; i++) {
+            this.perm[i] = this.p[i % 256];
+            this.permMod12[i] = this.perm[i] % 12;
+        }
+    }
+
+    fade(t) {
+        return t * t * t * (t * (t * 6 - 15) + 10);
+    }
+
+    lerp(t, a, b) {
+        return a + t * (b - a);
+    }
+
+    grad(hash, x, y, z) {
+        const h = hash & 15;
+        const u = h < 8 ? x : y;
+        const v = h < 8 ? y : z;
+        return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+    }
+
+    simplex3(xin, yin, zin) {
+        let n0, n1, n2, n3;
+        
+        const s = (xin + yin + zin) / 3;
+        const i = Math.floor(xin + s);
+        const j = Math.floor(yin + s);
+        const k = Math.floor(zin + s);
+        
+        const t = (i + j + k) / 6;
+        const x0 = xin - (i - t);
+        const y0 = yin - (j - t);
+        const z0 = zin - (k - t);
+        
+        let i1, j1, k1;
+        let i2, j2, k2;
+        
+        if (x0 >= y0) {
+            if (y0 >= z0) {
+                i1 = 1; j1 = 0; k1 = 0;
+                i2 = 1; j2 = 1; k2 = 0;
+            } else if (x0 >= z0) {
+                i1 = 1; j1 = 0; k1 = 0;
+                i2 = 1; j2 = 0; k2 = 1;
+            } else {
+                i1 = 0; j1 = 0; k1 = 1;
+                i2 = 1; j2 = 0; k2 = 1;
+            }
+        } else {
+            if (y0 < z0) {
+                i1 = 0; j1 = 0; k1 = 1;
+                i2 = 0; j2 = 1; k2 = 1;
+            } else if (x0 < z0) {
+                i1 = 0; j1 = 1; k1 = 0;
+                i2 = 0; j2 = 1; k2 = 1;
+            } else {
+                i1 = 0; j1 = 1; k1 = 0;
+                i2 = 1; j2 = 1; k2 = 0;
+            }
+        }
+        
+        const x1 = x0 - i1 + 1/6;
+        const y1 = y0 - j1 + 1/6;
+        const z1 = z0 - k1 + 1/6;
+        
+        const x2 = x0 - i2 + 1/3;
+        const y2 = y0 - j2 + 1/3;
+        const z2 = z0 - k2 + 1/3;
+        
+        const x3 = x0 - 0.5;
+        const y3 = y0 - 0.5;
+        const z3 = z0 - 0.5;
+        
+        const ii = i & 255;
+        const jj = j & 255;
+        const kk = k & 255;
+        
+        const gi0 = this.permMod12[ii + this.perm[jj + this.perm[kk]]];
+        const gi1 = this.permMod12[ii + i1 + this.perm[jj + j1 + this.perm[kk + k1]]];
+        const gi2 = this.permMod12[ii + i2 + this.perm[jj + j2 + this.perm[kk + k2]]];
+        const gi3 = this.permMod12[ii + 1 + this.perm[jj + 1 + this.perm[kk + 1]]];
+        
+        let t0 = 0.6 - x0*x0 - y0*y0 - z0*z0;
+        n0 = t0 < 0 ? 0 : (t0 *= t0, t0 * t0 * this.grad(gi0, x0, y0, z0));
+        
+        let t1 = 0.6 - x1*x1 - y1*y1 - z1*z1;
+        n1 = t1 < 0 ? 0 : (t1 *= t1, t1 * t1 * this.grad(gi1, x1, y1, z1));
+        
+        let t2 = 0.6 - x2*x2 - y2*y2 - z2*z2;
+        n2 = t2 < 0 ? 0 : (t2 *= t2, t2 * t2 * this.grad(gi2, x2, y2, z2));
+        
+        let t3 = 0.6 - x3*x3 - y3*y3 - z3*z3;
+        n3 = t3 < 0 ? 0 : (t3 *= t3, t3 * t3 * this.grad(gi3, x3, y3, z3));
+        
+        return 32 * (n0 + n1 + n2 + n3);
+    }
+}
+
+
+
+// =========================================================================
+// RESOLVER FUNCTIONS (Unwrap wrapped data from helpers)
+// =========================================================================
+const Resolvers = {
+    resolveCurve: (input) => {
+        if (!input) return null;
+        if (input?.userData?.curve) return input.userData.curve;
+        if (input?.isCurve) return input;
+        if (typeof input === 'function') return input;
+        return null;
+    },
+
+    resolveField: (input) => {
+        if (!input) return null;
+        if (typeof input === 'function') return input;
+        if (input?.userData?.field) return input.userData.field;
+        return null;
+    },
+
+    resolvePoints2D: (input, segments = 32) => {
+        if (!input) return [];
+        
+        // If it's a wrapped curve
+        if (input?.userData?.curve) {
+            const curve = input.userData.curve;
+            const points = [];
+            for (let i = 0; i < segments; i++) {
+                const t = i / (segments - 1);
+                const pt = curve.getPoint(t);
+                points.push(new THREE.Vector2(pt.x, pt.y));
+            }
+            return points;
+        }
+        
+        // If it's already an array
+        if (Array.isArray(input)) {
+            return input.map(p => 
+                p instanceof THREE.Vector2 ? p : new THREE.Vector2(p[0], p[1])
+            );
+        }
+        
+        return [];
+    },
+
+    resolveVoxelGrid: (input) => {
+        if (Array.isArray(input)) {
+            if (Array.isArray(input[0])) {
+                if (Array.isArray(input[0][0])) {
+                    return input; // Already 3D
+                }
+            }
+        }
+        if (input?.data) return input.data;
+        return input;
+    }
+};
+
+// =========================================================================
+// WRAPPER FUNCTIONS (Attach metadata to geometry for downstream use)
+// =========================================================================
+const Wrappers = {
+    wrapCurveAsLine: (curve, segments = 32) => {
+        const points = [];
+        for (let i = 0; i < segments; i++) {
+            const t = i / (segments - 1);
+            points.push(curve.getPoint(t));
+        }
+        
+        const positions = points.flatMap(p => [p.x, p.y, p.z]);
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+        
+        const line = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: 0xffffff }));
+        line.userData = { curve, type: 'curve' };
+        return line;
+    },
+
+    wrapFieldAsObject: (fieldFn, label = 'vector field') => {
+        const obj = { userData: { field: fieldFn, type: 'field', label } };
+        obj.userData.field = fieldFn;
+        return obj;
+    },
+
+    wrapGridAsObject: (grid, gridSize, iterations, rules) => {
+        return {
+            userData: {
+                type: 'grid',
+                grid,
+                gridSize,
+                iterations,
+                rules
+            }
+        };
+    }
+};
+
 export class ProceduralExecutor {
   constructor(scene, THREE) {
     this.scene = scene;
