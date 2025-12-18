@@ -267,6 +267,24 @@ export class ProceduralExecutor {
   // DEFORMER HELPERS - Built-in to executor
   // ============================================================================
 
+  // A helper to build a rich ctx
+_makeDeformerCtx(geometry, params) {
+  return {
+    params,
+    geometry,
+    THREE: this.THREE,                 // <-- key
+    noise: this.noise,                 // optional
+    BufferGeometryUtils: this.BufferGeometryUtils, // optional
+
+    // Optional: preallocated temporaries to avoid per-vertex allocations
+    tmp: {
+      v3a: new this.THREE.Vector3(),
+      v3b: new this.THREE.Vector3(),
+      q: new this.THREE.Quaternion(),
+      m4: new this.THREE.Matrix4()
+    }
+  };
+}
   /**
    * Apply a single deformer to geometry
    * Called from schema: { helperName: "deformGeometry", params: {...} }
