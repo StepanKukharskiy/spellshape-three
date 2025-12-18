@@ -183,7 +183,7 @@ const simpleNoiseDisplacement = {
   description: "Displaces vertices along a fixed axis based on noise, not along vertex normals. Prevents edge discontinuity after welding.",
   defaults: { 
     amount: 0.1,
-    axis: [0, 1, 0],
+    axis: [1, 1, 1],
     frequency: 1.0
   },
   func: (p, n, ctx) => {    const { amount = 0.2, frequency = 1.0, axis = [0, 1, 0] } = ctx.params;
