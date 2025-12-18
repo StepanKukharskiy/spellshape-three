@@ -289,168 +289,199 @@ _makeDeformerCtx(geometry, params) {
    * Apply a single deformer to geometry
    * Called from schema: { helperName: "deformGeometry", params: {...} }
    */
-  deformGeometry(params) {
-    const {
-      geometry,
-      mode,
-      params: deformerParams = {},
-      recomputeNormals = false
-    } = params;
+  Below are drop-in replacements for the executor methods that currently build ctx as { params, geometry }, updated so deformers receive ctx.THREE (plus a few optional shared utilities + reusable temps).
 
-    if (!geometry || !geometry.isBufferGeometry) {
-      console.warn('deformGeometry: Invalid geometry');
-      return null;
+​
+
+js
+// Add this NEW method inside ProceduralExecutor (anywhere in the class body).
+_makeDeformerCtx(geometry, mergedParams) {
+  return {
+    // existing fields deformers already expect
+    params: mergedParams,
+    geometry,
+
+    // NEW: Three.js access from deformers
+    THREE: this.THREE,
+
+    // Optional shared deps (handy for advanced deformers)
+    noise: this.noise,
+    BufferGeometryUtils: this.BufferGeometryUtils,
+
+    // Optional: reusable temporaries to avoid per-vertex allocations
+    tmp: {
+      v3a: new this.THREE.Vector3(),
+      v3b: new this.THREE.Vector3(),
+      q: new this.THREE.Quaternion(),
+      m4: new this.THREE.Matrix4()
     }
+  };
+}
 
-    const result = geometry.clone();
-    const posAttr = result.getAttribute('position');
-    if (!posAttr) {
-      console.warn('deformGeometry: No position attribute');
-      return result;
-    }
+// Replace your existing deformGeometry(params) with this version.
+deformGeometry(params) {
+  const {
+    geometry,
+    mode,
+    params: deformerParams = {},
+    recomputeNormals = false
+  } = params;
 
-    let normAttr = result.getAttribute('normal');
-    if (!normAttr && recomputeNormals) {
-      result.computeVertexNormals();
-      normAttr = result.getAttribute('normal');
-    }
+  if (!geometry || !geometry.isBufferGeometry) {
+    console.warn('deformGeometry: Invalid geometry');
+    return null;
+  }
 
-    const positions = posAttr.array;
-    const normals = normAttr ? normAttr.array : null;
-
-    // Get deformer from registry
-    const deformer = this.DeformerRegistry[mode];
-    if (!deformer || typeof deformer.func !== 'function') {
-      console.warn(`deformGeometry: Deformer '${mode}' not found`);
-      return result;
-    }
-
-    // Merge global context into deformer params
-    const mergedParams = { ...this.context, ...deformerParams };
-    const ctx = { params: mergedParams, geometry: result };
-
-    // Apply deformer to each vertex
-    const stride = 3;
-    for (let i = 0; i < positions.length; i += stride) {
-      const p = {
-        x: positions[i],
-        y: positions[i + 1],
-        z: positions[i + 2]
-      };
-
-      const n = normals ? {
-        x: normals[i],
-        y: normals[i + 1],
-        z: normals[i + 2]
-      } : { x: 0, y: 0, z: 0 };
-
-      const transformed = deformer.func(p, n, ctx);
-      if (transformed) {
-        positions[i] = transformed.x;
-        positions[i + 1] = transformed.y;
-        positions[i + 2] = transformed.z;
-      }
-    }
-
-    posAttr.needsUpdate = true;
-    if (recomputeNormals) {
-      result.computeVertexNormals();
-    }
-
+  const result = geometry.clone();
+  const posAttr = result.getAttribute('position');
+  if (!posAttr) {
+    console.warn('deformGeometry: No position attribute');
     return result;
   }
+
+  let normAttr = result.getAttribute('normal');
+  if (!normAttr && recomputeNormals) {
+    result.computeVertexNormals();
+    normAttr = result.getAttribute('normal');
+  }
+
+  const positions = posAttr.array;
+  const normals = normAttr ? normAttr.array : null;
+
+  // Get deformer from registry
+  const deformer = this.DeformerRegistry[mode];
+  if (!deformer || typeof deformer.func !== 'function') {
+    console.warn(`deformGeometry: Deformer '${mode}' not found`);
+    return result;
+  }
+
+  // Merge global context into deformer params
+  const mergedParams = { ...this.context, ...deformerParams };
+
+  // NEW: rich ctx includes THREE (+ optional shared utils)
+  const ctx = this._makeDeformerCtx(result, mergedParams);
+
+  // Apply deformer to each vertex
+  const stride = 3;
+  for (let i = 0; i < positions.length; i += stride) {
+    const p = {
+      x: positions[i],
+      y: positions[i + 1],
+      z: positions[i + 2]
+    };
+
+    const n = normals
+      ? { x: normals[i], y: normals[i + 1], z: normals[i + 2] }
+      : { x: 0, y: 0, z: 0 };
+
+    const transformed = deformer.func(p, n, ctx);
+    if (transformed) {
+      positions[i] = transformed.x;
+      positions[i + 1] = transformed.y;
+      positions[i + 2] = transformed.z;
+    }
+  }
+
+  posAttr.needsUpdate = true;
+
+  if (recomputeNormals) {
+    result.computeVertexNormals();
+  }
+
+  return result;
+}
 
   /**
    * Apply a stack (pipeline) of deformers to geometry
    * Called from schema: { helperName: "deformGeometryStack", params: {...} }
    */
   deformGeometryStack(params) {
-    const {
-      geometry,
-      stack = [],
-      recomputeNormals = false
-    } = params;
+  const {
+    geometry,
+    stack = [],
+    recomputeNormals = false
+  } = params;
 
-    if (!geometry || !geometry.isBufferGeometry) {
-      console.warn('deformGeometryStack: Invalid geometry');
-      return null;
-    }
+  if (!geometry || !geometry.isBufferGeometry) {
+    console.warn('deformGeometryStack: Invalid geometry');
+    return null;
+  }
 
-    let result = geometry.clone();
+  let result = geometry.clone();
 
-    if (!Array.isArray(stack) || stack.length === 0) {
-      console.warn('deformGeometryStack: Stack is empty');
-      return result;
-    }
-
-    // Apply each deformer in sequence
-    for (let idx = 0; idx < stack.length; idx++) {
-      const step = stack[idx];
-      const { mode, params: deformerParams = {} } = step;
-
-      if (!mode) {
-        console.warn(`deformGeometryStack: Step ${idx} has no mode`);
-        continue;
-      }
-
-      const deformer = this.DeformerRegistry[mode];
-      if (!deformer || typeof deformer.func !== 'function') {
-        console.warn(`deformGeometryStack: Step ${idx} - Deformer '${mode}' not found`);
-        continue;
-      }
-
-      // Apply deformer
-      result = this._applyDeformerToGeometry(result, deformer, deformerParams);
-      if (!result) {
-        console.warn(`deformGeometryStack: Step ${idx} failed`);
-        return null;
-      }
-    }
-
-    if (recomputeNormals) {
-      result.computeVertexNormals();
-    }
-
+  if (!Array.isArray(stack) || stack.length === 0) {
+    console.warn('deformGeometryStack: Stack is empty');
     return result;
   }
+
+  // Apply each deformer in sequence
+  for (let idx = 0; idx < stack.length; idx++) {
+    const step = stack[idx];
+    const { mode, params: deformerParams = {} } = step || {};
+
+    if (!mode) {
+      console.warn(`deformGeometryStack: Step ${idx} has no mode`);
+      continue;
+    }
+
+    const deformer = this.DeformerRegistry[mode];
+    if (!deformer || typeof deformer.func !== 'function') {
+      console.warn(`deformGeometryStack: Step ${idx} - Deformer '${mode}' not found`);
+      continue;
+    }
+
+    result = this._applyDeformerToGeometry(result, deformer, deformerParams);
+    if (!result) {
+      console.warn(`deformGeometryStack: Step ${idx} failed`);
+      return null;
+    }
+  }
+
+  if (recomputeNormals) {
+    result.computeVertexNormals();
+  }
+
+  return result;
+}
 
   /**
    * Internal: Apply single deformer to geometry
    */
   _applyDeformerToGeometry(geometry, deformer, deformerParams) {
-    if (!geometry || !geometry.isBufferGeometry) return null;
+  if (!geometry || !geometry.isBufferGeometry) return null;
 
-    const result = geometry.clone();
-    const posAttr = result.getAttribute('position');
-    if (!posAttr) return result;
+  const result = geometry.clone();
+  const posAttr = result.getAttribute('position');
+  if (!posAttr) return result;
 
-    let normAttr = result.getAttribute('normal');
-    const positions = posAttr.array;
-    const normals = normAttr ? normAttr.array : null;
+  const normAttr = result.getAttribute('normal');
+  const positions = posAttr.array;
+  const normals = normAttr ? normAttr.array : null;
 
-    const mergedParams = { ...this.context, ...deformerParams };
-    const ctx = { params: mergedParams, geometry: result };
+  const mergedParams = { ...this.context, ...deformerParams };
 
-    const stride = 3;
-    for (let i = 0; i < positions.length; i += stride) {
-      const p = { x: positions[i], y: positions[i + 1], z: positions[i + 2] };
-      const n = normals ? {
-        x: normals[i],
-        y: normals[i + 1],
-        z: normals[i + 2]
-      } : { x: 0, y: 0, z: 0 };
+  // NEW: rich ctx includes THREE (+ optional shared utils)
+  const ctx = this._makeDeformerCtx(result, mergedParams);
 
-      const transformed = deformer.func(p, n, ctx);
-      if (transformed) {
-        positions[i] = transformed.x;
-        positions[i + 1] = transformed.y;
-        positions[i + 2] = transformed.z;
-      }
+  const stride = 3;
+  for (let i = 0; i < positions.length; i += stride) {
+    const p = { x: positions[i], y: positions[i + 1], z: positions[i + 2] };
+
+    const n = normals
+      ? { x: normals[i], y: normals[i + 1], z: normals[i + 2] }
+      : { x: 0, y: 0, z: 0 };
+
+    const transformed = deformer.func(p, n, ctx);
+    if (transformed) {
+      positions[i] = transformed.x;
+      positions[i + 1] = transformed.y;
+      positions[i + 2] = transformed.z;
     }
-
-    posAttr.needsUpdate = true;
-    return result;
   }
+
+  posAttr.needsUpdate = true;
+  return result;
+}
 
   // ============================================================================
   // EXISTING METHODS (unchanged from v2)
