@@ -186,24 +186,19 @@ const simpleNoiseDisplacement = {
     axis: [0, 1, 0],
     frequency: 1.0
   },
-  func: (p, n, ctx) => {    const { amount = 0.1, axis = [0, 1, 0], frequency = 1.0 } = ctx.params;
-    
-    // Normalize axis vector using plain math (no THREE dependency)
-    const len = Math.sqrt(axis[0]*axis[0] + axis[1]*axis[1] + axis[2]*axis[2]);
-    const axisX = axis[0] / len;
-    const axisY = axis[1] / len;
-    const axisZ = axis[2] / len;
-    
-    // Generate noise based on position
-    const noise = Math.sin(p.x * frequency * 10) * Math.cos(p.y * frequency * 10) * Math.sin(p.z * frequency * 10);
-    
-    // Displace along fixed axis
-    const displacement = noise * amount;
-    
+  func: (p, n, ctx) => {    const { amount = 0.2, frequency = 1.0, axis = [0, 1, 0] } = ctx.params;
+    const { THREE, tmp } = ctx;
+
+    // reuse temp vector if provided by executor patch
+    const axisVec = (tmp?.v3a ?? new THREE.Vector3()).set(axis[0], axis[1], axis[2]).normalize();
+
+    const noiseVal = ctx.noise.simplex3(p.x * frequency, p.y * frequency, p.z * frequency);
+    const d = noiseVal * amount;
+
     return {
-      x: p.x + axisX * displacement,
-      y: p.y + axisY * displacement,
-      z: p.z + axisZ * displacement
+      x: p.x + axisVec.x * d,
+      y: p.y + axisVec.y * d,
+      z: p.z + axisVec.z * d
     }; }
 };
 
