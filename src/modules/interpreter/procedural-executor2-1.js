@@ -289,12 +289,9 @@ _makeDeformerCtx(geometry, params) {
    * Apply a single deformer to geometry
    * Called from schema: { helperName: "deformGeometry", params: {...} }
    */
-  Below are drop-in replacements for the executor methods that currently build ctx as { params, geometry }, updated so deformers receive ctx.THREE (plus a few optional shared utilities + reusable temps).
+  //Below are drop-in replacements for the executor methods that currently build ctx as { params, geometry }, updated so deformers receive ctx.THREE (plus a few optional shared utilities + reusable temps).js
+  
 
-​
-
-js
-// Add this NEW method inside ProceduralExecutor (anywhere in the class body).
 _makeDeformerCtx(geometry, mergedParams) {
   return {
     // existing fields deformers already expect
