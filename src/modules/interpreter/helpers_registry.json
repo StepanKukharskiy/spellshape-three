@@ -588,40 +588,20 @@
     "outputType": "Data"
   },
   {
-    "id": "createArcPath",
-    "name": "createArcPath",
-    "description": "A curved segment of a circle. You specify center, radius, and angle range. Used for circular motion paths and orbital patterns in parametric design.",
-    "category": "Basic Geometry",
-    "paramsSchema": {
-      "center": {
-        "type": "array",
-        "default": []
-      },
-      "radius": {
-        "type": "number",
-        "default": 1
-      },
-      "startAngle": {
-        "type": "number",
-        "default": 0
-      },
-      "endAngle": {
-        "type": "string",
-        "default": "Math.PI"
-      },
-      "segments": {
-        "type": "number",
-        "default": 32
-      },
-      "PI": {
-        "type": "string",
-        "default": "",
-        "description": "Reference to PI variable"
-      }
-    },
-    "code": "const { center = [0, 0, 0], radius = 1, startAngle = 0, endAngle = Math.PI, segments = 32 } = params;\n    const points = [];\n\n    for (let i = 0; i <= segments; i++) {\n        const theta = startAngle + (endAngle - startAngle) * i / segments;\n        const x = center[0] + radius * Math.cos(theta);\n        const y = center[1] + radius * Math.sin(theta);\n        points.push(new THREE.Vector3(x, y, center[2]));\n    }\n\n    const curve = new THREE.CatmullRomCurve3(points, false);\n\n    // \u2705 WRAPPED: Return visual with math object attached\n    return wrapCurveAsLine(curve, segments);",
-    "outputType": "Data"
+  "id": "createArcPath",
+  "name": "createArcPath",
+  "category": "Basic Geometry",
+  "description": "A curved segment of a circle. You specify center, radius, and angle range.",
+  "paramsSchema": {
+    "center": { "type": "array", "default": [0, 0, 0], "description": "Center [x, y, z]" },
+    "radius": { "type": "number", "default": 1 },
+    "startAngle": { "type": "number", "default": 0 },
+    "endAngle": { "type": "number", "default": 3.14159 },
+    "segments": { "type": "number", "default": 32 }
   },
+  "code": "let center = params.center || [0, 0, 0]; const radius = params.radius ?? 1; let startAngle = params.startAngle ?? 0; let endAngle = params.endAngle ?? Math.PI; const segments = params.segments ?? 32; if (!Array.isArray(center) || center.length === 0) { center = [0, 0, 0]; } if (center.length === 2) { center = [center, center, 0]; } if (startAngle >= endAngle) { console.warn('createArcPath: startAngle >= endAngle, swapping'); [startAngle, endAngle] = [endAngle, startAngle]; } const points = []; for (let i = 0; i < segments; i++) { const t = segments > 1 ? i / (segments - 1) : 0; const theta = startAngle + (endAngle - startAngle) * t; const x = center + radius * Math.cos(theta); const y = center + radius * Math.sin(theta); const z = center; points.push(new THREE.Vector3(x, y, z)); } const curve = new THREE.CatmullRomCurve3(points, false); const lineGeometry = new THREE.BufferGeometry(); const sampledPoints = curve.getPoints(segments * 2); const positions = sampledPoints.flatMap((p) => [p.x, p.y, p.z]); lineGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3)); const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff }); const lineObj = new THREE.LineSegments(lineGeometry, lineMaterial); lineObj.userData = { curve, type: 'curve' }; return lineObj;",
+  "outputType": "Data"
+},
   {
     "id": "createHelixPath",
     "name": "createHelixPath",
