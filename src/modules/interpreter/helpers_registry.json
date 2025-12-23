@@ -2094,7 +2094,171 @@
   },
   "outputType": "Geometry",
   "code": "const { geometry, mode = 'simpleNoiseDisplacement', params: userParams = {}, weldVertices = true } = params;\n\nif (!geometry) {\n  console.warn('deformGeometry: No geometry provided');\n  return new THREE.BufferGeometry();\n}\n\n// Extract geometry from Mesh if needed\nlet inputGeom = geometry;\nif (geometry.isObject3D && geometry.geometry && geometry.geometry.isBufferGeometry) {\n  inputGeom = geometry.geometry;\n} else if (geometry.isBufferGeometry) {\n  inputGeom = geometry;\n} else {\n  console.warn('deformGeometry: Invalid input type', typeof geometry);\n  return new THREE.BufferGeometry();\n}\n\n// CRITICAL: Weld duplicate vertices before deforming\n// This prevents edge disconnection when box faces deform independently\nlet result = inputGeom.clone();\nif (weldVertices) {\n  result = BufferGeometryUtils.mergeVertices(result);\n  console.log('deformGeometry: Welded duplicate vertices');\n}\n\n// Get deformer from registry\nconst deformer = DeformerRegistry[mode];\nif (!deformer || typeof deformer.func !== 'function') {\n  console.warn('deformGeometry: Unknown deformer \"' + mode + '\"');\n  return result;\n}\n\nconst posAttr = result.attributes.position;\nif (!posAttr) {\n  console.warn('deformGeometry: No position attribute');\n  return result;\n}\n\nconst count = posAttr.count;\nconst mergedParams = { ...(deformer.defaults || {}), ...userParams };\nconst ctx = { params: mergedParams, geometry: result };\n\nlet deformCount = 0;\n\n// Apply deformer to each vertex\nfor (let i = 0; i < count; i++) {\n  const x = posAttr.getX(i);\n  const y = posAttr.getY(i);\n  const z = posAttr.getZ(i);\n  \n  const p = { x, y, z };\n  \n  let nx = 0, ny = 1, nz = 0;\n  const normAttr = result.attributes.normal;\n  if (normAttr) {\n    nx = normAttr.getX(i);\n    ny = normAttr.getY(i);\n    nz = normAttr.getZ(i);\n  }\n  const n = { x: nx, y: ny, z: nz };\n  \n  const transformed = deformer.func(p, n, ctx);\n  if (transformed && !isNaN(transformed.x) && !isNaN(transformed.y) && !isNaN(transformed.z)) {\n    posAttr.setXYZ(i, transformed.x, transformed.y, transformed.z);\n    deformCount++;\n  }\n}\n\nposAttr.needsUpdate = true;\n\n// Recompute normals after deformation\nresult.computeVertexNormals();\n\nreturn result;"
-}
+},
+  [
+  {
+    "id": "sdfSphere",
+    "name": "sdfSphere",
+    "description": "Analytic SDF sphere. Negative inside, 0 on surface, positive outside.",
+    "category": "SDF",
+    "paramsSchema": {
+      "center": { "type": "array", "default": [0, 0, 0] },
+      "radius": { "type": "number", "default": 1.0 }
+    },
+    "code": "const { center = [0,0,0], radius = 1.0 } = params || {};\nconst cx = center[0] ?? 0, cy = center[1] ?? 0, cz = center[2] ?? 0;\nconst r = Math.max(1e-6, Number(radius) || 1.0);\n\nconst fn = (x, y, z) => {\n  const dx = x - cx, dy = y - cy, dz = z - cz;\n  return Math.sqrt(dx*dx + dy*dy + dz*dz) - r;\n};\n\nconst out = wrapFieldAsObject(fn, 'sdfSphere');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type: 'sphere', center: [cx,cy,cz], radius: r };\nreturn out;",
+    "outputType": "Data"
+  },
+  {
+    "id": "sdfBox",
+    "name": "sdfBox",
+    "description": "Analytic SDF axis-aligned box. size is half-extents [hx,hy,hz].",
+    "category": "SDF",
+    "paramsSchema": {
+      "center": { "type": "array", "default": [0, 0, 0] },
+      "size": { "type": "array", "default": [1, 1, 1] }
+    },
+    "code": "const { center=[0,0,0], size=[1,1,1] } = params || {};\nconst cx = center[0] ?? 0, cy = center[1] ?? 0, cz = center[2] ?? 0;\nconst hx = Math.max(1e-6, Math.abs(size[0] ?? 1));\nconst hy = Math.max(1e-6, Math.abs(size[1] ?? 1));\nconst hz = Math.max(1e-6, Math.abs(size[2] ?? 1));\n\nconst fn = (x,y,z) => {\n  const px = Math.abs(x - cx) - hx;\n  const py = Math.abs(y - cy) - hy;\n  const pz = Math.abs(z - cz) - hz;\n  const ax = Math.max(px, 0), ay = Math.max(py, 0), az = Math.max(pz, 0);\n  const outside = Math.sqrt(ax*ax + ay*ay + az*az);\n  const inside = Math.min(Math.max(px, Math.max(py, pz)), 0);\n  return outside + inside;\n};\n\nconst out = wrapFieldAsObject(fn, 'sdfBox');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type: 'box', center:[cx,cy,cz], size:[hx,hy,hz] };\nreturn out;",
+    "outputType": "Data"
+  },
+  {
+    "id": "sdfCylinderY",
+    "name": "sdfCylinderY",
+    "description": "Analytic SDF finite cylinder aligned to Y. radius r, height h (full height).",
+    "category": "SDF",
+    "paramsSchema": {
+      "center": { "type": "array", "default": [0, 0, 0] },
+      "radius": { "type": "number", "default": 1.0 },
+      "height": { "type": "number", "default": 2.0 }
+    },
+    "code": "const { center=[0,0,0], radius=1.0, height=2.0 } = params || {};\nconst cx = center[0] ?? 0, cy = center[1] ?? 0, cz = center[2] ?? 0;\nconst r = Math.max(1e-6, Number(radius) || 1.0);\nconst h = Math.max(1e-6, Number(height) || 2.0);\nconst hh = 0.5 * h;\n\nconst fn = (x,y,z) => {\n  const dx = x - cx, dy = y - cy, dz = z - cz;\n  const dRad = Math.sqrt(dx*dx + dz*dz) - r;\n  const dY = Math.abs(dy) - hh;\n  const ax = Math.max(dRad, 0);\n  const ay = Math.max(dY, 0);\n  const outside = Math.sqrt(ax*ax + ay*ay);\n  const inside = Math.min(Math.max(dRad, dY), 0);\n  return outside + inside;\n};\n\nconst out = wrapFieldAsObject(fn, 'sdfCylinderY');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type:'cylinderY', center:[cx,cy,cz], radius:r, height:h };\nreturn out;",
+    "outputType": "Data"
+  },
+  {
+    "id": "sdfTranslate",
+    "name": "sdfTranslate",
+    "description": "Transforms an SDF by translating sample space: d(p - t).",
+    "category": "SDF",
+    "paramsSchema": {
+      "field": { "type": "string", "default": "" },
+      "offset": { "type": "array", "default": [0, 0, 0] }
+    },
+    "code": "const { field, offset=[0,0,0] } = params || {};\nconst fnA = resolveField(field);\nif (typeof fnA !== 'function') {\n  console.warn('sdfTranslate: No valid field');\n  return wrapFieldAsObject(() => 1e9, 'sdfTranslate-invalid');\n}\nconst ox = offset[0] ?? 0, oy = offset[1] ?? 0, oz = offset[2] ?? 0;\n\nconst fn = (x,y,z) => fnA(x - ox, y - oy, z - oz);\n\nconst out = wrapFieldAsObject(fn, 'sdfTranslate');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type:'translate', offset:[ox,oy,oz] };\nreturn out;",
+    "outputType": "Data"
+  },
+  {
+    "id": "sdfRotateY",
+    "name": "sdfRotateY",
+    "description": "Rotates SDF around Y axis by angle radians (sample-space inverse rotation).",
+    "category": "SDF",
+    "paramsSchema": {
+      "field": { "type": "string", "default": "" },
+      "angle": { "type": "number", "default": 0.0 },
+      "center": { "type": "array", "default": [0, 0, 0] }
+    },
+    "code": "const { field, angle=0.0, center=[0,0,0] } = params || {};\nconst fnA = resolveField(field);\nif (typeof fnA !== 'function') {\n  console.warn('sdfRotateY: No valid field');\n  return wrapFieldAsObject(() => 1e9, 'sdfRotateY-invalid');\n}\nconst a = Number(angle) || 0;\nconst c = Math.cos(-a), s = Math.sin(-a); \nconst cx = center[0] ?? 0, cy = center[1] ?? 0, cz = center[2] ?? 0;\n\nconst fn = (x,y,z) => {\n  const px = x - cx, py = y - cy, pz = z - cz;\n  const rx = px * c - pz * s;\n  const rz = px * s + pz * c;\n  return fnA(rx + cx, py + cy, rz + cz);\n};\n\nconst out = wrapFieldAsObject(fn, 'sdfRotateY');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type:'rotateY', angle:a, center:[cx,cy,cz] };\nreturn out;",
+    "outputType": "Data"
+  },
+  {
+    "id": "sdfScale",
+    "name": "sdfScale",
+    "description": "Uniform scale of SDF around center. Uses d(p/s)*s (keeps distance units).",
+    "category": "SDF",
+    "paramsSchema": {
+      "field": { "type": "string", "default": "" },
+      "scale": { "type": "number", "default": 1.0 },
+      "center": { "type": "array", "default": [0, 0, 0] }
+    },
+    "code": "const { field, scale=1.0, center=[0,0,0] } = params || {};\nconst fnA = resolveField(field);\nif (typeof fnA !== 'function') {\n  console.warn('sdfScale: No valid field');\n  return wrapFieldAsObject(() => 1e9, 'sdfScale-invalid');\n}\nconst s = Math.max(1e-6, Math.abs(Number(scale) || 1.0));\nconst cx = center[0] ?? 0, cy = center[1] ?? 0, cz = center[2] ?? 0;\n\nconst fn = (x,y,z) => {\n  const px = (x - cx) / s;\n  const py = (y - cy) / s;\n  const pz = (z - cz) / s;\n  return fnA(px + cx, py + cy, pz + cz) * s;\n};\n\nconst out = wrapFieldAsObject(fn, 'sdfScale');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type:'scale', scale:s, center:[cx,cy,cz] };\nreturn out;",
+    "outputType": "Data"
+  },
+  {
+    "id": "sdfUnion",
+    "name": "sdfUnion",
+    "description": "SDF union: min(d1,d2,...)",
+    "category": "SDF",
+    "paramsSchema": {
+      "fields": { "type": "string", "default": "" }
+    },
+    "code": "let { fields } = params || {};\nif (typeof fields === 'string') {\n  fields = fields.split(',').map(s => s.trim()).filter(Boolean);\n}\nif (!Array.isArray(fields) || fields.length < 2) {\n  console.warn('sdfUnion: Provide at least 2 fields');\n  return wrapFieldAsObject(() => 1e9, 'sdfUnion-invalid');\n}\nconst fns = fields.map(f => resolveField(f)).filter(fn => typeof fn === 'function');\nif (fns.length < 2) {\n  console.warn('sdfUnion: Not enough valid fields');\n  return wrapFieldAsObject(() => 1e9, 'sdfUnion-invalid');\n}\n\nconst fn = (x,y,z) => {\n  let d = fns[0](x,y,z);\n  for (let i=1;i<fns.length;i++) d = Math.min(d, fns[i](x,y,z));\n  return d;\n};\n\nconst out = wrapFieldAsObject(fn, 'sdfUnion');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type:'union', count:fns.length };\nreturn out;",
+    "outputType": "Data"
+  },
+  {
+    "id": "sdfIntersect",
+    "name": "sdfIntersect",
+    "description": "SDF intersection: max(d1,d2,...)",
+    "category": "SDF",
+    "paramsSchema": {
+      "fields": { "type": "string", "default": "" }
+    },
+    "code": "let { fields } = params || {};\nif (typeof fields === 'string') {\n  fields = fields.split(',').map(s => s.trim()).filter(Boolean);\n}\nconst fns = (Array.isArray(fields) ? fields : []).map(f => resolveField(f)).filter(fn => typeof fn === 'function');\nif (fns.length < 2) {\n  console.warn('sdfIntersect: Provide at least 2 valid fields');\n  return wrapFieldAsObject(() => 1e9, 'sdfIntersect-invalid');\n}\n\nconst fn = (x,y,z) => {\n  let d = fns[0](x,y,z);\n  for (let i=1;i<fns.length;i++) d = Math.max(d, fns[i](x,y,z));\n  return d;\n};\n\nconst out = wrapFieldAsObject(fn, 'sdfIntersect');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type:'intersect', count:fns.length };\nreturn out;",
+    "outputType": "Data"
+  },
+  {
+    "id": "sdfSubtract",
+    "name": "sdfSubtract",
+    "description": "SDF subtraction A - B: max(dA, -dB).",
+    "category": "SDF",
+    "paramsSchema": {
+      "a": { "type": "string", "default": "" },
+      "b": { "type": "string", "default": "" }
+    },
+    "code": "const { a, b } = params || {};\nconst fnA = resolveField(a);\nconst fnB = resolveField(b);\nif (typeof fnA !== 'function' || typeof fnB !== 'function') {\n  console.warn('sdfSubtract: Invalid a/b fields');\n  return wrapFieldAsObject(() => 1e9, 'sdfSubtract-invalid');\n}\n\nconst fn = (x,y,z) => Math.max(fnA(x,y,z), -fnB(x,y,z));\n\nconst out = wrapFieldAsObject(fn, 'sdfSubtract');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type:'subtract' };\nreturn out;",
+    "outputType": "Data"
+  },
+  {
+    "id": "sdfSmoothUnion",
+    "name": "sdfSmoothUnion",
+    "description": "Smooth union using polynomial smooth-min. k is blend radius (world units).",
+    "category": "SDF",
+    "paramsSchema": {
+      "a": { "type": "string", "default": "" },
+      "b": { "type": "string", "default": "" },
+      "k": { "type": "number", "default": 0.25 }
+    },
+    "code": "const { a, b, k=0.25 } = params || {};\nconst fnA = resolveField(a);\nconst fnB = resolveField(b);\nconst kk = Math.max(1e-6, Number(k) || 0.25);\nif (typeof fnA !== 'function' || typeof fnB !== 'function') {\n  console.warn('sdfSmoothUnion: Invalid a/b fields');\n  return wrapFieldAsObject(() => 1e9, 'sdfSmoothUnion-invalid');\n}\n\n// polynomial smooth min\nconst smin = (da, db) => {\n  const h = Math.max(0, Math.min(1, 0.5 + 0.5*(db - da)/kk));\n  return (db*(1 - h) + da*h) - kk*h*(1 - h);\n};\n\nconst fn = (x,y,z) => smin(fnA(x,y,z), fnB(x,y,z));\n\nconst out = wrapFieldAsObject(fn, 'sdfSmoothUnion');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type:'smoothUnion', k:kk };\nreturn out;",
+    "outputType": "Data"
+  },
+  {
+    "id": "sdfShell",
+    "name": "sdfShell",
+    "description": "Turns a solid SDF into a shell: abs(d) - thickness.",
+    "category": "SDF",
+    "paramsSchema": {
+      "field": { "type": "string", "default": "" },
+      "thickness": { "type": "number", "default": 0.1 }
+    },
+    "code": "const { field, thickness=0.1 } = params || {};\nconst fnA = resolveField(field);\nif (typeof fnA !== 'function') {\n  console.warn('sdfShell: Invalid field');\n  return wrapFieldAsObject(() => 1e9, 'sdfShell-invalid');\n}\nconst t = Math.max(1e-6, Number(thickness) || 0.1);\n\nconst fn = (x,y,z) => Math.abs(fnA(x,y,z)) - t;\n\nconst out = wrapFieldAsObject(fn, 'sdfShell');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type:'shell', thickness:t };\nreturn out;",
+    "outputType": "Data"
+  },
+  {
+    "id": "sdfDisplaceNoise",
+    "name": "sdfDisplaceNoise",
+    "description": "Displaces SDF surface by simplex noise: d + amp*noise(p*freq).",
+    "category": "SDF",
+    "paramsSchema": {
+      "field": { "type": "string", "default": "" },
+      "amplitude": { "type": "number", "default": 0.2 },
+      "frequency": { "type": "number", "default": 1.0 },
+      "offset": { "type": "array", "default": [0, 0, 0] }
+    },
+    "code": "const { field, amplitude=0.2, frequency=1.0, offset=[0,0,0] } = params || {};\nconst fnA = resolveField(field);\nif (typeof fnA !== 'function') {\n  console.warn('sdfDisplaceNoise: Invalid field');\n  return wrapFieldAsObject(() => 1e9, 'sdfDisplaceNoise-invalid');\n}\nconst amp = Number(amplitude) || 0;\nconst f = Math.max(0, Number(frequency) || 0);\nconst ox = offset[0] ?? 0, oy = offset[1] ?? 0, oz = offset[2] ?? 0;\n\nconst fn = (x,y,z) => {\n  const n = noise.simplex3((x+ox)*f, (y+oy)*f, (z+oz)*f);\n  return fnA(x,y,z) + amp * n;\n};\n\nconst out = wrapFieldAsObject(fn, 'sdfDisplaceNoise');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type:'displaceNoise', amplitude:amp, frequency:f };\nreturn out;",
+    "outputType": "Data"
+  },
+  {
+    "id": "sdfToMesh",
+    "name": "sdfToMesh",
+    "description": "Meshes an SDF field using existing meshFromMarchingCubes at isovalue=0.",
+    "category": "SDF",
+    "paramsSchema": {
+      "field": { "type": "string", "default": "" },
+      "resolution": { "type": "number", "default": 64 },
+      "bounds": { "type": "number", "default": 8 }
+    },
+    "code": "const { field, resolution=64, bounds=8 } = params || {};\nreturn helpers.call('meshFromMarchingCubes', {\n  field,\n  resolution,\n  bounds,\n  isovalue: 0.0\n});",
+    "outputType": "Geometry"
+  }
+]
+
 
 
 
