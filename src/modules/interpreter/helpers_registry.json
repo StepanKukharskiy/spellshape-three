@@ -2224,7 +2224,7 @@
     },
     "code": "const { field, amplitude=0.2, frequency=1.0, offset=[0,0,0] } = params || {};\nconst fnA = resolveField(field);\nif (typeof fnA !== 'function') {\n  console.warn('sdfDisplaceNoise: Invalid field');\n  return wrapFieldAsObject(() => 1e9, 'sdfDisplaceNoise-invalid');\n}\nconst amp = Number(amplitude) || 0;\nconst f = Math.max(0, Number(frequency) || 0);\nconst ox = offset[0] ?? 0, oy = offset[1] ?? 0, oz = offset[2] ?? 0;\n\nconst fn = (x,y,z) => {\n  const n = noise.simplex3((x+ox)*f, (y+oy)*f, (z+oz)*f);\n  return fnA(x,y,z) + amp * n;\n};\n\nconst out = wrapFieldAsObject(fn, 'sdfDisplaceNoise');\nout.userData.fieldType = 'sdf';\nout.userData.sdf = { type:'displaceNoise', amplitude:amp, frequency:f };\nreturn out;",
     "outputType": "Data"
-  },
+  } 
 
 
 
