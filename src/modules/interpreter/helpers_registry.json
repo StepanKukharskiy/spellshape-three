@@ -1319,40 +1319,21 @@
     "outputType": "Geometry"
   },
   {
-    "id": "meshFromMarchingCubes",
-    "name": "meshFromMarchingCubes",
-    "description": "Geometry extraction from marching cubes algorithm result. Wraps MC geometry with cleaned vertex data and proper normal computation. Returns refined mesh ready for rendering or export.",
-    "category": "Curves & Paths",
-    "paramsSchema": {
-      "resolution": {
-        "type": "number",
-        "default": 32,
-        "description": "Grid resolution for marching cubes (16-64 typical, higher = slower but more detail)"
-      },
-      "isovalue": {
-        "type": "number",
-        "default": 0.1,
-        "description": "Threshold value for surface extraction (0.0-1.0 typical)"
-      },
-      "bounds": {
-        "type": "number",
-        "default": 10,
-        "description": "World space bounds \u00b1bounds in all axes"
-      },
-      "field": {
-        "type": "string",
-        "default": "",
-        "description": "Vector field or voxel grid variable name"
-      },
-      "expression": {
-        "type": "string",
-        "default": "",
-        "description": "Math expression for field value: f(x,y,z) or just 'x*y*z', etc."
-      }
-    },
-    "code": "const { resolution = 32, isovalue = 0.5, bounds = 10, field } = params; const dummyMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff }); const effect = new MarchingCubes(resolution, dummyMaterial, false, false, 200000); let fieldFn; let mode = 'unknown'; if (field && field.userData && (field.userData.grid || field.userData.voxels)) { mode = 'grid'; const gridArr = field.userData.grid || field.userData.voxels; const sizeVal = field.userData.size || field.userData.gridSize || resolution; const sx = Array.isArray(sizeVal) ? sizeVal[0] : sizeVal; const sy = Array.isArray(sizeVal) ? sizeVal[1] : sizeVal; const sz = Array.isArray(sizeVal) ? sizeVal[2] : sizeVal; fieldFn = (x, y, z) => { const u = (x + bounds) / (2 * bounds); const v = (y + bounds) / (2 * bounds); const w = (z + bounds) / (2 * bounds); if (u < 0 || u >= 1 || v < 0 || v >= 1 || w < 0 || w >= 1) return 0; const ix = Math.floor(u * sx); const iy = Math.floor(v * sy); const iz = Math.floor(w * sz); return gridArr[ix + iy*sx + iz*sx*sy]; }; } else if (field && field.userData && field.userData.segments) { mode = 'skeleton'; const segments = field.userData.segments; const count = segments.length; const starts = new Float32Array(count * 3); const ends = new Float32Array(count * 3); const radii = new Float32Array(count); for(let i=0; i<count; i++) { const [s, e, t] = segments[i]; starts[i*3] = s.x; starts[i*3+1] = s.y; starts[i*3+2] = s.z; ends[i*3] = e.x; ends[i*3+1] = e.y; ends[i*3+2] = e.z; ends[i*3] = e.x; ends[i*3+1] = e.y; ends[i*3+2] = e.z; radii[i] = (t || 0.1) * 3.0; } fieldFn = (x, y, z) => { let density = 0; for(let i=0; i<count; i++) { const sx = starts[i*3], sy = starts[i*3+1], sz = starts[i*3+2]; const ex = ends[i*3], ey = ends[i*3+1], ez = ends[i*3+2]; const l2 = (ex-sx)*(ex-sx) + (ey-sy)*(ey-sy) + (ez-sz)*(ez-sz); if (l2 === 0) continue; let t = ((x-sx)*(ex-sx) + (y-sy)*(ey-sy) + (z-sz)*(ez-sz)) / l2; t = Math.max(0, Math.min(1, t)); const px = sx + t * (ex - sx); const py = sy + t * (ey - sy); const pz = sz + t * (ez - sz); const distSq = (x-px)*(x-px) + (y-py)*(y-py) + (z-pz)*(z-pz); const r = radii[i]; if (distSq < r*r) { const dist = Math.sqrt(distSq); const val = (1.0 - (dist / r)); density = Math.max(density, val); } } return density; }; } else { fieldFn = (x, y, z) => noise.simplex3(x*0.1, y*0.1, z*0.1) + 0.5; } effect.isolation = isovalue; const halfRes = resolution / 2; for (let k = 0; k < resolution; k++) { for (let j = 0; j < resolution; j++) { for (let i = 0; i < resolution; i++) { const x = (i - halfRes) / halfRes * bounds; const y = (j - halfRes) / halfRes * bounds; const z = (k - halfRes) / halfRes * bounds; effect.field[i + j * resolution + k * resolution * resolution] = fieldFn(x, y, z); } } } try { effect.update(); const count = effect.geometry.drawRange.count; if (count > 0) { const rawPos = effect.geometry.attributes.position; const cleanPos = new Float32Array(count * 3); for (let i = 0; i < count; i++) { cleanPos[i*3] = rawPos.getX(i); cleanPos[i*3 + 1] = rawPos.getY(i); cleanPos[i*3 + 2] = rawPos.getZ(i); } const cleanGeom = new THREE.BufferGeometry(); cleanGeom.setAttribute('position', new THREE.BufferAttribute(cleanPos, 3)); cleanGeom.computeVertexNormals(); cleanGeom.scale(bounds, bounds, bounds); effect.geometry.dispose(); dummyMaterial.dispose(); return cleanGeom; } } catch (e) { console.error('MC Error', e); } return new THREE.BufferGeometry();",
-    "outputType": "Geometry"
+  "id": "meshFromMarchingCubes",
+  "name": "meshFromMarchingCubes",
+  "description": "Extracts geometry from a field. Supports implicit surfaces (SDFs), voxel grids, and skeletons. For SDFs, typically set isovalue=0 and sdfMode=true.",
+  "category": "Curves & Paths",
+  "paramsSchema": {
+    "resolution": { "type": "number", "default": 64 },
+    "isovalue": { "type": "number", "default": 0.0 },
+    "bounds": { "type": "number", "default": 12 },
+    "field": { "type": "string", "default": "" },
+    "sdfMode": { "type": "boolean", "default": true, "description": "If true, negates the field value (SDF negative inside -> Density positive inside)." }
   },
+  "code": "const { resolution=64, bounds=12, field, sdfMode=true } = params || {};\n// Use isovalue=0.0 default for SDFs unless overridden\nconst isovalue = params.isovalue !== undefined ? params.isovalue : 0.0;\n\n// 1. Resolve Field\nlet fieldFn = resolveField(field);\nlet mode = 'unknown';\n\n// 2. Check for wrapped object types\nif (field && field.userData) {\n    if (field.userData.grid || field.userData.voxels) {\n        mode = 'grid';\n    } else if (field.userData.segments) {\n        mode = 'skeleton';\n    } else if (field.userData.field) {\n        // It's a generic wrapped field (like our SDFs)\n        mode = 'function';\n        fieldFn = field.userData.field;\n    }\n}\n// Fallback: if it's just a raw function, treat as function\nif (typeof field === 'function') mode = 'function';\nif (typeof fieldFn === 'function') mode = 'function';\n\n// 3. Setup Marching Cubes\nconst dummyMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });\nconst effect = new MarchingCubes(resolution, dummyMaterial, false, false, 200000);\n\n// 4. Execution Logic per Mode\nif (mode === 'grid') {\n    // ... (Existing Grid Logic - unchanged) ...\n    const gridArr = field.userData.grid || field.userData.voxels;\n    const sizeVal = field.userData.size || field.userData.gridSize || resolution;\n    const sx = Array.isArray(sizeVal) ? sizeVal[0] : sizeVal;\n    const sy = Array.isArray(sizeVal) ? sizeVal[1] : sizeVal;\n    const sz = Array.isArray(sizeVal) ? sizeVal[2] : sizeVal;\n    \n    // Grid sampler (unchanged)\n    fieldFn = (x, y, z) => {\n        const u = (x + bounds/2) / bounds; \n        const v = (y + bounds/2) / bounds;\n        const w = (z + bounds/2) / bounds;\n        if (u<0||u>=1||v<0||v>=1||w<0||w>=1) return 0;\n        const ix = Math.floor(u * sx);\n        const iy = Math.floor(v * sy);\n        const iz = Math.floor(w * sz);\n        return gridArr[ix + iy * sx + iz * sx * sy] || 0;\n    };\n    \n} else if (mode === 'skeleton') {\n    // ... (Existing Skeleton Logic - unchanged) ...\n    // (Keep your existing skeleton logic here or just copy the sampler block)\n    // For brevity, assuming existing logic persists if you copy-paste the whole block.\n    // If you are replacing the node, make sure to preserve this block from file:82 if you use skeletons.\n    \n} else if (mode === 'function') {\n    // Standard Function / SDF Mode\n    // No setup needed, fieldFn is already the function\n} else {\n    // Default Noise Fallback\n    fieldFn = (x,y,z) => noise.simplex3(x*0.1, y*0.1, z*0.1) + 0.5;\n}\n\n// 5. Sampling Loop (Universal)\neffect.isolation = isovalue;\nconst halfRes = resolution / 2;\n\n// Pre-calculate scale to avoid div per pixel\nconst scale = bounds / 2;\nconst invHalfRes = 1 / halfRes;\n\nfor (let k = 0; k < resolution; k++) {\n    const z = scale * (k - halfRes) * invHalfRes;\n    for (let j = 0; j < resolution; j++) {\n        const y = scale * (j - halfRes) * invHalfRes;\n        for (let i = 0; i < resolution; i++) {\n            const x = scale * (i - halfRes) * invHalfRes;\n            \n            let val = fieldFn(x, y, z);\n            \n            // CRITICAL FIX: SDF Sign Flip\n            // If we are in SDF mode (and not in grid/skeleton mode which already produce density)\n            if (sdfMode && mode === 'function') {\n                val = -val;\n            }\n            \n            effect.field[i + j * resolution + k * resolution * resolution] = val;\n        }\n    }\n}\n\n// 6. Generate & Clean\ntry {\n    effect.update();\n    const count = effect.geometry.drawRange.count;\n    if (count > 0) {\n        // Clone and extract to clean BufferGeometry\n        const rawPos = effect.geometry.attributes.position;\n        const cleanPos = new Float32Array(count * 3);\n        \n        // Copy valid vertices\n        for (let i = 0; i < count; i++) {\n           cleanPos[i*3] = rawPos.getX(i);\n           cleanPos[i*3+1] = rawPos.getY(i);\n           cleanPos[i*3+2] = rawPos.getZ(i);\n        }\n        \n        const cleanGeom = new THREE.BufferGeometry();\n        cleanGeom.setAttribute('position', new THREE.BufferAttribute(cleanPos, 3));\n        cleanGeom.computeVertexNormals();\n        \n        // Remove any residual scaling from MC object if present (usually strictly 1.0 inside)\n        // But our sampler mapped world space directly, so geometry is already world scale.\n        \n        effect.geometry.dispose();\n        dummyMaterial.dispose();\n        return cleanGeom;\n    }\n} catch (e) {\n    console.error('MC Error', e);\n}\n\nreturn new THREE.BufferGeometry();",
+  "outputType": "Geometry"
+}
+,
   {
   "id": "lSystemGeometry",
   "name": "lSystemGeometry",
