@@ -2359,7 +2359,162 @@
   },
   "code": "const { gridSize=[6,3,6], cellSize=2, layerHeight=4, geometries=[], rules=[], seed=123 } = params;\n\n// --- 1. Normalize Assets (Strict Alignment) ---\nif (!Array.isArray(geometries) || geometries.length === 0) return new THREE.BufferGeometry();\n\nconst assets = geometries.map((g, i) => {\n    let geo = null;\n    if (g && g.isObject3D && g.geometry) geo = g.geometry;\n    else if (g && g.isBufferGeometry) geo = g;\n    if (geo) {\n        let clone = geo.clone();\n        if (clone.index) clone = clone.toNonIndexed();\n        clone.deleteAttribute('uv');\n        clone.deleteAttribute('uv2');\n        \n        // COMPUTE BOUNDS\n        clone.computeBoundingBox();\n        const box = clone.boundingBox;\n        \n        // 1. Center X/Z\n        const cx = (box.max.x + box.min.x) / 2;\n        const cz = (box.max.z + box.min.z) / 2;\n        \n        // 2. Find Bottom Y\n        const minY = box.min.y;\n        \n        // 3. Shift: Move Center to 0,0 and Bottom to 0\n        // We move it by (-cx, -minY, -cz)\n        // This guarantees the mesh sits flat on the plane Y=0\n        clone.translate(-cx, -minY, -cz);\n        \n        return clone;\n    }\n    return null;\n}).filter(g => g !== null);\nif (assets.length === 0) return new THREE.BufferGeometry();\n\n// --- 2. Parse Rules (Comma Separated) ---\nconst layerRules = rules.map((rString) => {\n    return String(rString).split(',').map(sub => {\n        let str = sub.toLowerCase().trim();\n        let prob = 1.0;\n        if (str.includes('%')) {\n            const parts = str.split('%');\n            prob = parseFloat(parts[0]) / 100;\n            str = parts[1];\n        }\n        let onId = -1;\n        if (str.includes('on')) {\n            const parts = str.split('on');\n            onId = parseInt(parts[1].trim());\n            str = parts[0];\n        }\n        const assetId = parseInt(str.trim());\n        return { assetIndex: isNaN(assetId)?0:assetId, probability: prob, onTopOf: onId };\n    });\n});\n\n// --- 3. Grid Generation ---\nconst sx = gridSize[0], sy = gridSize[1], sz = gridSize[2];\nconst grid = new Int8Array(sx * sy * sz).fill(0);\nlet s = seed;\nconst rng = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };\n\nfor (let y = 0; y < sy; y++) {\n    const options = layerRules[y] || (y > 0 ? layerRules[layerRules.length-1] : []);\n    if (options.length > 0) {\n        for (let z = 0; z < sz; z++) {\n            for (let x = 0; x < sx; x++) {\n                const idx = x + y * sx + z * sx * sy;\n                for (const rule of options) {\n                    let valid = true;\n                    if (rule.onTopOf !== -1) {\n                        if (y > 0) {\n                            const belowID = grid[x + (y-1)*sx + z*sx*sy];\n                            if (belowID !== rule.onTopOf + 1) valid = false;\n                        } else {\n                            valid = false;\n                        }\n                    }\n                    if (valid && rng() < rule.probability) {\n                        grid[idx] = rule.assetIndex + 1;\n                        break;\n                    }\n                }\n            }\n        }\n    }\n}\n\n// --- 4. Instantiate ---\nconst merged = [];\nconst dummy = new THREE.Object3D();\nfor (let y = 0; y < sy; y++) {\n    for (let z = 0; z < sz; z++) {\n        for (let x = 0; x < sx; x++) {\n            const id = grid[x + y * sx + z * sx * sy];\n            if (id === 0) continue;\n            const assetIdx = id - 1;\n            if (assetIdx >= 0 && assetIdx < assets.length) {\n                const geo = assets[assetIdx];\n                // Position: Cell Center X/Z, but exactly Layer Y\n                dummy.position.set((x - sx/2)*cellSize, y*layerHeight, (z - sz/2)*cellSize);\n                dummy.updateMatrix();\n                const instance = geo.clone();\n                instance.applyMatrix4(dummy.matrix);\n                merged.push(instance);\n            }\n        }\n    }\n}\nif (merged.length > 0) return BufferGeometryUtils.mergeGeometries(merged);\nreturn new THREE.BufferGeometry();",
   "outputType": "Geometry"
-}
+}, 
+  {
+    "id": "getBoundsAABB",
+    "name": "getBoundsAABB",
+    "description": "Returns axis-aligned bounds for a BufferGeometry/Object3D: min/max/size/center (arrays).",
+    "category": "Anchoring",
+    "outputType": "Data",
+    "paramsSchema": {
+      "geometry": { "type": "string", "default": "", "description": "Geometry/Object3D reference." }
+    },
+    "code": "const input = params.geometry; const g0 = (input && input.isObject3D && input.geometry) ? input.geometry : input; if (!g0 || !g0.isBufferGeometry) return { min:[0,0,0], max:[0,0,0], size:[0,0,0], center:[0,0,0] }; const g = g0.clone(); g.computeBoundingBox(); const bb = g.boundingBox; const size = new THREE.Vector3(); const center = new THREE.Vector3(); bb.getSize(size); bb.getCenter(center); return { min:[bb.min.x, bb.min.y, bb.min.z], max:[bb.max.x, bb.max.y, bb.max.z], size:[size.x, size.y, size.z], center:[center.x, center.y, center.z] };"
+  },
+  {
+    "id": "getAnchorValue",
+    "name": "getAnchorValue",
+    "description": "Returns a single scalar anchor coordinate for geometry (min/max/center) along axis x/y/z.",
+    "category": "Anchoring",
+    "outputType": "Data",
+    "paramsSchema": {
+      "geometry": { "type": "string", "default": "" },
+      "axis": { "type": "string", "default": "y", "enum": ["x","y","z"] },
+      "anchor": { "type": "string", "default": "min", "enum": ["min","max","center"] }
+    },
+    "code": "const input = params.geometry; const axis = String(params.axis || 'y').toLowerCase(); const anchor = String(params.anchor || 'min').toLowerCase(); const g0 = (input && input.isObject3D && input.geometry) ? input.geometry : input; if (!g0 || !g0.isBufferGeometry) return 0; const g = g0.clone(); g.computeBoundingBox(); const bb = g.boundingBox; const c = new THREE.Vector3(); bb.getCenter(c); const pick = (a) => axis === 'x' ? a.x : (axis === 'z' ? a.z : a.y); if (anchor === 'max') return pick(bb.max); if (anchor === 'center') return pick(c); return pick(bb.min);"
+  },
+  {
+    "id": "translateToAnchor",
+    "name": "translateToAnchor",
+    "description": "Moves geometry so its chosen anchor (min/max/center) on axis equals targetValue.",
+    "category": "Anchoring",
+    "outputType": "Geometry",
+    "paramsSchema": {
+      "geometry": { "type": "string", "default": "" },
+      "axis": { "type": "string", "default": "y", "enum": ["x","y","z"] },
+      "anchor": { "type": "string", "default": "min", "enum": ["min","max","center"] },
+      "targetValue": { "type": "number", "default": 0 },
+      "clone": { "type": "boolean", "default": true }
+    },
+    "code": "const input = params.geometry; const axis = String(params.axis || 'y').toLowerCase(); const anchor = String(params.anchor || 'min').toLowerCase(); const targetValue = (params.targetValue ?? 0); const clone = (params.clone !== false); const g0 = (input && input.isObject3D && input.geometry) ? input.geometry : input; if (!g0 || !g0.isBufferGeometry) return new THREE.BufferGeometry(); const g = clone ? g0.clone() : g0; g.computeBoundingBox(); const bb = g.boundingBox; const center = new THREE.Vector3(); bb.getCenter(center); const pick = (v) => axis==='x'?v.x:(axis==='z'?v.z:v.y); const current = (anchor==='max') ? pick(bb.max) : (anchor==='center' ? pick(center) : pick(bb.min)); const delta = targetValue - current; if (axis === 'x') g.translate(delta, 0, 0); else if (axis === 'z') g.translate(0, 0, delta); else g.translate(0, delta, 0); return g;"
+  },
+  {
+    "id": "alignGeometryToGeometry",
+    "name": "alignGeometryToGeometry",
+    "description": "Aligns geometryA anchor to geometryB anchor along an axis, with optional gap.",
+    "category": "Anchoring",
+    "outputType": "Geometry",
+    "paramsSchema": {
+      "geometryA": { "type": "string", "default": "" },
+      "geometryB": { "type": "string", "default": "" },
+      "axis": { "type": "string", "default": "y", "enum": ["x","y","z"] },
+      "anchorA": { "type": "string", "default": "min", "enum": ["min","max","center"] },
+      "anchorB": { "type": "string", "default": "max", "enum": ["min","max","center"] },
+      "gap": { "type": "number", "default": 0 },
+      "clone": { "type": "boolean", "default": true }
+    },
+    "code": "const aIn = params.geometryA; const bIn = params.geometryB; const axis = String(params.axis || 'y').toLowerCase(); const anchorA = String(params.anchorA || 'min').toLowerCase(); const anchorB = String(params.anchorB || 'max').toLowerCase(); const gap = (params.gap ?? 0); const clone = (params.clone !== false); const a0 = (aIn && aIn.isObject3D && aIn.geometry) ? aIn.geometry : aIn; const b0 = (bIn && bIn.isObject3D && bIn.geometry) ? bIn.geometry : bIn; if (!a0 || !a0.isBufferGeometry || !b0 || !b0.isBufferGeometry) return new THREE.BufferGeometry(); const a = clone ? a0.clone() : a0; const b = b0; a.computeBoundingBox(); b.computeBoundingBox(); const aBB = a.boundingBox; const bBB = b.boundingBox; const aC = new THREE.Vector3(); const bC = new THREE.Vector3(); aBB.getCenter(aC); bBB.getCenter(bC); const pick = (v) => axis==='x'?v.x:(axis==='z'?v.z:v.y); const aVal = (anchorA==='max') ? pick(aBB.max) : (anchorA==='center' ? pick(aC) : pick(aBB.min)); const bVal = (anchorB==='max') ? pick(bBB.max) : (anchorB==='center' ? pick(bC) : pick(bBB.min)); const delta = (bVal + gap) - aVal; if (axis === 'x') a.translate(delta, 0, 0); else if (axis === 'z') a.translate(0, 0, delta); else a.translate(0, delta, 0); return a;"
+  },
+  {
+    "id": "stackOnTop",
+    "name": "stackOnTop",
+    "description": "Moves geometryTop so its bottom (minY) sits on geometryBottom top (maxY) + gap.",
+    "category": "Anchoring",
+    "outputType": "Geometry",
+    "paramsSchema": {
+      "top": { "type": "string", "default": "" },
+      "bottom": { "type": "string", "default": "" },
+      "gap": { "type": "number", "default": 0 },
+      "clone": { "type": "boolean", "default": true }
+    },
+    "code": "const topIn = params.top; const botIn = params.bottom; const gap = (params.gap ?? 0); const clone = (params.clone !== false); const t0 = (topIn && topIn.isObject3D && topIn.geometry) ? topIn.geometry : topIn; const b0 = (botIn && botIn.isObject3D && botIn.geometry) ? botIn.geometry : botIn; if (!t0 || !t0.isBufferGeometry || !b0 || !b0.isBufferGeometry) return new THREE.BufferGeometry(); const t = clone ? t0.clone() : t0; const b = b0; t.computeBoundingBox(); b.computeBoundingBox(); const dy = (b.boundingBox.max.y + gap) - t.boundingBox.min.y; t.translate(0, dy, 0); return t;"
+  },
+  {
+    "id": "stackUnder",
+    "name": "stackUnder",
+    "description": "Moves geometryBottom so its top (maxY) sits under geometryTop bottom (minY) - gap.",
+    "category": "Anchoring",
+    "outputType": "Geometry",
+    "paramsSchema": {
+      "bottom": { "type": "string", "default": "" },
+      "top": { "type": "string", "default": "" },
+      "gap": { "type": "number", "default": 0 },
+      "clone": { "type": "boolean", "default": true }
+    },
+    "code": "const botIn = params.bottom; const topIn = params.top; const gap = (params.gap ?? 0); const clone = (params.clone !== false); const b0 = (botIn && botIn.isObject3D && botIn.geometry) ? botIn.geometry : botIn; const t0 = (topIn && topIn.isObject3D && topIn.geometry) ? topIn.geometry : topIn; if (!b0 || !b0.isBufferGeometry || !t0 || !t0.isBufferGeometry) return new THREE.BufferGeometry(); const b = clone ? b0.clone() : b0; const t = t0; b.computeBoundingBox(); t.computeBoundingBox(); const dy = (t.boundingBox.min.y - gap) - b.boundingBox.max.y; b.translate(0, dy, 0); return b;"
+  },
+  {
+    "id": "centerToGeometry",
+    "name": "centerToGeometry",
+    "description": "Centers geometryA to geometryB along chosen axes (x/y/z), leaving other axes unchanged.",
+    "category": "Anchoring",
+    "outputType": "Geometry",
+    "paramsSchema": {
+      "geometryA": { "type": "string", "default": "" },
+      "geometryB": { "type": "string", "default": "" },
+      "axes": { "type": "string", "default": "xz", "description": "Any combination of x y z, e.g. 'x', 'xz', 'xyz'." },
+      "clone": { "type": "boolean", "default": true }
+    },
+    "code": "const aIn = params.geometryA; const bIn = params.geometryB; const axes = String(params.axes || 'xz').toLowerCase(); const clone = (params.clone !== false); const a0 = (aIn && aIn.isObject3D && aIn.geometry) ? aIn.geometry : aIn; const b0 = (bIn && bIn.isObject3D && bIn.geometry) ? bIn.geometry : bIn; if (!a0 || !a0.isBufferGeometry || !b0 || !b0.isBufferGeometry) return new THREE.BufferGeometry(); const a = clone ? a0.clone() : a0; const b = b0; a.computeBoundingBox(); b.computeBoundingBox(); const aC = new THREE.Vector3(); const bC = new THREE.Vector3(); a.boundingBox.getCenter(aC); b.boundingBox.getCenter(bC); const dx = axes.includes('x') ? (bC.x - aC.x) : 0; const dy = axes.includes('y') ? (bC.y - aC.y) : 0; const dz = axes.includes('z') ? (bC.z - aC.z) : 0; a.translate(dx, dy, dz); return a;"
+  },
+  {
+    "id": "normalizeBottomToZero",
+    "name": "normalizeBottomToZero",
+    "description": "Shifts geometry so its bottom (minY) is exactly at Y=0 (useful for columns/props).",
+    "category": "Anchoring",
+    "outputType": "Geometry",
+    "paramsSchema": {
+      "geometry": { "type": "string", "default": "" },
+      "clone": { "type": "boolean", "default": true }
+    },
+    "code": "const input = params.geometry; const clone = (params.clone !== false); const g0 = (input && input.isObject3D && input.geometry) ? input.geometry : input; if (!g0 || !g0.isBufferGeometry) return new THREE.BufferGeometry(); const g = clone ? g0.clone() : g0; g.computeBoundingBox(); const dy = -g.boundingBox.min.y; g.translate(0, dy, 0); return g;"
+  },
+  {
+    "id": "fitToBounds",
+    "name": "fitToBounds",
+    "description": "Uniformly scales geometry to fit inside target bounds size on selected axes, preserving aspect ratio.",
+    "category": "Anchoring",
+    "outputType": "Geometry",
+    "paramsSchema": {
+      "geometry": { "type": "string", "default": "" },
+      "targetSize": { "type": "array", "default": [1, 1, 1], "description": "Target box size [sx,sy,sz]." },
+      "axes": { "type": "string", "default": "xyz" },
+      "pivot": { "type": "string", "default": "center", "enum": ["center","min","max"] },
+      "clone": { "type": "boolean", "default": true }
+    },
+    "code": "const input = params.geometry; const target = Array.isArray(params.targetSize) ? params.targetSize : [1,1,1]; const axes = String(params.axes || 'xyz').toLowerCase(); const pivot = String(params.pivot || 'center').toLowerCase(); const clone = (params.clone !== false); const g0 = (input && input.isObject3D && input.geometry) ? input.geometry : input; if (!g0 || !g0.isBufferGeometry) return new THREE.BufferGeometry(); const g = clone ? g0.clone() : g0; g.computeBoundingBox(); const bb = g.boundingBox; const size = new THREE.Vector3(); const center = new THREE.Vector3(); bb.getSize(size); bb.getCenter(center); const sx = Math.max(1e-9, size.x), sy = Math.max(1e-9, size.y), sz = Math.max(1e-9, size.z); const tx = Math.max(1e-9, Number(target[0] ?? 1)), ty = Math.max(1e-9, Number(target[1] ?? 1)), tz = Math.max(1e-9, Number(target[2] ?? 1)); const ratios = []; if (axes.includes('x')) ratios.push(tx / sx); if (axes.includes('y')) ratios.push(ty / sy); if (axes.includes('z')) ratios.push(tz / sz); const s = ratios.length ? Math.min(...ratios) : 1; const pivotPoint = (pivot === 'min') ? bb.min.clone() : (pivot === 'max' ? bb.max.clone() : center.clone()); g.translate(-pivotPoint.x, -pivotPoint.y, -pivotPoint.z); g.scale(s, s, s); g.translate(pivotPoint.x, pivotPoint.y, pivotPoint.z); return g;"
+  },
+  {
+    "id": "snapCenterToGrid",
+    "name": "snapCenterToGrid",
+    "description": "Snaps geometry bbox center to nearest grid step (per-axis), useful for clean assemblies.",
+    "category": "Anchoring",
+    "outputType": "Geometry",
+    "paramsSchema": {
+      "geometry": { "type": "string", "default": "" },
+      "grid": { "type": "array", "default": [1, 1, 1], "description": "Grid size [gx,gy,gz]." },
+      "axes": { "type": "string", "default": "xz" },
+      "clone": { "type": "boolean", "default": true }
+    },
+    "code": "const input = params.geometry; const grid = Array.isArray(params.grid) ? params.grid : [1,1,1]; const axes = String(params.axes || 'xz').toLowerCase(); const clone = (params.clone !== false); const g0 = (input && input.isObject3D && input.geometry) ? input.geometry : input; if (!g0 || !g0.isBufferGeometry) return new THREE.BufferGeometry(); const g = clone ? g0.clone() : g0; g.computeBoundingBox(); const bb = g.boundingBox; const c = new THREE.Vector3(); bb.getCenter(c); const gx = Math.max(1e-9, Number(grid[0] ?? 1)); const gy = Math.max(1e-9, Number(grid[1] ?? 1)); const gz = Math.max(1e-9, Number(grid[2] ?? 1)); const snap = (v, step) => Math.round(v / step) * step; const nx = axes.includes('x') ? snap(c.x, gx) : c.x; const ny = axes.includes('y') ? snap(c.y, gy) : c.y; const nz = axes.includes('z') ? snap(c.z, gz) : c.z; g.translate(nx - c.x, ny - c.y, nz - c.z); return g;"
+  },
+  {
+    "id": "clampInsideGeometryBounds",
+    "name": "clampInsideGeometryBounds",
+    "description": "Moves geometryA so its bounds are clamped inside geometryB bounds with padding (translation only).",
+    "category": "Anchoring",
+    "outputType": "Geometry",
+    "paramsSchema": {
+      "geometryA": { "type": "string", "default": "" },
+      "geometryB": { "type": "string", "default": "" },
+      "padding": { "type": "array", "default": [0, 0, 0], "description": "Padding [px,py,pz] inside B." },
+      "axes": { "type": "string", "default": "xyz" },
+      "clone": { "type": "boolean", "default": true }
+    },
+    "code": "const aIn = params.geometryA; const bIn = params.geometryB; const pad = Array.isArray(params.padding) ? params.padding : [0,0,0]; const axes = String(params.axes || 'xyz').toLowerCase(); const clone = (params.clone !== false); const a0 = (aIn && aIn.isObject3D && aIn.geometry) ? aIn.geometry : aIn; const b0 = (bIn && bIn.isObject3D && bIn.geometry) ? bIn.geometry : bIn; if (!a0 || !a0.isBufferGeometry || !b0 || !b0.isBufferGeometry) return new THREE.BufferGeometry(); const a = clone ? a0.clone() : a0; const b = b0; a.computeBoundingBox(); b.computeBoundingBox(); const aBB = a.boundingBox.clone(); const bBB = b.boundingBox.clone(); const px = Number(pad[0] ?? 0), py = Number(pad[1] ?? 0), pz = Number(pad[2] ?? 0); const minX = bBB.min.x + px, maxX = bBB.max.x - px; const minY = bBB.min.y + py, maxY = bBB.max.y - py; const minZ = bBB.min.z + pz, maxZ = bBB.max.z - pz; let dx = 0, dy = 0, dz = 0; if (axes.includes('x')) { if (aBB.min.x < minX) dx = minX - aBB.min.x; if (aBB.max.x > maxX) dx = Math.min(dx, maxX - aBB.max.x); } if (axes.includes('y')) { if (aBB.min.y < minY) dy = minY - aBB.min.y; if (aBB.max.y > maxY) dy = Math.min(dy, maxY - aBB.max.y); } if (axes.includes('z')) { if (aBB.min.z < minZ) dz = minZ - aBB.min.z; if (aBB.max.z > maxZ) dz = Math.min(dz, maxZ - aBB.max.z); } a.translate(dx, dy, dz); return a;"
+  }
+
 
 
 
