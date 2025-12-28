@@ -2513,7 +2513,188 @@
       "clone": { "type": "boolean", "default": true }
     },
     "code": "const aIn = params.geometryA; const bIn = params.geometryB; const pad = Array.isArray(params.padding) ? params.padding : [0,0,0]; const axes = String(params.axes || 'xyz').toLowerCase(); const clone = (params.clone !== false); const a0 = (aIn && aIn.isObject3D && aIn.geometry) ? aIn.geometry : aIn; const b0 = (bIn && bIn.isObject3D && bIn.geometry) ? bIn.geometry : bIn; if (!a0 || !a0.isBufferGeometry || !b0 || !b0.isBufferGeometry) return new THREE.BufferGeometry(); const a = clone ? a0.clone() : a0; const b = b0; a.computeBoundingBox(); b.computeBoundingBox(); const aBB = a.boundingBox.clone(); const bBB = b.boundingBox.clone(); const px = Number(pad[0] ?? 0), py = Number(pad[1] ?? 0), pz = Number(pad[2] ?? 0); const minX = bBB.min.x + px, maxX = bBB.max.x - px; const minY = bBB.min.y + py, maxY = bBB.max.y - py; const minZ = bBB.min.z + pz, maxZ = bBB.max.z - pz; let dx = 0, dy = 0, dz = 0; if (axes.includes('x')) { if (aBB.min.x < minX) dx = minX - aBB.min.x; if (aBB.max.x > maxX) dx = Math.min(dx, maxX - aBB.max.x); } if (axes.includes('y')) { if (aBB.min.y < minY) dy = minY - aBB.min.y; if (aBB.max.y > maxY) dy = Math.min(dy, maxY - aBB.max.y); } if (axes.includes('z')) { if (aBB.min.z < minZ) dz = minZ - aBB.min.z; if (aBB.max.z > maxZ) dz = Math.min(dz, maxZ - aBB.max.z); } a.translate(dx, dy, dz); return a;"
-  }
+  }, 
+    {
+      "id": "meshRepairForSims",
+      "name": "meshRepairForSims",
+      "description": "Repair geometry for sims: weld/ensure index (if possible), fix NaNs, recompute normals/bounds.",
+      "category": "Complex Algorithms",
+      "paramsSchema": {
+        "geometry": { "type": "geometry", "description": "Input BufferGeometry (or Mesh)." },
+        "mergeTolerance": { "type": "number", "default": 0.0001 },
+        "fixNaNs": { "type": "boolean", "default": true },
+        "computeNormals": { "type": "boolean", "default": true }
+      },
+      "outputType": "Geometry",
+      "code": "const { geometry, mergeTolerance = 1e-4, fixNaNs = true, computeNormals = true } = params;\nconst geom = (geometry && geometry.isObject3D) ? geometry.geometry : geometry;\nif (!geom || !geom.isBufferGeometry) return new THREE.BufferGeometry();\nlet g = geom.clone();\nconst pos = g.getAttribute('position');\nif (!pos) return g;\nif (fixNaNs) {\n  const a = pos.array;\n  for (let i = 0; i < a.length; i++) if (!Number.isFinite(a[i])) a[i] = 0;\n}\nlet mergeFn = null;\nif (typeof BufferGeometryUtils !== 'undefined') {\n  mergeFn = BufferGeometryUtils.mergeVertices || (BufferGeometryUtils.default && BufferGeometryUtils.default.mergeVertices) || null;\n}\nif ((!g.index || !g.index.count) && mergeFn) {\n  try { g = mergeFn(g, mergeTolerance); } catch (e) {}\n}\nif (computeNormals) g.computeVertexNormals();\ng.computeBoundingBox();\ng.computeBoundingSphere();\nreturn g;"
+    },
+
+    {
+      "id": "uvProjectTriplanar",
+      "name": "uvProjectTriplanar",
+      "description": "Generate quick triplanar-ish UVs based on dominant normal axis.",
+      "category": "Data Processing",
+      "paramsSchema": {
+        "geometry": { "type": "geometry", "description": "Input BufferGeometry (or Mesh)." },
+        "scale": { "type": "number", "default": 1.0 }
+      },
+      "outputType": "Geometry",
+      "code": "const { geometry, scale = 1.0 } = params;\nconst geom = (geometry && geometry.isObject3D) ? geometry.geometry : geometry;\nif (!geom || !geom.isBufferGeometry) return new THREE.BufferGeometry();\nconst g = geom.clone();\nconst pos = g.getAttribute('position');\nif (!pos) return g;\nif (!g.getAttribute('normal')) g.computeVertexNormals();\nconst nor = g.getAttribute('normal');\nconst uv = new Float32Array(pos.count * 2);\nconst s = Number(scale) || 1.0;\nfor (let i = 0; i < pos.count; i++) {\n  const nx = Math.abs(nor.getX(i));\n  const ny = Math.abs(nor.getY(i));\n  const nz = Math.abs(nor.getZ(i));\n  const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);\n  let u = 0, v = 0;\n  if (ny >= nx && ny >= nz) { u = x * s; v = z * s; }\n  else if (nx >= ny && nx >= nz) { u = z * s; v = y * s; }\n  else { u = x * s; v = y * s; }\n  uv[i*2+0] = u;\n  uv[i*2+1] = v;\n}\ng.setAttribute('uv', new THREE.BufferAttribute(uv, 2));\nreturn g;"
+    },
+
+    {
+      "id": "fieldFromMeshDistance",
+      "name": "fieldFromMeshDistance",
+      "description": "Returns a (rough) signed distance function for a mesh using raycasting along +X to decide inside/outside and nearest hit distance.",
+      "category": "Complex Algorithms",
+      "paramsSchema": {
+        "mesh": { "type": "geometry", "description": "Mesh or BufferGeometry." },
+        "label": { "type": "string", "default": "meshDistanceField" }
+      },
+      "outputType": "Data",
+      "code": "const { mesh, label = 'meshDistanceField' } = params;\nconst geom = (mesh && mesh.isObject3D) ? mesh.geometry : mesh;\nif (!geom || !geom.isBufferGeometry) return wrapFieldAsObject(() => 1e9, label);\nconst tempMesh = new THREE.Mesh(geom);\nconst raycaster = new THREE.Raycaster();\nraycaster.ray.direction.set(1, 0, 0);\nconst fieldFn = (x, y, z) => {\n  raycaster.ray.origin.set(x, y, z);\n  const hits = raycaster.intersectObject(tempMesh, false);\n  if (!hits || hits.length === 0) return 1e9;\n  const d = hits[0].distance;\n  const inside = (hits.length % 2) === 1;\n  return inside ? -d : d;\n};\nreturn wrapFieldAsObject(fieldFn, label);"
+    },
+
+    {
+      "id": "cacheFieldSamples",
+      "name": "cacheFieldSamples",
+      "description": "Samples a fieldFn into a Float32 voxel grid for reuse (masking / marching cubes / sims).",
+      "category": "Data Processing",
+      "paramsSchema": {
+        "field": { "type": "string", "description": "Field variable (wrapped field or function)." },
+        "resolution": { "type": "number", "default": 32 },
+        "bounds": { "type": "number", "default": 12 }
+      },
+      "outputType": "Data",
+      "code": "const { field, resolution = 32, bounds = 12 } = params;\nconst fn = resolveField(field);\nif (typeof fn !== 'function') return wrapGridAsObject(new Float32Array(1).fill(0), 1, 1, { type: 'cachedFieldSamples', error: 'noFieldFn' });\nlet minX, minY, minZ, maxX, maxY, maxZ;\nif (Array.isArray(bounds) && bounds.length === 6) {\n  [minX, minY, minZ, maxX, maxY, maxZ] = bounds;\n} else {\n  const b = Number(bounds);\n  minX = -b; minY = -b; minZ = -b; maxX = b; maxY = b; maxZ = b;\n}\nconst n = Math.max(2, Math.floor(resolution));\nconst grid = new Float32Array(n * n * n);\nfor (let z = 0; z < n; z++) {\n  const wz = minZ + (z + 0.5) * (maxZ - minZ) / n;\n  for (let y = 0; y < n; y++) {\n    const wy = minY + (y + 0.5) * (maxY - minY) / n;\n    for (let x = 0; x < n; x++) {\n      const wx = minX + (x + 0.5) * (maxX - minX) / n;\n      const i = x + y * n + z * n * n;\n      let v = fn(wx, wy, wz);\n      if (!Number.isFinite(v)) v = 0;\n      grid[i] = v;\n    }\n  }\n}\nconst out = wrapGridAsObject(grid, n, 1, { type: 'cachedFieldSamples', bounds: [minX,minY,minZ,maxX,maxY,maxZ] });\nout.userData.grid = grid;\nout.userData.voxels = grid;\nout.userData.size = [n, n, n];\nout.userData.bounds = [minX,minY,minZ,maxX,maxY,maxZ];\nreturn out;"
+    },
+
+    {
+      "id": "voxelGridFromMesh",
+      "name": "voxelGridFromMesh",
+      "description": "Voxelize a mesh into a Float32 grid by raycasting along +X (signedDistance or occupancy).",
+      "category": "Complex Algorithms",
+      "paramsSchema": {
+        "mesh": { "type": "geometry", "description": "Mesh or BufferGeometry to voxelize." },
+        "resolution": { "type": "number", "default": 32 },
+        "bounds": { "type": "number", "default": 12 },
+        "mode": { "type": "string", "default": "signedDistance" }
+      },
+      "outputType": "Data",
+      "code": "const { mesh, resolution = 32, bounds = 12, mode = 'signedDistance' } = params;\nconst geom = (mesh && mesh.isObject3D) ? mesh.geometry : mesh;\nif (!geom || !geom.isBufferGeometry) return wrapGridAsObject(new Float32Array(1).fill(0), 1, 1, { type: 'voxelGridFromMesh', error: 'noGeometry' });\nlet minX, minY, minZ, maxX, maxY, maxZ;\nif (Array.isArray(bounds) && bounds.length === 6) {\n  [minX, minY, minZ, maxX, maxY, maxZ] = bounds;\n} else {\n  const b = Number(bounds);\n  minX = -b; minY = -b; minZ = -b; maxX = b; maxY = b; maxZ = b;\n}\nconst n = Math.max(2, Math.floor(resolution));\nconst tempMesh = new THREE.Mesh(geom);\nconst raycaster = new THREE.Raycaster();\nraycaster.ray.direction.set(1, 0, 0);\nconst grid = new Float32Array(n * n * n);\nfor (let z = 0; z < n; z++) {\n  const wz = minZ + (z + 0.5) * (maxZ - minZ) / n;\n  for (let y = 0; y < n; y++) {\n    const wy = minY + (y + 0.5) * (maxY - minY) / n;\n    for (let x = 0; x < n; x++) {\n      const wx = minX + (x + 0.5) * (maxX - minX) / n;\n      const i = x + y * n + z * n * n;\n      raycaster.ray.origin.set(wx, wy, wz);\n      const hits = raycaster.intersectObject(tempMesh, false);\n      const inside = hits && (hits.length % 2) === 1;\n      const d = (hits && hits.length) ? hits[0].distance : 1e9;\n      if (mode === 'occupancy') grid[i] = inside ? 1 : 0;\n      else grid[i] = inside ? -d : d;\n    }\n  }\n}\nconst out = wrapGridAsObject(grid, n, 1, { type: 'voxelGridFromMesh', mode, bounds: [minX,minY,minZ,maxX,maxY,maxZ] });\nout.userData.grid = grid;\nout.userData.voxels = grid;\nout.userData.size = [n, n, n];\nout.userData.bounds = [minX,minY,minZ,maxX,maxY,maxZ];\nreturn out;"
+    },
+
+    {
+      "id": "maskGridByField",
+      "name": "maskGridByField",
+      "description": "Mask a voxel grid by fieldFn (keepInside uses field<=threshold convention).",
+      "category": "Data Processing",
+      "paramsSchema": {
+        "grid": { "type": "data", "description": "Wrapped grid or Float32Array." },
+        "field": { "type": "string", "description": "Field variable (wrapped field or function)." },
+        "bounds": { "type": "number", "default": 12 },
+        "keepInside": { "type": "boolean", "default": true },
+        "threshold": { "type": "number", "default": 0 }
+      },
+      "outputType": "Data",
+      "code": "const { grid, field, bounds = 12, keepInside = true, threshold = 0 } = params;\nconst gridArr = (grid && grid.userData && (grid.userData.grid || grid.userData.voxels)) ? (grid.userData.grid || grid.userData.voxels) : grid;\nconst n = (grid && grid.userData && (grid.userData.gridSize || (grid.userData.size && grid.userData.size[0]))) ? (grid.userData.gridSize || grid.userData.size[0]) : Math.round(Math.cbrt(gridArr.length));\nconst fn = resolveField(field);\nif (!(gridArr instanceof Float32Array) || !Number.isFinite(n) || n < 2 || typeof fn !== 'function') return grid;\nlet minX, minY, minZ, maxX, maxY, maxZ;\nif (Array.isArray(bounds) && bounds.length === 6) {\n  [minX, minY, minZ, maxX, maxY, maxZ] = bounds;\n} else {\n  const b = Number(bounds);\n  minX = -b; minY = -b; minZ = -b; maxX = b; maxY = b; maxZ = b;\n}\nconst out = new Float32Array(gridArr);\nfor (let z = 0; z < n; z++) {\n  const wz = minZ + (z + 0.5) * (maxZ - minZ) / n;\n  for (let y = 0; y < n; y++) {\n    const wy = minY + (y + 0.5) * (maxY - minY) / n;\n    for (let x = 0; x < n; x++) {\n      const wx = minX + (x + 0.5) * (maxX - minX) / n;\n      const i = x + y * n + z * n * n;\n      const v = fn(wx, wy, wz);\n      const inside = v <= threshold;\n      if (keepInside ? !inside : inside) out[i] = 0;\n    }\n  }\n}\nconst wrapped = wrapGridAsObject(out, n, 1, { type: 'maskGridByField', bounds: [minX,minY,minZ,maxX,maxY,maxZ], keepInside, threshold });\nwrapped.userData.grid = out;\nwrapped.userData.voxels = out;\nwrapped.userData.size = [n, n, n];\nwrapped.userData.bounds = [minX,minY,minZ,maxX,maxY,maxZ];\nreturn wrapped;"
+    },
+
+    {
+      "id": "maskGridByMesh",
+      "name": "maskGridByMesh",
+      "description": "Mask a voxel grid by inside/outside of a mesh via raycasting along +X.",
+      "category": "Data Processing",
+      "paramsSchema": {
+        "grid": { "type": "data", "description": "Wrapped grid or Float32Array." },
+        "mesh": { "type": "geometry", "description": "Mesh or BufferGeometry used as boundary." },
+        "bounds": { "type": "number", "default": 12 },
+        "keepInside": { "type": "boolean", "default": true }
+      },
+      "outputType": "Data",
+      "code": "const { grid, mesh, bounds = 12, keepInside = true } = params;\nconst gridArr = (grid && grid.userData && (grid.userData.grid || grid.userData.voxels)) ? (grid.userData.grid || grid.userData.voxels) : grid;\nconst n = (grid && grid.userData && (grid.userData.gridSize || (grid.userData.size && grid.userData.size[0]))) ? (grid.userData.gridSize || grid.userData.size[0]) : Math.round(Math.cbrt(gridArr.length));\nconst geom = (mesh && mesh.isObject3D) ? mesh.geometry : mesh;\nif (!(gridArr instanceof Float32Array) || !Number.isFinite(n) || n < 2 || !geom || !geom.isBufferGeometry) return grid;\nlet minX, minY, minZ, maxX, maxY, maxZ;\nif (Array.isArray(bounds) && bounds.length === 6) {\n  [minX, minY, minZ, maxX, maxY, maxZ] = bounds;\n} else {\n  const b = Number(bounds);\n  minX = -b; minY = -b; minZ = -b; maxX = b; maxY = b; maxZ = b;\n}\nconst tempMesh = new THREE.Mesh(geom);\nconst raycaster = new THREE.Raycaster();\nraycaster.ray.direction.set(1, 0, 0);\nconst out = new Float32Array(gridArr);\nfor (let z = 0; z < n; z++) {\n  const wz = minZ + (z + 0.5) * (maxZ - minZ) / n;\n  for (let y = 0; y < n; y++) {\n    const wy = minY + (y + 0.5) * (maxY - minY) / n;\n    for (let x = 0; x < n; x++) {\n      const wx = minX + (x + 0.5) * (maxX - minX) / n;\n      const i = x + y * n + z * n * n;\n      raycaster.ray.origin.set(wx, wy, wz);\n      const hits = raycaster.intersectObject(tempMesh, false);\n      const inside = hits && (hits.length % 2) === 1;\n      if (keepInside ? !inside : inside) out[i] = 0;\n    }\n  }\n}\nconst wrapped = wrapGridAsObject(out, n, 1, { type: 'maskGridByMesh', bounds: [minX,minY,minZ,maxX,maxY,maxZ], keepInside });\nwrapped.userData.grid = out;\nwrapped.userData.voxels = out;\nwrapped.userData.size = [n, n, n];\nwrapped.userData.bounds = [minX,minY,minZ,maxX,maxY,maxZ];\nreturn wrapped;"
+    },
+
+    {
+      "id": "reactionDiffusionOnMesh",
+      "name": "reactionDiffusionOnMesh",
+      "description": "Gray–Scott reaction-diffusion on mesh vertices using adjacency Laplacian. Returns scalar field on vertices (B).",
+      "category": "Procedural",
+      "paramsSchema": {
+        "geometry": { "type": "geometry", "description": "Indexed BufferGeometry recommended." },
+        "iterations": { "type": "number", "default": 50 },
+        "feed": { "type": "number", "default": 0.055 },
+        "kill": { "type": "number", "default": 0.062 },
+        "dt": { "type": "number", "default": 1.0 },
+        "diffA": { "type": "number", "default": 1.0 },
+        "diffB": { "type": "number", "default": 0.5 },
+        "seedRadius": { "type": "number", "default": 0.5 }
+      },
+      "outputType": "Data",
+      "code": "const { geometry, iterations = 50, feed = 0.055, kill = 0.062, dt = 1.0, diffA = 1.0, diffB = 0.5, seedRadius = 0.5 } = params;\nconst geom = (geometry && geometry.isObject3D) ? geometry.geometry : geometry;\nif (!geom || !geom.isBufferGeometry) return { userData: { type: 'scalarField', values: [] } };\nlet g = geom.clone();\nif (!g.index && typeof BufferGeometryUtils !== 'undefined') {\n  const mergeFn = BufferGeometryUtils.mergeVertices || (BufferGeometryUtils.default && BufferGeometryUtils.default.mergeVertices) || null;\n  if (mergeFn) { try { g = mergeFn(g, 1e-6); } catch (e) {} }\n}\nconst pos = g.getAttribute('position');\nif (!pos) return { userData: { type: 'scalarField', values: [] } };\nconst nV = pos.count;\nconst neighbors = Array.from({ length: nV }, () => []);\nif (g.index) {\n  const idx = g.index.array;\n  for (let i = 0; i < idx.length; i += 3) {\n    const a = idx[i], b = idx[i+1], c = idx[i+2];\n    if (!neighbors[a].includes(b)) neighbors[a].push(b);\n    if (!neighbors[a].includes(c)) neighbors[a].push(c);\n    if (!neighbors[b].includes(a)) neighbors[b].push(a);\n    if (!neighbors[b].includes(c)) neighbors[b].push(c);\n    if (!neighbors[c].includes(a)) neighbors[c].push(a);\n    if (!neighbors[c].includes(b)) neighbors[c].push(b);\n  }\n}\nlet A = new Float32Array(nV); A.fill(1.0);\nlet B = new Float32Array(nV); B.fill(0.0);\nconst cx = 0, cy = 0, cz = 0;\nfor (let i = 0; i < nV; i++) {\n  const dx = pos.getX(i) - cx;\n  const dy = pos.getY(i) - cy;\n  const dz = pos.getZ(i) - cz;\n  if (Math.sqrt(dx*dx + dy*dy + dz*dz) < seedRadius) B[i] = 1.0;\n}\nconst lap = (arr, i) => {\n  const nb = neighbors[i];\n  if (!nb || nb.length === 0) return 0;\n  let sum = 0;\n  const vi = arr[i];\n  for (let k = 0; k < nb.length; k++) sum += (arr[nb[k]] - vi);\n  return sum / nb.length;\n};\nfor (let it = 0; it < Math.max(0, Math.floor(iterations)); it++) {\n  const nextA = new Float32Array(nV);\n  const nextB = new Float32Array(nV);\n  for (let i = 0; i < nV; i++) {\n    const a = A[i];\n    const b = B[i];\n    const abb = a * b * b;\n    const lapA = lap(A, i);\n    const lapB = lap(B, i);\n    let na = a + (diffA * lapA - abb + feed * (1 - a)) * dt;\n    let nb = b + (diffB * lapB + abb - (kill + feed) * b) * dt;\n    if (!Number.isFinite(na)) na = 0;\n    if (!Number.isFinite(nb)) nb = 0;\n    nextA[i] = Math.max(0, Math.min(1, na));\n    nextB[i] = Math.max(0, Math.min(1, nb));\n  }\n  A = nextA;\n  B = nextB;\n}\nreturn { userData: { type: 'scalarField', values: Array.from(B), source: 'reactionDiffusionOnMesh', feed, kill, dt, diffA, diffB } };"
+    },
+
+    {
+      "id": "cellularAutomataOnMesh",
+      "name": "cellularAutomataOnMesh",
+      "description": "Cellular automata on mesh vertices using adjacency neighbor counts. Returns 0/1 scalar field.",
+      "category": "Procedural",
+      "paramsSchema": {
+        "geometry": { "type": "geometry", "description": "Indexed BufferGeometry recommended." },
+        "steps": { "type": "number", "default": 20 },
+        "rules": { "type": "string", "default": "{\"survive\":[2,3],\"born\":[3]}" },
+        "seedProbability": { "type": "number", "default": 0.25 }
+      },
+      "outputType": "Data",
+      "code": "const { geometry, steps = 20, rules: rawRules = '{\"survive\":[2,3],\"born\":[3]}', seedProbability = 0.25 } = params;\nconst geom = (geometry && geometry.isObject3D) ? geometry.geometry : geometry;\nif (!geom || !geom.isBufferGeometry) return { userData: { type: 'scalarField', values: [] } };\nlet rules = { survive: [2,3], born: [3] };\nif (rawRules) {\n  if (typeof rawRules === 'string') { try { rules = JSON.parse(rawRules); } catch (e) {} }\n  else if (typeof rawRules === 'object') rules = rawRules;\n}\nif (!Array.isArray(rules.survive)) rules.survive = [2,3];\nif (!Array.isArray(rules.born)) rules.born = [3];\nlet g = geom.clone();\nif (!g.index && typeof BufferGeometryUtils !== 'undefined') {\n  const mergeFn = BufferGeometryUtils.mergeVertices || (BufferGeometryUtils.default && BufferGeometryUtils.default.mergeVertices) || null;\n  if (mergeFn) { try { g = mergeFn(g, 1e-6); } catch (e) {} }\n}\nconst pos = g.getAttribute('position');\nif (!pos) return { userData: { type: 'scalarField', values: [] } };\nconst nV = pos.count;\nconst neighbors = Array.from({ length: nV }, () => []);\nif (g.index) {\n  const idx = g.index.array;\n  for (let i = 0; i < idx.length; i += 3) {\n    const a = idx[i], b = idx[i+1], c = idx[i+2];\n    if (!neighbors[a].includes(b)) neighbors[a].push(b);\n    if (!neighbors[a].includes(c)) neighbors[a].push(c);\n    if (!neighbors[b].includes(a)) neighbors[b].push(a);\n    if (!neighbors[b].includes(c)) neighbors[b].push(c);\n    if (!neighbors[c].includes(a)) neighbors[c].push(a);\n    if (!neighbors[c].includes(b)) neighbors[c].push(b);\n  }\n}\nlet state = new Uint8Array(nV);\nfor (let i = 0; i < nV; i++) state[i] = (Math.random() < seedProbability) ? 1 : 0;\nfor (let s = 0; s < Math.max(0, Math.floor(steps)); s++) {\n  const next = new Uint8Array(nV);\n  for (let i = 0; i < nV; i++) {\n    const nb = neighbors[i];\n    let count = 0;\n    for (let k = 0; k < nb.length; k++) count += state[nb[k]];\n    if (state[i]) next[i] = rules.survive.includes(count) ? 1 : 0;\n    else next[i] = rules.born.includes(count) ? 1 : 0;\n  }\n  state = next;\n}\nreturn { userData: { type: 'scalarField', values: Array.from(state), source: 'cellularAutomataOnMesh', rules } };"
+    },
+
+    {
+      "id": "displaceByScalarField",
+      "name": "displaceByScalarField",
+      "description": "Displace vertices along normals by scalarField values (userData.values) * amount.",
+      "category": "Deformation",
+      "paramsSchema": {
+        "geometry": { "type": "geometry", "description": "Input BufferGeometry (or Mesh)." },
+        "scalar": { "type": "data", "description": "Scalar field object with userData.values or raw array." },
+        "amount": { "type": "number", "default": 1.0 },
+        "normalize": { "type": "boolean", "default": true },
+        "clamp01": { "type": "boolean", "default": true }
+      },
+      "outputType": "Geometry",
+      "code": "const { geometry, scalar, amount = 1.0, normalize = true, clamp01 = true } = params;\nconst geom = (geometry && geometry.isObject3D) ? geometry.geometry : geometry;\nif (!geom || !geom.isBufferGeometry) return new THREE.BufferGeometry();\nconst g = geom.clone();\nif (!g.getAttribute('normal')) g.computeVertexNormals();\nconst pos = g.getAttribute('position');\nconst nor = g.getAttribute('normal');\nlet values = scalar;\nif (scalar && scalar.userData && Array.isArray(scalar.userData.values)) values = scalar.userData.values;\nif (!values || values.length !== pos.count) return g;\nlet vMin = Infinity, vMax = -Infinity;\nif (normalize) {\n  for (let i = 0; i < values.length; i++) {\n    const v = values[i];\n    if (Number.isFinite(v)) { vMin = Math.min(vMin, v); vMax = Math.max(vMax, v); }\n  }\n  if (!Number.isFinite(vMin) || !Number.isFinite(vMax) || Math.abs(vMax - vMin) < 1e-9) { vMin = 0; vMax = 1; }\n}\nfor (let i = 0; i < pos.count; i++) {\n  let v = values[i];\n  if (!Number.isFinite(v)) v = 0;\n  if (normalize) v = (v - vMin) / (vMax - vMin);\n  if (clamp01) v = Math.max(0, Math.min(1, v));\n  pos.setXYZ(i,\n    pos.getX(i) + nor.getX(i) * v * amount,\n    pos.getY(i) + nor.getY(i) * v * amount,\n    pos.getZ(i) + nor.getZ(i) * v * amount\n  );\n}\npos.needsUpdate = true;\ng.computeVertexNormals();\nreturn g;"
+    },
+
+    {
+      "id": "vertexColorsFromScalarField",
+      "name": "vertexColorsFromScalarField",
+      "description": "Create/overwrite vertex color attribute from scalarField values using a ramp.",
+      "category": "Data Processing",
+      "paramsSchema": {
+        "geometry": { "type": "geometry", "description": "Input BufferGeometry (or Mesh)." },
+        "scalar": { "type": "data", "description": "Scalar field object with userData.values or raw array." },
+        "ramp": { "type": "string", "default": "[[0,\"#000000\"],[1,\"#ffffff\"]]" },
+        "normalize": { "type": "boolean", "default": true },
+        "clamp01": { "type": "boolean", "default": true }
+      },
+      "outputType": "Geometry",
+      "code": "const { geometry, scalar, ramp = '[[0,\"#000000\"],[1,\"#ffffff\"]]', normalize = true, clamp01 = true } = params;\nconst geom = (geometry && geometry.isObject3D) ? geometry.geometry : geometry;\nif (!geom || !geom.isBufferGeometry) return new THREE.BufferGeometry();\nconst g = geom.clone();\nconst pos = g.getAttribute('position');\nlet values = scalar;\nif (scalar && scalar.userData && Array.isArray(scalar.userData.values)) values = scalar.userData.values;\nif (!values || values.length !== pos.count) return g;\nlet stops = ramp;\nif (typeof ramp === 'string') { try { stops = JSON.parse(ramp); } catch (e) { stops = [[0,'#000000'],[1,'#ffffff']]; } }\nstops = Array.isArray(stops) ? stops : [[0,'#000000'],[1,'#ffffff']];\nstops = stops.map(s => [Number(s[0]), String(s[1])]).sort((a,b)=>a[0]-b[0]);\nconst colors = new Float32Array(pos.count * 3);\nlet vMin = Infinity, vMax = -Infinity;\nif (normalize) {\n  for (let i = 0; i < values.length; i++) {\n    const v = values[i];\n    if (Number.isFinite(v)) { vMin = Math.min(vMin, v); vMax = Math.max(vMax, v); }\n  }\n  if (!Number.isFinite(vMin) || !Number.isFinite(vMax) || Math.abs(vMax - vMin) < 1e-9) { vMin = 0; vMax = 1; }\n}\nconst c0 = new THREE.Color();\nconst c1 = new THREE.Color();\nfor (let i = 0; i < pos.count; i++) {\n  let v = values[i];\n  if (!Number.isFinite(v)) v = 0;\n  if (normalize) v = (v - vMin) / (vMax - vMin);\n  if (clamp01) v = Math.max(0, Math.min(1, v));\n  let j = 0;\n  while (j < stops.length - 2 && v > stops[j+1][0]) j++;\n  const t0 = stops[j][0], t1 = stops[j+1][0];\n  const u = (Math.abs(t1 - t0) < 1e-9) ? 0 : (v - t0) / (t1 - t0);\n  c0.set(stops[j][1]);\n  c1.set(stops[j+1][1]);\n  c0.lerp(c1, Math.max(0, Math.min(1, u)));\n  colors[i*3+0] = c0.r;\n  colors[i*3+1] = c0.g;\n  colors[i*3+2] = c0.b;\n}\ng.setAttribute('color', new THREE.BufferAttribute(colors, 3));\nreturn g;"
+    },
+
+    {
+      "id": "bakeAttribute",
+      "name": "bakeAttribute",
+      "description": "Attach a numeric BufferAttribute to geometry from an array (or JSON string).",
+      "category": "Data Processing",
+      "paramsSchema": {
+        "geometry": { "type": "geometry", "description": "Input BufferGeometry (or Mesh)." },
+        "name": { "type": "string", "default": "attr" },
+        "itemSize": { "type": "number", "default": 1 },
+        "values": { "type": "string", "description": "JSON array string or array." }
+      },
+      "outputType": "Geometry",
+      "code": "const { geometry, name = 'attr', itemSize = 1, values } = params;\nconst geom = (geometry && geometry.isObject3D) ? geometry.geometry : geometry;\nif (!geom || !geom.isBufferGeometry) return new THREE.BufferGeometry();\nconst g = geom.clone();\nconst pos = g.getAttribute('position');\nif (!pos) return g;\nlet arr = values;\nif (typeof values === 'string') { try { arr = JSON.parse(values); } catch (e) { arr = null; } }\nif (!arr || !arr.length) return g;\nconst size = Math.max(1, Math.floor(itemSize));\nconst expected = pos.count * size;\nlet out = arr;\nif (arr.length !== expected) {\n  out = new Array(expected);\n  for (let i = 0; i < expected; i++) out[i] = Number(arr[i % arr.length]) || 0;\n}\ng.setAttribute(name, new THREE.BufferAttribute(new Float32Array(out), size));\nreturn g;"
+    }
 
 
 
