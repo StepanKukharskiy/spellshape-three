@@ -781,6 +781,8 @@
                 <div class="view-controls">
                     <button class="view-btn active" data-view="schema" title="Schema">S</button>
                     <button class="view-btn" data-view="actions" title="Actions">A</button>
+                  <button class="view-btn" onclick="window.exportOBJ()" title="Export current geometry as OBJ">O</button>
+
                 </div>
             </div>
 
@@ -844,6 +846,7 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
         import ProceduralExecutor from './src/modules/interpreter/procedural-executor2-1.js'; 
 
         // =========================================================================
@@ -1696,6 +1699,29 @@ const expressionState = {};
         alert('❌ Error: ' + e.message); // Better label
     }
 };
+
+      window.exportOBJ = function () {
+  if (!currentGroup) {
+    alert('Nothing to export yet. Click Run / generate geometry first.');
+    return;
+  }
+
+  const exporter = new OBJExporter();
+  const objText = exporter.parse(currentGroup);
+
+  const blob = new Blob([objText], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `spellshape-${Date.now()}.obj`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  URL.revokeObjectURL(url);
+};
+
 
 
 
