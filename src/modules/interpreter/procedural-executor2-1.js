@@ -469,28 +469,53 @@ export class ProceduralExecutor {
    *   // → 2.15 (example)
    */
   evaluateExpression(expr, posOverride = null, normalOverride = null) {
-    if (typeof expr !== 'string') return expr;
-    if (!isNaN(Number(expr))) return Number(expr);
+  if (typeof expr !== 'string') return expr;
+  if (!isNaN(Number(expr))) return Number(expr);
 
-    try {
-      // Build variable scope with pos and normal available
-      const pos = posOverride || this.context.pos || { x: 0, y: 0, z: 0 };
-      const normal = normalOverride || this.context.normal || { x: 0, y: 0, z: 0 };
-      
-      const func = new Function(
-        'Math',
-        'ctx',
-        'pos',
-        'normal',
-        `try { return ${expr}; } catch (e) { console.warn("Eval error in '${expr}':", e); return 0; }`
-      );
-      
-      return func(Math, this.context, pos, normal);
-    } catch (e) {
-      console.warn(`Eval failed: ${expr}`, e);
-      return 0;
-    }
+  try {
+    const pos = posOverride || this.context.pos || { x: 0, y: 0, z: 0 };
+    const normal = normalOverride || this.context.normal || { x: 0, y: 0, z: 0 };
+    
+    // ✅ Include Math functions in scope
+    const func = new Function(
+      'Math',
+      'ctx',
+      'pos',
+      'normal',
+      'sin',
+      'cos',
+      'tan',
+      'sqrt',
+      'pow',
+      'abs',
+      'floor',
+      'ceil',
+      'round',
+      'PI',
+      `try { return ${expr}; } catch (e) { console.warn("Eval error in '${expr}':", e); return 0; }`
+    );
+    
+    return func(
+      Math,
+      this.context,
+      pos,
+      normal,
+      Math.sin,
+      Math.cos,
+      Math.tan,
+      Math.sqrt,
+      Math.pow,
+      Math.abs,
+      Math.floor,
+      Math.ceil,
+      Math.round,
+      Math.PI
+    );
+  } catch (e) {
+    console.warn(`Eval failed: ${expr}`, e);
+    return 0;
   }
+}
 
   // ============================================================================
   // EXISTING METHODS (unchanged from v2)
