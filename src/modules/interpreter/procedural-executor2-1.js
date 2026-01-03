@@ -256,23 +256,32 @@ export class ProceduralExecutor {
   // DEFORMER CONTEXT BUILDER - Rich context with all utilities
   // ============================================================================
   _makeDeformerCtx(geometry, mergedParams) {
-    return {
-      params: mergedParams,
-      geometry,
-      THREE: this.THREE,
-      noise: this.noise,
-      BufferGeometryUtils: this.BufferGeometryUtils,
-      tmp: {
-        v3a: new this.THREE.Vector3(),
-        v3b: new this.THREE.Vector3(),
-        q: new this.THREE.Quaternion(),
-        m4: new this.THREE.Matrix4()
-      },
-      // ✅ NEW: pos and normal will be injected per-vertex in deformGeometry
-      pos: { x: 0, y: 0, z: 0 },
-      normal: { x: 0, y: 0, z: 0 }
-    };
+  // ✅ CRITICAL: Flatten params into ctx so expressions can access ctx.waveFreq, ctx.amplitude, etc.
+  const ctx = {
+    params: mergedParams,
+    geometry,
+    THREE: this.THREE,
+    noise: this.noise,
+    BufferGeometryUtils: this.BufferGeometryUtils,
+    tmp: {
+      v3a: new this.THREE.Vector3(),
+      v3b: new this.THREE.Vector3(),
+      q: new this.THREE.Quaternion(),
+      m4: new this.THREE.Matrix4()
+    },
+    pos: { x: 0, y: 0, z: 0 },
+    normal: { x: 0, y: 0, z: 0 }
+  };
+  
+  // ✅ CRITICAL: Copy all merged params into ctx so they're accessible as ctx.paramName
+  if (mergedParams && typeof mergedParams === 'object') {
+    for (const [key, value] of Object.entries(mergedParams)) {
+      ctx[key] = value;
+    }
   }
+  
+  return ctx;
+}
 
   // ============================================================================
   // DEFORMER HELPERS - Built-in to executor
