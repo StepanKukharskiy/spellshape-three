@@ -1,15 +1,12 @@
 /**
- * PROCEDURAL EXECUTOR - UPDATED WITH DEFORMER INTEGRATION
- * Key changes from v2:
- * - DeformerRegistry injected into helper context
- * - deformGeometry and deformGeometryStack helpers ready to use
- * - Automatic resolution of geometry references (strings)
- * - Support for deformer parameter merging with global context
+ * PROCEDURAL EXECUTOR - COMPLETE UPDATED VERSION
+ * With full deformer context fixes for pos/normal evaluation
+ * 
+ * KEY UPDATES:
+ * - ctx.pos and ctx.normal injected during vertex deformation
+ * - evaluateExpression() now accepts pos/normal parameters
+ * - transformEach expressions can reference pos.x, pos.y, pos.z
  */
-
-// Pseudo-imports (in real implementation, these are actual imports at top of file)
-// import DeformerRegistry from './vertex-shader-library.js';
-// import { deformGeometry, deformGeometryStack } from './deform-helpers.js';
 
 import { DeformerRegistry } from './deform-library.js';
 import * as THREE from 'three';
@@ -135,8 +132,6 @@ class SimplexNoise {
     }
 }
 
-
-
 // =========================================================================
 // RESOLVER FUNCTIONS (Unwrap wrapped data from helpers)
 // =========================================================================
@@ -247,13 +242,7 @@ export class ProceduralExecutor {
     this.TextGeometry = TextGeometry;
     this.messages = [];
 
-    // ============================================================================
-    // NEW: Import DeformerRegistry (injected at construction time)
-    // In real implementation, ensure DeformerRegistry is in scope
-    // ============================================================================
     this.DeformerRegistry = typeof DeformerRegistry !== 'undefined' ? DeformerRegistry : {};
-
-    // Standard dependencies
     this.noise = new SimplexNoise(42);
     this.BufferGeometryUtils = BufferGeometryUtils;
     this.resolvers = Resolvers;
@@ -264,221 +253,244 @@ export class ProceduralExecutor {
   }
 
   // ============================================================================
+  // DEFORMER CONTEXT BUILDER - Rich context with all utilities
+  // ============================================================================
+  _makeDeformerCtx(geometry, mergedParams) {
+    return {
+      params: mergedParams,
+      geometry,
+      THREE: this.THREE,
+      noise: this.noise,
+      BufferGeometryUtils: this.BufferGeometryUtils,
+      tmp: {
+        v3a: new this.THREE.Vector3(),
+        v3b: new this.THREE.Vector3(),
+        q: new this.THREE.Quaternion(),
+        m4: new this.THREE.Matrix4()
+      },
+      // ✅ NEW: pos and normal will be injected per-vertex in deformGeometry
+      pos: { x: 0, y: 0, z: 0 },
+      normal: { x: 0, y: 0, z: 0 }
+    };
+  }
+
+  // ============================================================================
   // DEFORMER HELPERS - Built-in to executor
   // ============================================================================
-
-  // A helper to build a rich ctx
-_makeDeformerCtx(geometry, params) {
-  return {
-    params,
-    geometry,
-    THREE: this.THREE,                 // <-- key
-    noise: this.noise,                 // optional
-    BufferGeometryUtils: this.BufferGeometryUtils, // optional
-
-    // Optional: preallocated temporaries to avoid per-vertex allocations
-    tmp: {
-      v3a: new this.THREE.Vector3(),
-      v3b: new this.THREE.Vector3(),
-      q: new this.THREE.Quaternion(),
-      m4: new this.THREE.Matrix4()
-    }
-  };
-}
+  
   /**
    * Apply a single deformer to geometry
-   * Called from schema: { helperName: "deformGeometry", params: {...} }
+   * ✅ FIXED: Injects pos and normal into ctx for expression evaluation
    */
-  //Below are drop-in replacements for the executor methods that currently build ctx as { params, geometry }, updated so deformers receive ctx.THREE (plus a few optional shared utilities + reusable temps).js
-  
+  deformGeometry(params) {
+    const {
+      geometry,
+      mode,
+      params: deformerParams = {},
+      recomputeNormals = false
+    } = params;
 
-_makeDeformerCtx(geometry, mergedParams) {
-  return {
-    // existing fields deformers already expect
-    params: mergedParams,
-    geometry,
-
-    // NEW: Three.js access from deformers
-    THREE: this.THREE,
-
-    // Optional shared deps (handy for advanced deformers)
-    noise: this.noise,
-    BufferGeometryUtils: this.BufferGeometryUtils,
-
-    // Optional: reusable temporaries to avoid per-vertex allocations
-    tmp: {
-      v3a: new this.THREE.Vector3(),
-      v3b: new this.THREE.Vector3(),
-      q: new this.THREE.Quaternion(),
-      m4: new this.THREE.Matrix4()
+    if (!geometry || !geometry.isBufferGeometry) {
+      console.warn('deformGeometry: Invalid geometry');
+      return null;
     }
-  };
-}
 
-// Replace your existing deformGeometry(params) with this version.
-deformGeometry(params) {
-  const {
-    geometry,
-    mode,
-    params: deformerParams = {},
-    recomputeNormals = false
-  } = params;
+    const result = geometry.clone();
+    const posAttr = result.getAttribute('position');
+    if (!posAttr) {
+      console.warn('deformGeometry: No position attribute');
+      return result;
+    }
 
-  if (!geometry || !geometry.isBufferGeometry) {
-    console.warn('deformGeometry: Invalid geometry');
-    return null;
-  }
+    let normAttr = result.getAttribute('normal');
+    if (!normAttr && recomputeNormals) {
+      result.computeVertexNormals();
+      normAttr = result.getAttribute('normal');
+    }
 
-  const result = geometry.clone();
-  const posAttr = result.getAttribute('position');
-  if (!posAttr) {
-    console.warn('deformGeometry: No position attribute');
+    const positions = posAttr.array;
+    const normals = normAttr ? normAttr.array : null;
+
+    // Get deformer from registry
+    const deformer = this.DeformerRegistry[mode];
+    if (!deformer || typeof deformer.func !== 'function') {
+      console.warn(`deformGeometry: Deformer '${mode}' not found`);
+      return result;
+    }
+
+    // Merge global context into deformer params
+    const mergedParams = { ...this.context, ...deformerParams };
+
+    // Rich ctx includes THREE and all utilities
+    const ctx = this._makeDeformerCtx(result, mergedParams);
+
+    // Apply deformer to each vertex
+    const stride = 3;
+    for (let i = 0; i < positions.length; i += stride) {
+      const p = {
+        x: positions[i],
+        y: positions[i + 1],
+        z: positions[i + 2]
+      };
+
+      const n = normals
+        ? { x: normals[i], y: normals[i + 1], z: normals[i + 2] }
+        : { x: 0, y: 0, z: 0 };
+
+      // ✅ CRITICAL FIX: Inject pos and normal into ctx
+      // This allows expressions like: 2 + Math.sin(pos.x * ctx.waveFreq)
+      ctx.pos = p;
+      ctx.normal = n;
+
+      const transformed = deformer.func(p, n, ctx);
+      if (transformed) {
+        positions[i] = transformed.x;
+        positions[i + 1] = transformed.y;
+        positions[i + 2] = transformed.z;
+      }
+    }
+
+    posAttr.needsUpdate = true;
+
+    if (recomputeNormals) {
+      result.computeVertexNormals();
+    }
+
     return result;
   }
-
-  let normAttr = result.getAttribute('normal');
-  if (!normAttr && recomputeNormals) {
-    result.computeVertexNormals();
-    normAttr = result.getAttribute('normal');
-  }
-
-  const positions = posAttr.array;
-  const normals = normAttr ? normAttr.array : null;
-
-  // Get deformer from registry
-  const deformer = this.DeformerRegistry[mode];
-  if (!deformer || typeof deformer.func !== 'function') {
-    console.warn(`deformGeometry: Deformer '${mode}' not found`);
-    return result;
-  }
-
-  // Merge global context into deformer params
-  const mergedParams = { ...this.context, ...deformerParams };
-
-  // NEW: rich ctx includes THREE (+ optional shared utils)
-  const ctx = this._makeDeformerCtx(result, mergedParams);
-
-  // Apply deformer to each vertex
-  const stride = 3;
-  for (let i = 0; i < positions.length; i += stride) {
-    const p = {
-      x: positions[i],
-      y: positions[i + 1],
-      z: positions[i + 2]
-    };
-
-    const n = normals
-      ? { x: normals[i], y: normals[i + 1], z: normals[i + 2] }
-      : { x: 0, y: 0, z: 0 };
-
-    const transformed = deformer.func(p, n, ctx);
-    if (transformed) {
-      positions[i] = transformed.x;
-      positions[i + 1] = transformed.y;
-      positions[i + 2] = transformed.z;
-    }
-  }
-
-  posAttr.needsUpdate = true;
-
-  if (recomputeNormals) {
-    result.computeVertexNormals();
-  }
-
-  return result;
-}
 
   /**
    * Apply a stack (pipeline) of deformers to geometry
-   * Called from schema: { helperName: "deformGeometryStack", params: {...} }
+   * ✅ FIXED: Injects pos and normal into ctx for each deformer in stack
    */
   deformGeometryStack(params) {
-  const {
-    geometry,
-    stack = [],
-    recomputeNormals = false
-  } = params;
+    const {
+      geometry,
+      stack = [],
+      recomputeNormals = false
+    } = params;
 
-  if (!geometry || !geometry.isBufferGeometry) {
-    console.warn('deformGeometryStack: Invalid geometry');
-    return null;
-  }
+    if (!geometry || !geometry.isBufferGeometry) {
+      console.warn('deformGeometryStack: Invalid geometry');
+      return null;
+    }
 
-  let result = geometry.clone();
+    let result = geometry.clone();
 
-  if (!Array.isArray(stack) || stack.length === 0) {
-    console.warn('deformGeometryStack: Stack is empty');
+    if (!Array.isArray(stack) || stack.length === 0) {
+      console.warn('deformGeometryStack: Stack is empty');
+      return result;
+    }
+
+    // Apply each deformer in sequence
+    for (let idx = 0; idx < stack.length; idx++) {
+      const step = stack[idx];
+      const { mode, params: deformerParams = {} } = step || {};
+
+      if (!mode) {
+        console.warn(`deformGeometryStack: Step ${idx} has no mode`);
+        continue;
+      }
+
+      const deformer = this.DeformerRegistry[mode];
+      if (!deformer || typeof deformer.func !== 'function') {
+        console.warn(`deformGeometryStack: Step ${idx} - Deformer '${mode}' not found`);
+        continue;
+      }
+
+      result = this._applyDeformerToGeometry(result, deformer, deformerParams);
+      if (!result) {
+        console.warn(`deformGeometryStack: Step ${idx} failed`);
+        return null;
+      }
+    }
+
+    if (recomputeNormals) {
+      result.computeVertexNormals();
+    }
+
     return result;
   }
 
-  // Apply each deformer in sequence
-  for (let idx = 0; idx < stack.length; idx++) {
-    const step = stack[idx];
-    const { mode, params: deformerParams = {} } = step || {};
-
-    if (!mode) {
-      console.warn(`deformGeometryStack: Step ${idx} has no mode`);
-      continue;
-    }
-
-    const deformer = this.DeformerRegistry[mode];
-    if (!deformer || typeof deformer.func !== 'function') {
-      console.warn(`deformGeometryStack: Step ${idx} - Deformer '${mode}' not found`);
-      continue;
-    }
-
-    result = this._applyDeformerToGeometry(result, deformer, deformerParams);
-    if (!result) {
-      console.warn(`deformGeometryStack: Step ${idx} failed`);
-      return null;
-    }
-  }
-
-  if (recomputeNormals) {
-    result.computeVertexNormals();
-  }
-
-  return result;
-}
-
   /**
    * Internal: Apply single deformer to geometry
+   * ✅ FIXED: Injects pos and normal into ctx
    */
   _applyDeformerToGeometry(geometry, deformer, deformerParams) {
-  if (!geometry || !geometry.isBufferGeometry) return null;
+    if (!geometry || !geometry.isBufferGeometry) return null;
 
-  const result = geometry.clone();
-  const posAttr = result.getAttribute('position');
-  if (!posAttr) return result;
+    const result = geometry.clone();
+    const posAttr = result.getAttribute('position');
+    if (!posAttr) return result;
 
-  const normAttr = result.getAttribute('normal');
-  const positions = posAttr.array;
-  const normals = normAttr ? normAttr.array : null;
+    const normAttr = result.getAttribute('normal');
+    const positions = posAttr.array;
+    const normals = normAttr ? normAttr.array : null;
 
-  const mergedParams = { ...this.context, ...deformerParams };
+    const mergedParams = { ...this.context, ...deformerParams };
 
-  // NEW: rich ctx includes THREE (+ optional shared utils)
-  const ctx = this._makeDeformerCtx(result, mergedParams);
+    const ctx = this._makeDeformerCtx(result, mergedParams);
 
-  const stride = 3;
-  for (let i = 0; i < positions.length; i += stride) {
-    const p = { x: positions[i], y: positions[i + 1], z: positions[i + 2] };
+    const stride = 3;
+    for (let i = 0; i < positions.length; i += stride) {
+      const p = { x: positions[i], y: positions[i + 1], z: positions[i + 2] };
 
-    const n = normals
-      ? { x: normals[i], y: normals[i + 1], z: normals[i + 2] }
-      : { x: 0, y: 0, z: 0 };
+      const n = normals
+        ? { x: normals[i], y: normals[i + 1], z: normals[i + 2] }
+        : { x: 0, y: 0, z: 0 };
 
-    const transformed = deformer.func(p, n, ctx);
-    if (transformed) {
-      positions[i] = transformed.x;
-      positions[i + 1] = transformed.y;
-      positions[i + 2] = transformed.z;
+      // ✅ CRITICAL FIX: Inject pos and normal into ctx
+      ctx.pos = p;
+      ctx.normal = n;
+
+      const transformed = deformer.func(p, n, ctx);
+      if (transformed) {
+        positions[i] = transformed.x;
+        positions[i + 1] = transformed.y;
+        positions[i + 2] = transformed.z;
+      }
     }
+
+    posAttr.needsUpdate = true;
+    return result;
   }
 
-  posAttr.needsUpdate = true;
-  return result;
-}
+  // ============================================================================
+  // EXPRESSION EVALUATION - Now accepts pos and normal parameters
+  // ============================================================================
+  
+  /**
+   * FIXED: evaluateExpression - Now receives pos and normal in scope
+   * 
+   * Usage from deformer:
+   *   ctx.pos = { x: 0.5, y: 1.0, z: 0.2 }
+   *   ctx.normal = { x: 0, y: 1, z: 0 }
+   *   evaluateExpression('2 + Math.sin(pos.x * ctx.waveFreq) * Math.cos(pos.z * ctx.waveFreq)')
+   *   // → 2.15 (example)
+   */
+  evaluateExpression(expr, posOverride = null, normalOverride = null) {
+    if (typeof expr !== 'string') return expr;
+    if (!isNaN(Number(expr))) return Number(expr);
+
+    try {
+      // Build variable scope with pos and normal available
+      const pos = posOverride || this.context.pos || { x: 0, y: 0, z: 0 };
+      const normal = normalOverride || this.context.normal || { x: 0, y: 0, z: 0 };
+      
+      const func = new Function(
+        'Math',
+        'ctx',
+        'pos',
+        'normal',
+        `try { return ${expr}; } catch (e) { console.warn("Eval error in '${expr}':", e); return 0; }`
+      );
+      
+      return func(Math, this.context, pos, normal);
+    } catch (e) {
+      console.warn(`Eval failed: ${expr}`, e);
+      return 0;
+    }
+  }
 
   // ============================================================================
   // EXISTING METHODS (unchanged from v2)
@@ -544,7 +556,6 @@ deformGeometry(params) {
       await Promise.all(fontPromises);
     } catch (error) {
       console.warn('Some fonts failed to load:', error);
-      // Continue anyway
     }
 
     const safeParams = typeof parameters === 'object' ? parameters : {};
@@ -613,7 +624,6 @@ deformGeometry(params) {
           return;
         }
 
-        // CRITICAL: Inject DeformerRegistry into function scope
         const func = new Function(
           'params',
           'THREE',
@@ -634,7 +644,7 @@ deformGeometry(params) {
           'loadedFonts',
           'TextGeometry',
           'Math',
-          'DeformerRegistry',  // <-- NEW
+          'DeformerRegistry',
           body
         );
 
@@ -670,7 +680,7 @@ deformGeometry(params) {
           this.loadedFonts,
           this.TextGeometry,
           Math,
-          this.DeformerRegistry  // <-- NEW: Pass registry
+          this.DeformerRegistry
         );
 
         this.dynamicHelpers.set(name, boundFunc);
@@ -734,16 +744,17 @@ deformGeometry(params) {
     }
 
     // ========================================================================
-    // NEW: Built-in deformer helpers registered directly
+    // DEFORMER HELPERS
     // ========================================================================
     if (helperName === 'deformGeometry') {
       const evalParams = this.evaluateParamsCarefully(params);
 
       if (typeof evalParams.geometry === 'string') {
-  if (this.geometries.has(evalParams.geometry)) {
-    evalParams.geometry = this.geometries.get(evalParams.geometry);  // Resolve!
-  }
-}
+        if (this.geometries.has(evalParams.geometry)) {
+          evalParams.geometry = this.geometries.get(evalParams.geometry);
+        }
+      }
+
       try {
         const result = this.deformGeometry(evalParams);
         if (!result) return;
@@ -758,8 +769,6 @@ deformGeometry(params) {
       }
       return;
     }
-
-    
 
     if (helperName === 'deformGeometryStack') {
       const evalParams = this.evaluateParamsCarefully(params);
@@ -779,7 +788,7 @@ deformGeometry(params) {
     }
 
     // ========================================================================
-    // Original: Look up dynamic/registry helpers
+    // DYNAMIC/REGISTRY HELPERS
     // ========================================================================
     let helperFn = this.dynamicHelpers.get(helperName);
     if (!helperFn) {
@@ -854,19 +863,6 @@ deformGeometry(params) {
       return item;
     }
     return item;
-  }
-
-  evaluateExpression(expr) {
-    if (typeof expr !== 'string') return expr;
-    if (!isNaN(Number(expr))) return Number(expr);
-
-    try {
-      const func = new Function('Math', 'ctx', `try { with (ctx) { return ${expr}; } } catch (e) { return 0; }`);
-      return func(Math, this.context);
-    } catch (e) {
-      console.warn(`Eval failed: ${expr}`);
-      return 0;
-    }
   }
 
   getMaterial(name) {
@@ -970,121 +966,99 @@ deformGeometry(params) {
   }
 
   async runTests() {
-        console.group("🧪 ProceduralExecutor Helper Tests");
-        const results = {
-            passed: 0,
-            failed: 0,
-            warnings: 0,
-            report: []
-        };
+    console.group("🧪 ProceduralExecutor Helper Tests");
+    const results = {
+      passed: 0,
+      failed: 0,
+      warnings: 0,
+      report: []
+    };
 
-        const helpers = Array.from(this.dynamicHelpers.keys()).sort();
-        console.log(`Found ${helpers.length} registered helpers.`);
+    const helpers = Array.from(this.dynamicHelpers.keys()).sort();
+    console.log(`Found ${helpers.length} registered helpers.`);
 
-        // Create a dummy group to catch outputs
-        const dummyGroup = new this.THREE.Group();
+    const dummyGroup = new this.THREE.Group();
 
-        for (const name of helpers) {
-            const helperFn = this.dynamicHelpers.get(name);
-            
-            // 1. Get Default Params (simulate minimal valid input)
-            // We need to fetch the paramsSchema from the registry if possible, 
-            // but since we only have the function here, we'll try to execute with empty params
-            // or minimal mock params.
-           const mockParams = {
-    // Geometries
-    geometry: new this.THREE.BoxGeometry(1, 1, 1), // Real geometry with vertices
-    geometries: [new this.THREE.BoxGeometry(1, 1, 1)],
-    
-    // Common numerics
-    width: 1, height: 1, depth: 1, radius: 1,
-    
-    // Text
-    text: "Test",
-    
-    // Points and vectors
-    points: [
-        new this.THREE.Vector3(0, 0, 0),
-        new this.THREE.Vector3(1, 0, 0),
-        new this.THREE.Vector3(1, 1, 0),
-        new this.THREE.Vector3(0, 1, 1)
-    ],
-    
-    // Bezier/Path params
-    start: [0, 0, 0],
-    end: [1, 1, 1],
-    control1: [0.3, 0.5, 0],
-    control2: [0.7, 0.5, 0],
-    
-    // Other common defaults
-    iterations: 2,
-    angle: 25,
-    axiom: "F",
-    rules: { "F": "FF" },
-             field: (x, y, z) => new this.THREE.Vector3(0, 1, 0),
-             profiles: [
-    [new this.THREE.Vector3(0,0,0), new this.THREE.Vector3(1,0,0), new this.THREE.Vector3(1,1,0)], // Profile 1
-    [new this.THREE.Vector3(0,0,2), new this.THREE.Vector3(1,0,2), new this.THREE.Vector3(1,1,2)]  // Profile 2
-]
-};
+    for (const name of helpers) {
+      const helperFn = this.dynamicHelpers.get(name);
+      
+      const mockParams = {
+        geometry: new this.THREE.BoxGeometry(1, 1, 1),
+        geometries: [new this.THREE.BoxGeometry(1, 1, 1)],
+        width: 1, height: 1, depth: 1, radius: 1,
+        text: "Test",
+        points: [
+          new this.THREE.Vector3(0, 0, 0),
+          new this.THREE.Vector3(1, 0, 0),
+          new this.THREE.Vector3(1, 1, 0),
+          new this.THREE.Vector3(0, 1, 1)
+        ],
+        start: [0, 0, 0],
+        end: [1, 1, 1],
+        control1: [0.3, 0.5, 0],
+        control2: [0.7, 0.5, 0],
+        iterations: 2,
+        angle: 25,
+        axiom: "F",
+        rules: { "F": "FF" },
+        field: (x, y, z) => new this.THREE.Vector3(0, 1, 0),
+        profiles: [
+          [new this.THREE.Vector3(0,0,0), new this.THREE.Vector3(1,0,0), new this.THREE.Vector3(1,1,0)],
+          [new this.THREE.Vector3(0,0,2), new this.THREE.Vector3(1,0,2), new this.THREE.Vector3(1,1,2)]
+        ]
+      };
 
+      let status = "✅";
+      let msg = "OK";
+      let outputType = "Unknown";
 
-            let status = "✅";
-            let msg = "OK";
-            let outputType = "Unknown";
+      try {
+        const result = helperFn(mockParams);
 
-            try {
-                // Execute Helper
-                const result = helperFn(mockParams);
-
-                if (!result) {
-                    status = "⚠️";
-                    msg = "Returned null/undefined";
-                    results.warnings++;
-                } else if (result.isBufferGeometry) {
-                    outputType = `Geometry (${result.attributes.position ? result.attributes.position.count : 0} verts)`;
-                    // Check for NaNs
-                    if (result.attributes.position && result.attributes.position.count > 0) {
-                        if (isNaN(result.attributes.position.array[0])) {
-                            status = "❌";
-                            msg = "Result contains NaNs";
-                            results.failed++;
-                        }
-                    }
-                    results.passed++;
-                } else if (result.isObject3D) {
-                    outputType = "Object3D";
-                    results.passed++;
-                } else {
-                    outputType = typeof result;
-                    results.passed++;
-                }
-
-            } catch (e) {
-                status = "❌";
-                msg = e.message;
-                results.failed++;
+        if (!result) {
+          status = "⚠️";
+          msg = "Returned null/undefined";
+          results.warnings++;
+        } else if (result.isBufferGeometry) {
+          outputType = `Geometry (${result.attributes.position ? result.attributes.position.count : 0} verts)`;
+          if (result.attributes.position && result.attributes.position.count > 0) {
+            if (isNaN(result.attributes.position.array[0])) {
+              status = "❌";
+              msg = "Result contains NaNs";
+              results.failed++;
             }
-
-            // Log entry
-            const logLine = `${status} ${name.padEnd(25)} | ${outputType.padEnd(20)} | ${msg}`;
-            results.report.push(logLine);
-            
-            // Console output (grouped by status for readability)
-            if (status === "❌") console.error(logLine);
-            else if (status === "⚠️") console.warn(logLine);
-            else console.log(logLine);
+          }
+          results.passed++;
+        } else if (result.isObject3D) {
+          outputType = "Object3D";
+          results.passed++;
+        } else {
+          outputType = typeof result;
+          results.passed++;
         }
+      } catch (e) {
+        status = "❌";
+        msg = e.message;
+        results.failed++;
+      }
 
-        console.log(`\n--- TEST SUMMARY ---`);
-        console.log(`Total: ${helpers.length}`);
-        console.log(`✅ Passed: ${results.passed}`);
-        console.log(`❌ Failed: ${results.failed}`);
-        console.log(`⚠️ Warnings: ${results.warnings}`);
-        console.groupEnd();
-        
-        return results;
+      const logLine = `${status} ${name.padEnd(25)} | ${outputType.padEnd(20)} | ${msg}`;
+      results.report.push(logLine);
+      
+      if (status === "❌") console.error(logLine);
+      else if (status === "⚠️") console.warn(logLine);
+      else console.log(logLine);
     }
+
+    console.log(`\n--- TEST SUMMARY ---`);
+    console.log(`Total: ${helpers.length}`);
+    console.log(`✅ Passed: ${results.passed}`);
+    console.log(`❌ Failed: ${results.failed}`);
+    console.log(`⚠️ Warnings: ${results.warnings}`);
+    console.groupEnd();
+    
+    return results;
+  }
 }
 
 export default ProceduralExecutor;
