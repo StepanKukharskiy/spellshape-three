@@ -848,35 +848,7 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
       import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
         import ProceduralExecutor from './src/modules/interpreter/procedural-executor2-1.js'; 
-      import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
-
-function downloadText(text, filename) {
-  const blob = new Blob([text], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  URL.revokeObjectURL(url);
-}
-
-window.exportOBJ = function exportOBJ() {
-  if (!currentGroup) {
-    alert('Nothing to export yet. Click Run / generate geometry first.');
-    return;
-  }
-
-  currentGroup.updateMatrixWorld(true);
-
-  const exporter = new OBJExporter();
-  const objText = exporter.parse(currentGroup); // or exporter.parse(scene)
-  downloadText(objText, `spellshape-${Date.now()}.obj`);
-};
-
+       
 
         // =========================================================================
         // IMPORT HELPERS REGISTRY
